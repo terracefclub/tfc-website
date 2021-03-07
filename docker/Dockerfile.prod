@@ -1,0 +1,33 @@
+# Use an official Python runtime based on Debian 10 "buster" as a parent image.
+FROM python:3.9.1-slim-buster
+RUN useradd wagtail
+
+ARG PORT=8000
+EXPOSE $PORT
+# Force Python stdout and stderr streams to be unbuffered.
+ENV PYTHONUNBUFFERED=1
+# used by 'gunicorn'
+ENV PORT=$PORT    
+
+RUN apt-get update --yes --quiet && apt-get install --yes --quiet --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    libmariadbclient-dev \
+    libjpeg62-turbo-dev \
+    zlib1g-dev \
+    libwebp-dev \
+ && rm -rf /var/lib/apt/lists/*
+RUN pip install "gunicorn==20.0.4"
+COPY requirements.txt /
+RUN pip install -r /requirements.txt
+
+WORKDIR /app
+
+RUN chown wagtail:wagtail /app
+COPY --chown=wagtail:wagtail . .
+
+USER wagtail
+
+RUN python manage.py collectstatic --noinput --clear
+ENTRYPOINT ["/app/docker/docker-entrypoint.sh"]
+CMD [""]

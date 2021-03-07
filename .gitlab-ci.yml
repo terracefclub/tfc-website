@@ -1,0 +1,30 @@
+variables:
+  DOCKER_HOST: tcp://docker:2375/
+  DOCKER_DRIVER: overlay2
+  IMAGE_TAG: $CI_REGISTRY/terrace/tech/tfc-website/app-ci-image
+
+image:
+  name: docker/compose:latest
+  # entrypoint: ["/bin/sh", "-c"]
+
+stages:
+- build
+- test
+
+before_script:
+- docker version 
+- docker-compose version
+
+build:
+  stage: build
+  script:
+  - docker login -u $CI_WRITE_USER -p $CI_WRITE_TOKEN $CI_REGISTRY
+  - docker-compose build -f docker/docker-compose.yaml -t $IMAGE_TAG
+  - docker-compose push $IMAGE_TAG
+
+test:
+  stage: test
+  script: 
+  - docker login -u $CI_READ_USER -p $CI_READ_TOKEN $CI_REGISTRY
+  - docker-compose pull $IMAGE_TAG
+  - docker-compose up $IMAGE_TAG
