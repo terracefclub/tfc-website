@@ -3,16 +3,28 @@ from .base import *
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'qstudgtp#7j&3z)191q$yn(qprp0h(6_da^4#habf_*ns6)tc!'
-
 # SECURITY WARNING: define the correct hosts in production!
 ALLOWED_HOSTS = ['*'] 
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+INSTALLED_APPS += [
+  'debug_toolbar',
+]
 
+MIDDLEWARE +=  [
+  'debug_toolbar.middleware.DebugToolbarMiddleware',
+]
 
-try:
-    from .local import *
-except ImportError:
-    pass
+INTERNAL_IPS = ("127.0.0.1", "172.17.0.1")
+
+    
+#CACHES['default']['LOCATION'] = 'redis://localhost:6379/0'
+
+DATABASES = {
+  'default': {
+    'ENGINE': 'django.db.backends.sqlite3', # postgresql',
+    'NAME': os.path.join(BASE_DIR, 'db.sqlite3') # 'web',
+    #'USER': 'user',
+    #'PASSWORD': 'password',
+    #'PORT': 5432,
+  }
+}
