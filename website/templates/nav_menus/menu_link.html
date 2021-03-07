@@ -1,0 +1,28 @@
+<a 
+  {% if arrow %}
+  class="sidebar-nav"
+  {% else %}
+  href="{% include 'nav_menus/get_url.html' with link=self %}"
+  {% endif %}
+  {% if self.open_in_new_tab %}
+  target="_blank"
+  {% endif %}
+>
+  <div class="flex flex-col items-flex-start gap-4 ml-7">
+    <div class="flex flex-row gap-4 mt-1" style="max-width: 90%">
+      <p class="text-5xl overflow-clip" style="color: #C4C4C4">
+        {% if self.override_title %}
+          {{ self.override_title }}
+        {% elif self.page.title %}
+          {{ self.page.title }}
+        {% else %}
+          {{ self.title }}
+        {% endif %}
+      </p>
+      {% if arrow %}
+        <span class="w-0 h-0 inline-block ml-auto arrow-r nav-drop" style="border: 20px solid transparent"></span>
+      {% endif %}
+    </div>
+    <div class="h-0 mb-2" style="border: 3px solid #C4C4C4; width: 90%"></div>
+  </div>
+</a>
