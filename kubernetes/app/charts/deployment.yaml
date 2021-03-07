@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: app-deploy
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      containers:
+      - name: app-image
+        image: ../../../Dockerfile.prod
+        ports:
+        - "8080:8080"
+        - "8000:8000"
