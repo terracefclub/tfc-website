@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  font-family: 'Roboto'
+}
+
+span.arrow-r {
+  border-left-color: #C4C4C4 !important;
+}
+
+span.arrow-d {
+  border-top-color: #c4c4c4 !important;
+}
+
+.block-page_link {
+  margin-left: 3.5rem !important;
+}
+
+header, footer {
+  flex-shrink: 0;
+}
+
+main {
+  flex-grow: 1;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+}
