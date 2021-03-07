@@ -1,4 +1,4 @@
-{% load static wagtailuserbar %}
+{% load nav_menu_tags static wagtailuserbar %}
 
 <!DOCTYPE html>
 <html class="no-js" lang="en">
@@ -19,6 +19,15 @@
 
         {# Global stylesheets #}
         <link rel="stylesheet" type="text/css" href="{% static 'css/website.css' %}">
+        <link rel="stylesheet" type="text/css" href="{% static 'css/styles.css' %}">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+        <link href="{% static 'fontawesome_free/css/all.min.css' %}" rel="stylesheet" type="text/css">
+
+        <link rel="apple-touch-icon" sizes="180x180" href="{% static 'img/apple-touch-icon.png' %}">
+        <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32x32.png' %}">
+        <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon-16x16.png' %}">
+        <link rel="manifest" href="{% static 'site.webmanifest' %}">
+        <link rel="shortcut icon" type="image/png" href="{% static 'favicon.ico' %}">
 
         {% block extra_css %}
             {# Override this in templates to add extra stylesheets #}
@@ -28,7 +37,17 @@
     <body class="{% block body_class %}{% endblock %}">
         {% wagtailuserbar %}
 
-        {% block content %}{% endblock %}
+        <article 
+          class="bg-fixed bg-no-repeat bg-top bg-cover min-h-full flex flex-col items-stretch" 
+          style="background-image: url({% static 'img/background.jpg' %})"
+        >
+          {% include 'header.html' %}
+          {% get_nav_menu 'footer' %}
+          <main>
+            {% block content %}{% endblock %}
+          </main>
+          {% include 'footer.html' %}
+        </article>
 
         {# Global javascript #}
         <script type="text/javascript" src="{% static 'js/website.js' %}"></script>

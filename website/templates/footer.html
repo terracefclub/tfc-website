@@ -1,0 +1,44 @@
+{% load leaflet_tags static tags_main %}
+<head>
+  {% leaflet_js %}
+  {% leaflet_css %}
+  <script type="text/javascript">
+    window.addEventListener("map:init", event => {
+      var map = event.detail.map;
+      map.setView([40.347, -74.654], 16)
+      var marker = L.marker([40.34719417948263, -74.65393753352053]).addTo(map);
+      marker.bindPopup("We are here :)").openPopup();
+      L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
+        attribution: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> <strong><a href="https://www.mapbox.com/map-feedback/" target="_blank">Improve map</a></strong>',
+        tileSize: 512,
+        maxZoom: 17,
+        zoomOffset: -1,
+        id: 'mapbox/dark-v10',
+        accessToken: "{{ 'MAPBOX_ACCESS_TOKEN'|env }}"
+      }).addTo(map);
+    }, false);
+  </script>
+  <style>
+    #footer_map {
+      height: 200px;
+      width: 200px;
+    }
+  </style>
+</head>
+<body>
+  <footer class="w-full flex justify-around items-center place-self-end" style="height: 464px; background-color: #26292A">
+    <img src="{% static 'img/tfc-badge.png' %}" 
+    width="300" height="300" alt="footer badge" />
+    <p class="text-3xl" style="color: #c4c4c4">
+      Princeton Terrace Club<br/>
+      62 Washington Rd.<br/>
+      Princeton, NJ 08540<br/>
+      <br/>
+      phone: (609) 258-1380<br/>
+      email: <a href="mailto: info@princetonterraceclub.org">info@princetonterraceclub.org</a>
+    </p>
+    {% leaflet_map "footer_map" %}
+    <img src="{% static 'img/tfc-circle.png' %}" 
+    width="300" height="300" alt="footer circle" />
+  </footer>
+</body>
