@@ -130,8 +130,13 @@ TAILWIND_APP_NAME = 'theme'
 MIDDLEWARE = [
   'django.middleware.security.SecurityMiddleware',
   'whitenoise.middleware.WhiteNoiseMiddleware',
-  'django.contrib.sessions.middleware.SessionMiddleware',
+
+  # do NOT mess with the order of this caching middleware section!
+  'django.middleware.cache.UpdateCacheMiddleware',        # adds Expires, Cache-Control
+  'django.contrib.sessions.middleware.SessionMiddleware', # adds Vary - Cookie
   'django.middleware.common.CommonMiddleware',
+  'django.middleware.cache.FetchFromCacheMiddleware',
+
   'django.middleware.csrf.CsrfViewMiddleware',
   'django.contrib.auth.middleware.AuthenticationMiddleware',
   'django.contrib.messages.middleware.MessageMiddleware',
@@ -160,24 +165,36 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'website.wsgi.application'
-'''
+
 CACHES = {
   'default': {
     'BACKEND': 'django_redis.cache.RedisCache',
     'OPTIONS': {
-      'CLIENT_CLASS': 'django_redis.client.DefaultClient', # consider benefits of HerdClient or ShardClient (experimental)
+
+      # consider benefits of HerdClient or ShardClient (experimental)
+      'CLIENT_CLASS': 'django_redis.client.DefaultClient', 
       'PARSER_CLASS': 'redis.connection.HiredisParser',
-      'IGNORE_EXCEPTIONS': True # emulates defualt MemCached behavior to ignore exceptions when cache is down (logging added below!)
-      # 'SERIALIZER': 'django_redis.serializers.json.JSONSerializer' # for flexible pickling
+
+      # emulates defualt MemCached behavior to ignore exceptions when cache is down (logging added below!)
+      'IGNORE_EXCEPTIONS': True,
+
+      # for flexible pickling - does not work on templates!
+      # 'SERIALIZER': 'django_redis.serializers.json.JSONSerializer' 
     }
   }
 }
-'''
+
+# Site Caching!
+CACHE_MIDDLEWARE_ALIAS = 'default' # DEFAULT
+CACHE_MIDDLEWARE_SECONDS = 60 * 10 # DEFAULT (10 minutes!)
+CACHE_MIDDLEWARE_KEY_PREFIX = ''   # DEFAULT (only one site using cache)
+
 # session caching!
-'''
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
 DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS = True
+'''
+
 
 from elasticsearch import RequestsHttpConnection
 ELASTICSEARCH_ENDPOINT = 'elasticsearch'

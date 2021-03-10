@@ -17,7 +17,7 @@ MIDDLEWARE +=  [
 INTERNAL_IPS = ("127.0.0.1", "172.17.0.1")
 
     
-#CACHES['default']['LOCATION'] = 'redis://localhost:6379/0'
+CACHES['default']['LOCATION'] = 'redis://redis'
 
 DATABASES = {
   'default': {

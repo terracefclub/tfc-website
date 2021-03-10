@@ -16,3 +16,4 @@ factory_boy
 whitenoise
 coverage
 psycopg2
+hiredis
