@@ -6,6 +6,7 @@
 Dockerfile.dev
 .devcontainer/
 .vscode/
+secrets.yaml
 bakerydemo/
 
 
