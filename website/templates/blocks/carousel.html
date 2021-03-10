@@ -1,0 +1,49 @@
+{% load wagtailimages_tags %}
+
+<script type="text/javascript">
+  let index = 0;
+  const shift = n => item(index += n);
+  function item(n) {
+    index = n;
+    const items = document.getElementsByClassName('carousel-item');
+    const dots = document.getElementsByClassName('carousel-dot');
+    if (n >= items.length) index = 0;
+    if (n < 0) index = items.length - 1;
+    [...items].forEach(item => {
+      item.classList.remove('flex');
+      item.classList.add('hidden');
+    });
+    [...dots].forEach(dot => dot.classList.remove('active'));
+    items[index].classList.add('flex');
+    dot[index].classList.add('active');
+    //setTimeout(item, 2000);
+  }
+</script>
+
+<div id="home-carousel-container" class="max-w-3xl relative flex flex-col items-center">
+  {% for page in self %}
+    <div class="carousel-item absolute inset-0 hidden" style="background-color: #26292A; height: 435px; width: 810px">
+      <div class="h-full w-1/2">
+        {% image page.specific.main_image %}
+      </div>
+      <div class="flex flex-col items-center justify-around">
+        <h2>{{ page.title }}</h2>
+        <h4>{{ page.specific.date }}</h4>
+        <p class="text-center">{{ page.specific.intro }}</p>
+      </div>
+    </div>
+  {% endfor %}
+
+  <br class="h-1/3"/>
+
+  <div class="flex items-center justify-between gap-x-10">
+    <a class="carousel-prev" onclick="shift(-1)"><i class="fas fa-arrow-circle-left"></i></a>
+    <a class="carousel-next" onclick="shift(1)"><i class="fas fa-arrow-circle-right"></i></a>
+  </div>
+
+  <div class="flex items-center justify-between gap-x-5 mt-auto mb-2">
+    {% for i in self|length|range %}
+      <a class="carousel-dot" onclick="item({{ i }})"><i class="fas fa-arrow-circle-left"></i></a>
+    {% endfor %}
+  </div>
+</div>
