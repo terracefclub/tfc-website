@@ -3,11 +3,7 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=django
 
 ### VS Code ###
-Dockerfile.dev
-.devcontainer/
-.vscode/
 secrets.yaml
-bakerydemo/
 
 
 ### Django ###
