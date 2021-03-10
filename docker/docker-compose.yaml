@@ -1,4 +1,4 @@
-version: '2'
+version: '3.8'
 services:
   db:
     environment:
@@ -14,22 +14,22 @@ services:
     image: redis:6.2-alpine
     ports:
       - "6379:6379"
-    network_mode: service:db
+    #network_mode: service:db
   elasticsearch:
     image: elasticsearch:7.10.1
     restart: always
     ports:
       - "9200:9200"
       - "9300:9300"
-    network_mode: service:db
+    #network_mode: service:db
   app:
     build:
-      context: .
-      dockerfile: ./Dockerfile.dev
+      context: ..
+      dockerfile: ./docker/Dockerfile.dev
     container_name: app-ci-image
     command: /bin/sh -c "while sleep 1000; do :; done"
     volumes:
-      - media:/code/website/media
+      - ..:/code
     links:
       - db:db
       - redis:redis
@@ -40,6 +40,4 @@ services:
       - db
       - redis
       - elasticsearch
-    network_mode: service:db
-volumes:
-  media:
+    #network_mode: service:db

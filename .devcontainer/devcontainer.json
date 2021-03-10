@@ -3,16 +3,17 @@
 {
 	"name": "TFC Website",
 
-	"context": "..",
-  "dockerFile": "../docker/Dockerfile.dev",
+	// "context": "..",
+  // "dockerFile": "../docker/Dockerfile.dev",
 	
-  //"dockerComposeFile": "../docker-compose.yaml",
-  //"service": "app",
-  //"workspaceFolder": "/workspaces/terrace",
-  //"shutdownAction": "stopCompose",
+  "dockerComposeFile": "../docker/docker-compose.yaml",
+  "service": "app",
+  "workspaceFolder": "/code",
+  "shutdownAction": "stopCompose",
 
 	// Set *default* container specific settings.json values on container create.
 	"settings": { 
+    "git.path": ["/usr/bin/git", "/mnt/c/Program Files/Git/cmd/git.exe", "/mnt/c/Program Files/Git/bin/git.exe"],
 		"terminal.integrated.shell.linux": null
 	},
 
@@ -28,7 +29,7 @@
   ],
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	"forwardPorts": [5432, 8000, 6379, 9200, 930],
+	"forwardPorts": [5432, 8000, 6379, 9200, 9300],
 
 	// Uncomment the next line to run commands after the container is created - for example installing curl.
 	// "postCreateCommand": "apt-get update && apt-get install -y curl",
@@ -41,4 +42,6 @@
 
 	// Uncomment to connect as a non-root user if you've added one. See https://aka.ms/vscode-remote/containers/non-root.
 	// "remoteUser": "vscode"
+
+  
 }
