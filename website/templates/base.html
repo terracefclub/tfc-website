@@ -1,4 +1,4 @@
-{% load nav_menu_tags static wagtailuserbar %}
+{% load nav_menu_tags tags_main static wagtailuserbar %}
 
 <!DOCTYPE html>
 <html class="no-js" lang="en">
@@ -41,7 +41,7 @@
           style="background-image: url({% static 'img/background.jpg' %})"
         >
           {% include 'header.html' %}
-          {% get_nav_menu 'footer' %}
+          {% get_nav_menu 'sidebar' %}
           <main>
             {% block content %}{% endblock %}
           </main>

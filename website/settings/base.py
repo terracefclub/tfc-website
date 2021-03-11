@@ -1,6 +1,7 @@
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 # See https://docs.djangoproject.com/en/3.1/howto/deployment/checklist/
 import os
+from wagtail_nav_menus.defaults import WAGTAIL_NAV_MENU_CHOICES_DEFAULT, WAGTAIL_NAV_MENU_TYPES_DEFAULT
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BASE_DIR = os.path.dirname(PROJECT_DIR)
@@ -32,16 +33,13 @@ INSTALLED_APPS = [
   #'allauth.socialaccount.providers.soundcloud',
   #'allauth.socialaccount.providers.untappd',
   #'allauth.socialaccount.providers.zoom',
-  
-
-  # Adapted from "https://gitlab.com/thelabnyc/wagtail-nav-menus"
-  'website.wagtail_nav_menus',
 
   # External frontend services
   'tailwind',
   'fontawesome-free',
   'leaflet',
   'clearcache',
+  'wagtail_nav_menus',
 
   # External backend services
   'modelcluster',
@@ -111,20 +109,11 @@ SOCIALACCOUNT_PROVIDERS = {
   },
 }
 
-WAGTAIL_NAV_MENU_TYPES = [
-  ('page_link', 'wagtail_nav_menus.models', 'InternalPageBlock'),
-  ('external_link', 'wagtail_nav_menus.models', 'ExternalPageBlock'), 
-  ('django_url', 'wagtail_nav_menus.models', 'DjangoURLBlock'), 
-  ('relative_url', 'wagtail_nav_menus.models', 'RelativeURLBlock'), 
-  ('image', 'wagtail.images.blocks', 'ImageChooserBlock'), 
-  ('html', 'wagtail.core.blocks', 'RawHTMLBlock')
-]
-WAGTAIL_NAV_MENU_CHOICES = (
-  ("top", "Top"),
-  ("footer", "Footer"),
+WAGTAIL_NAV_MENU_TYPES = WAGTAIL_NAV_MENU_TYPES_DEFAULT + [] # nothing added yet
+WAGTAIL_NAV_MENU_CHOICES = WAGTAIL_NAV_MENU_CHOICES_DEFAULT + (
   ("sidebar", "Sidebar"),
 )
-TAILWIND_APP_NAME = 'theme'
+TAILWIND_APP_NAME = 'website.theme'
 
 
 MIDDLEWARE = [
@@ -165,34 +154,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'website.wsgi.application'
-
-CACHES = {
-  'default': {
-    'BACKEND': 'django_redis.cache.RedisCache',
-    'OPTIONS': {
-
-      # consider benefits of HerdClient or ShardClient (experimental)
-      'CLIENT_CLASS': 'django_redis.client.DefaultClient', 
-      'PARSER_CLASS': 'redis.connection.HiredisParser',
-
-      # emulates defualt MemCached behavior to ignore exceptions when cache is down (logging added below!)
-      'IGNORE_EXCEPTIONS': True,
-
-      # for flexible pickling - does not work on templates!
-      # 'SERIALIZER': 'django_redis.serializers.json.JSONSerializer' 
-    }
-  }
-}
-
-# Site Caching!
-CACHE_MIDDLEWARE_ALIAS = 'default' # DEFAULT
-CACHE_MIDDLEWARE_SECONDS = 60 * 10 # DEFAULT (10 minutes!)
-CACHE_MIDDLEWARE_KEY_PREFIX = ''   # DEFAULT (only one site using cache)
-
-# session caching!
-SESSION_ENGINE = "django.contrib.sessions.backends.cache"
-SESSION_CACHE_ALIAS = "default"
-DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS = True
 '''
 
 
