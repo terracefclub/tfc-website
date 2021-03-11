@@ -10,14 +10,14 @@ INSTALLED_APPS += [
   'debug_toolbar',
 ]
 
+RESULTS_CACHE_SIZE = 100
+
 MIDDLEWARE +=  [
   'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
 INTERNAL_IPS = ("127.0.0.1", "172.17.0.1")
 
-    
-CACHES['default']['LOCATION'] = 'redis://redis'
 
 DATABASES = {
   'default': {
@@ -27,5 +27,11 @@ DATABASES = {
     'NAME': 'web',
     'USER': 'user',
     'PASSWORD': 'password',
+  }
+}
+
+CACHES = {
+  'default': {
+    'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
   }
 }
