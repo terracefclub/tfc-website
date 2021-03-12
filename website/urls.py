@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.urls import include, path
 from django.contrib import admin
+#from whitenoise.storage import StaticFilesStorage
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.views.generic.base import RedirectView
 
@@ -16,7 +17,7 @@ urlpatterns = [
   path('admin/', include(wagtailadmin_urls)),
   path('documents/', include(wagtaildocs_urls)),
   path('search/', search_views.search, name='search'),
-  path('favicon.ico', RedirectView.as_view(url=staticfiles_storage.url('favicon.ico'))),
+  #path('favicon.ico', RedirectView.as_view(url=StaticFilesStorage().url('favicon.ico'))),
   path('sitemap.xml', sitemap),
   #path('accounts/', include('allauth.urls'))
 ]
