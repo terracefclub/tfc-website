@@ -6,9 +6,10 @@ DEBUG = True
 # SECURITY WARNING: define the correct hosts in production!
 ALLOWED_HOSTS = ['*'] 
 
-INSTALLED_APPS += [
+INSTALLED_APPS = [
+  'whitenoise.runserver_nostatic',
   'debug_toolbar',
-]
+] + INSTALLED_APPS
 
 RESULTS_CACHE_SIZE = 100
 
