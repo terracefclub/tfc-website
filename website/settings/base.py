@@ -15,6 +15,7 @@ INSTALLED_APPS = [
   'website.blog',
   'website.theme',
   'website.events',
+  'website.menus',
   
   # Authentication & Users
   

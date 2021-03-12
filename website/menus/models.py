@@ -5,13 +5,16 @@ from modelcluster.contrib.taggit import ClusterTaggableManager
 from taggit.models import TaggedItemBase
 
 from wagtail.search import index
-from wagtail.core.models import Orderable, Page
+from wagtail.core.fields import RichTextField
+from wagtail.core.models import Orderable, Page, ClusterableModel
 from wagtail.images.edit_handlers import ImageChooserPanel
-from wagtail.admin.edit_handlers import FieldPanel, InlinePanel, MultiFieldPanel
+from wagtail.admin.edit_handlers import FieldPanel, InlinePanel, MultiFieldPanel, StreamFieldPanel
 from wagtail.snippets.models import register_snippet
+from wagtail.snippets.edit_handlers import SnippetChooserPanel
+
 
 @register_snippet
-class FoodCourse(models.Model):
+class FoodCourse(index.Indexed, models.Model):
   name = models.CharField(max_length=15)
 
   def __str__(self):
@@ -22,15 +25,31 @@ class FoodTag(TaggedItemBase):
   content_object = ParentalKey('FoodItem', related_name='tagged_items', on_delete=models.CASCADE)
 
 @register_snippet
-class Brewery(models.Model):
+class MenuTheme(index.Indexed, ClusterableModel):
+  theme = models.CharField(max_length=50)
+
+  panels = [
+    FieldPanel('theme')
+  ]
+
+  def __str__(self):
+    return self.theme
+  
+  class Meta:
+    verbose_name_plural = "Menu Themes"
+
+@register_snippet
+class Brewery(index.Indexed, ClusterableModel):
   name = models.CharField(max_length=50)
   city = models.CharField(max_length=25, blank=True, null=True)
   state = models.CharField(max_length=2, blank=True, null=True)
+  logo_url = models.URLField(default="https://princetonterraceclub.org/wp-content/uploads/2018/08/tfc-badge.png")
 
   panels = [
     FieldPanel('name'),
     FieldPanel('city'),
-    FieldPanel('state')
+    FieldPanel('state'),
+    FieldPanel('logo_url', heading="URL of desired brewery logo")
   ]
 
   def __str__(self):
@@ -40,11 +59,11 @@ class Brewery(models.Model):
     verbose_name_plural = "Fine Beer Breweries"
 
 @register_snippet
-class BeerStyle(models.Model):
+class BeerStyle(index.Indexed, ClusterableModel):
   style = models.CharField(max_length=25)
 
   panels = [
-    FieldPanel('style')
+    FieldPanel('style', heading="Style of the Beer")
   ]
 
   def __str__(self):
@@ -54,13 +73,13 @@ class BeerStyle(models.Model):
     verbose_name_plural = "Beer Styles"
 
 @register_snippet
-class FoodItem(models.Model):
+class FoodItem(index.Indexed, ClusterableModel):
   name = models.CharField(max_length=75)
   description = models.TextField(blank=True, null=True)
   tags = ClusterTaggableManager(through=FoodTag, blank=True)
-  course = models.ForeignKey('website.menus.FoodCourse', on_delete=models.SET_NULL, related_name='fooditems')
+  course = models.ForeignKey('menus.FoodCourse', on_delete=models.SET_NULL, null=True, related_name='fooditems')
 
-  content_panels = Page.content_panels + [
+  panels = [
     MultiFieldPanel([
       FieldPanel('name'),
       FieldPanel('description'),
@@ -80,7 +99,6 @@ class FoodItem(models.Model):
   class Meta:
     verbose_name_plural = "Meal Dishes"
 
-
 class FoodItemImage(Orderable):
   food = ParentalKey(FoodItem, on_delete=models.CASCADE, related_name='images')
   image = models.ForeignKey('wagtailimages.Image', on_delete=models.CASCADE, related_name='+')
@@ -91,37 +109,55 @@ class FoodItemImage(Orderable):
     FieldPanel('caption')
   ]
 
-
-class MenuPage(Page):
-  date = models.DateField('Date of Meal')
-  items = ParentalManyToManyField('website.menus.FoodItem', blank=True, null=True)
-
-  search_fields = Page.search_fields + [
-    index.SearchField('items'),
-  ]
-
-  def week_menus(self):
-    before3 = MenuPage.objects.filter(date__lt=self.date).order_by('date')[-3:]
-    after3 = MenuPage.objects.filter(date__gt=self.date).order_by('date')[:3]
-    return before3 + after3
-
-  content_panels = Page.content_panels + [
-    FieldPanel('date'),
-    FieldPanel('items', widget=forms.ModelForm)
-  ]
-
 @register_snippet
-class MenuTheme(models.Model):
-  theme = models.CharField(max_length=50)
-  menu = ParentalKey(Menu, on_delete=models.SET_NULL, related_name='menus')
+class BeerItem(index.Indexed, ClusterableModel):
+  name = models.CharField(max_length=25)
+  brewery = ParentalKey(Brewery, related_name='beers', on_delete=models.CASCADE)
+  abv = models.DecimalField(decimal_places=1, max_digits=3)
+  style = ParentalKey(BeerStyle, related_name='beers', blank=True, null=True, on_delete=models.SET_NULL)
+  description = RichTextField(null=True, blank=True)
 
   panels = [
-    FieldPanel('theme')
+    FieldPanel('name'),
+    SnippetChooserPanel('brewery'),
+    FieldPanel('abv', heading="Percent Alcohol by Volume (ABV %)"),
+    SnippetChooserPanel('style'),
+    FieldPanel('description')
   ]
 
-  def __str__(self):
-    return self.theme
-  
-  class Meta:
-    verbose_name_plural = "Menu Themes"
+class WeeklyMenuPage(Page):
+  starting_day = models.DateField("First day of the week (Monday)")
 
+  search_fields = Page.search_fields + [
+    index.SearchField('starting_day'),
+    index.SearchField('menus'),
+  ]
+
+  def get_menus(self):
+    return self.menus.order_by('date')
+
+  def recent_menus(self):
+    MAX_RECENT_MENUS = 10
+    previous = WeeklyMenuPage.objects\
+      .filter(monday__date__lt=self.monday.date)\
+      .order_by('-monday.date')
+    return previous[:min(len(previous), MAX_RECENT_MENUS)]
+
+  content_panels = Page.content_panels + [
+    FieldPanel('starting_day'),
+    InlinePanel('menus', label="Daily Menu", max_num=7, min_num=1)
+  ]
+
+class Menu(ClusterableModel, Orderable):
+  date = models.DateField('Date of Meal', unique=True)
+  foods = ParentalManyToManyField(FoodItem, related_name='menus')
+  beers = ParentalManyToManyField(BeerItem, related_name='menus')
+  theme = ParentalKey(MenuTheme, on_delete=models.SET_NULL, null=True, related_name='menus')
+  week = ParentalKey(WeeklyMenuPage, on_delete=models.CASCADE, related_name='menus')
+
+  panels = [
+    FieldPanel('date'),
+    InlinePanel('foods', heading="Food Items"),
+    InlinePanel('beers', heading="Fine Beer Options"),
+    FieldPanel('theme', heading="Theme for the day (if any)")
+  ]
