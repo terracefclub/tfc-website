@@ -150,14 +150,40 @@ class WeeklyMenuPage(Page):
 
 class Menu(ClusterableModel, Orderable):
   date = models.DateField('Date of Meal', unique=True)
-  foods = ParentalManyToManyField(FoodItem, related_name='menus')
-  beers = ParentalManyToManyField(BeerItem, related_name='menus')
   theme = ParentalKey(MenuTheme, on_delete=models.SET_NULL, null=True, related_name='menus')
   week = ParentalKey(WeeklyMenuPage, on_delete=models.CASCADE, related_name='menus')
 
   panels = [
     FieldPanel('date'),
-    InlinePanel('foods', heading="Food Items"),
-    InlinePanel('beers', heading="Fine Beer Options"),
-    FieldPanel('theme', heading="Theme for the day (if any)")
+    InlinePanel('food_items', heading="Food Items"),
+    InlinePanel('beer_items', heading="Fine Beer Options"),
+    SnippetChooserPanel('theme', heading="Theme for the day (if any)")
   ]
+
+class MenuFoodItem(Orderable):
+  menu = ParentalKey(Menu, on_delete=models.CASCADE, related_name='food_items')
+  food_item = models.ForeignKey(FoodItem, on_delete=models.CASCADE, related_name='menus')
+
+  panels = [
+
+    # this panel is being rendered as a typical FieldPanel unfortunately
+    # known bug at https://github.com/wagtail/wagtail/issues/5770 regarding nested InlinePanels
+    # will attempt a hacky fix at a later point
+    SnippetChooserPanel('food_item')
+  ]
+
+  class Meta:
+    unique_together = ('menu', 'food_item')
+
+class MenuBeerItem(Orderable):
+  menu = ParentalKey(Menu, on_delete=models.CASCADE, related_name='beer_items')
+  beer_item = models.ForeignKey(BeerItem, on_delete=models.CASCADE, related_name='menus')
+
+  panels = [
+
+    # same thing here as with 'food_item' above
+    SnippetChooserPanel('beer_item')
+  ]
+
+  class Meta:
+    unique_together = ('menu', 'beer_item')
