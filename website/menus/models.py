@@ -147,6 +147,14 @@ class WeeklyMenuPage(Page):
       .order_by('-starting_day')
     return previous[:min(len(previous), MAX_RECENT_WEEKLY_MENUS)]
 
+  def get_food_gallery(self):
+    images = []
+    for menu in self.menus:
+      for item in menu.food_items:
+        if item.food_item.course.name == "entree":
+          images.append(item.food_item.main_image)
+    return images
+
   content_panels = [
     FieldPanel('starting_day'),
     InlinePanel('menus', label="Daily Menu", max_num=7, min_num=1)
