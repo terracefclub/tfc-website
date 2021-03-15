@@ -154,7 +154,7 @@ class WeeklyMenuPage(Page):
 
 class Menu(ClusterableModel, Orderable):
   date = models.DateField('Date of Meal', unique=True)
-  theme = ParentalKey(MenuTheme, on_delete=models.SET_NULL, null=True, related_name='menus')
+  theme = ParentalKey(MenuTheme, on_delete=models.SET_NULL, blank=True, null=True, related_name='menus')
   week = ParentalKey(WeeklyMenuPage, on_delete=models.CASCADE, related_name='menus')
 
   panels = [
