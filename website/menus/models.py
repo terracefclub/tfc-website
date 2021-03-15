@@ -82,6 +82,7 @@ class FoodItem(index.Indexed, ClusterableModel):
   panels = [
     MultiFieldPanel([
       FieldPanel('name'),
+      FieldPanel('course'),
       FieldPanel('description'),
       FieldPanel('tags'),
     ], heading="Main Information"),
@@ -89,7 +90,7 @@ class FoodItem(index.Indexed, ClusterableModel):
   ] 
 
   def __str__(self):
-    return self.name
+    return f'{self.name} ({self.course})'
   
   @property
   def main_image(self):
