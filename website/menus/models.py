@@ -141,13 +141,13 @@ class WeeklyMenuPage(Page):
     return self.menus.order_by('date')
 
   def recent_menus(self):
-    MAX_RECENT_MENUS = 10
+    MAX_RECENT_WEEKLY_MENUS = 10
     previous = WeeklyMenuPage.objects\
-      .filter(monday__date__lt=self.monday.date)\
-      .order_by('-monday.date')
-    return previous[:min(len(previous), MAX_RECENT_MENUS)]
+      .filter(starting_day__lt=self.starting_day)\
+      .order_by('-starting_day')
+    return previous[:min(len(previous), MAX_RECENT_WEEKLY_MENUS)]
 
-  content_panels = Page.content_panels + [
+  content_panels = [
     FieldPanel('starting_day'),
     InlinePanel('menus', label="Daily Menu", max_num=7, min_num=1)
   ]
