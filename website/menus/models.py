@@ -125,6 +125,9 @@ class BeerItem(index.Indexed, ClusterableModel):
     FieldPanel('description')
   ]
 
+  def __str__(self):
+    return f'{self.name} ({self.style} - {self.abv}) : {self.brewery}'
+
 class WeeklyMenuPage(Page):
   starting_day = models.DateField("First day of the week (Monday)")
 
