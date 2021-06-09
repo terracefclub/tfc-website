@@ -1,0 +1,157 @@
+#profile-main {
+  @apply w-full pt-10;
+  @apply flex flex-col items-center gap-10;
+}
+
+form#bio-form {
+  @apply w-full h-full;
+  @apply p-4;
+  @apply flex flex-col items-stretch justify-start gap-5;
+
+  & > div:first-child {
+    @apply flex justify-between items-stretch;
+
+    p {
+      @apply bg-yellow-700;
+      @apply text-yellow-200 align-middle;
+      @apply p-2 my-auto;
+    }
+
+    & > div {
+      @apply flex gap-2;
+    }
+
+    #bio-edit-cancel,
+    #bio-edit-submit {
+      @apply inline-block;
+      @apply rounded-xl;
+      @apply px-8;
+      @apply text-xl;
+      @apply flex items-center justify-center;
+    }
+
+    #bio-edit-cancel {
+      @apply bg-white hover:bg-gray-200;
+      @apply text-black;
+    }
+
+    #bio-edit-submit {
+      @apply bg-green-600 hover:bg-green-400;
+      @apply text-white;
+      @apply cursor-pointer;
+    }
+  }
+
+  & > label {
+    @apply hidden;
+  }
+
+  div.fieldBox div.tox-tinymce {
+    width: 100% !important;
+    height: 500px !important;
+  }
+}
+
+#profile-summary {
+  @apply h-80 w-3/4;
+  @apply flex items-stretch;
+  @apply border-2 rounded-r-lg border-white;
+
+  &-avatar {
+    @apply w-80;
+    @apply relative;
+    @apply flex-grow-0 flex-shrink-0;
+
+    img {
+      @apply h-full w-full;
+    }
+
+    &-edit {
+      @apply h-20 w-80;
+      @apply absolute top-full -translate-y-full transform;
+      @apply bg-gray-600 text-white;
+      @apply hidden group-hover:flex items-center justify-center gap-4;
+
+      button:nth-child(1) {
+        @apply bg-blue-600;
+      }
+
+      button:nth-child(2) {
+        @apply bg-green-600;
+      }
+
+      button:nth-child(3) {
+        @apply bg-red-600;
+      }
+    }
+  }
+
+  &-details {
+    @apply flex-grow;
+    @apply p-4;
+    @apply border-l-2 border-white;
+    @apply text-yellow-200;
+
+    & > div {
+      @apply flex justify-between items-center;
+
+      p:first-child {
+        @apply font-bold;
+      }
+    }
+
+    div:last-child {
+      @apply py-2;
+
+      div.tags {
+        @apply flex flex-wrap justify-start items-center;
+        @apply w-3/4;
+      }
+    }
+
+    span.tag {
+      @apply p-1;
+      @apply bg-green-600;
+      @apply text-white;
+    }
+  }
+
+  button {
+    @apply h-6 w-6;
+    @apply p-2;
+    @apply rounded-md;
+    @apply flex items-center justify-center;
+    @apply shadow-md hover:shadow-inner;
+  }
+}
+
+#profile-bio,
+#profile-bio form {
+  @apply w-3/4;
+  @apply p-4;
+  @apply text-yellow-200;
+  @apply border-2 rounded-r-lg border-white;
+  @apply flex flex-col items-stretch justify-between gap-5;
+
+  &-content {
+    @apply flex flex-col items-stretch justify-between gap-5;
+  }
+
+  div:first-child {
+    @apply flex justify-between items-stretch;
+
+    p {
+      @apply bg-yellow-700;
+      @apply text-yellow-200 align-middle;
+      @apply p-2 my-auto;
+    }
+
+    button {
+      @apply p-2;
+      @apply text-2xl text-yellow-200;
+      @apply rounded-md border-4 border-gray-500;
+      @apply flex items-center justify-center;
+      @apply shadow-lg hover:shadow-inner;
+    }
+  }
+}

@@ -3,33 +3,51 @@
   {% leaflet_js %}
   {% leaflet_css %}
   <script type="text/javascript">
+    const mapCenter = [40.347, -74.654];
+    const mapTileId = 'mapbox/dark-v10';
+    const mapTileSize = 512;
+
+    const initZoomLevel = 16;
+    const maxZoomLevel = 17;
+    const zoomOffset = -1;
+    
+    const markerMessage = "We are here :)";
+
     window.addEventListener("map:init", event => {
+
+      // initialize leaflet map on event trigger from django-leaflet
       var map = event.detail.map;
-      map.setView([40.347, -74.654], 16)
-      var marker = L.marker([40.34719417948263, -74.65393753352053]).addTo(map);
-      marker.bindPopup("We are here :)").openPopup();
+      map.setView(mapCenter, initZoomLevel);
+
+      // add marker to map at location of Terrace (mapCenter)
+      var marker = L.marker(mapCenter).addTo(map);
+      marker.bindPopup(markerMessage).openPopup();
+
+      // import mapbox layer styling with environment api token and standard presets
       L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
-        attribution: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> <strong><a href="https://www.mapbox.com/map-feedback/" target="_blank">Improve map</a></strong>',
-        tileSize: 512,
-        maxZoom: 17,
-        zoomOffset: -1,
-        id: 'mapbox/dark-v10',
+        attribution: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a>',
+        tileSize: mapTileSize,
+        maxZoom: maxZoomLevel,
+        zoomOffset: zoomOffset,
+        id: mapTileId,
         accessToken: "{{ 'MAPBOX_ACCESS_TOKEN'|env }}"
       }).addTo(map);
     }, false);
   </script>
   <style>
-    #footer_map {
-      height: 200px;
-      width: 200px;
+    .leaflet-container {
+      height: 75%;
+      width: 15vw;
+    }
+    .leaflet-container-default {
+      min-height: 50px !important;
     }
   </style>
 </head>
 <body>
-  <footer class="w-full flex justify-around items-center place-self-end" style="height: 464px; background-color: #26292A">
-    <img src="{% static 'img/tfc-badge.png' %}" 
-    width="300" height="300" alt="footer badge" />
-    <p class="text-3xl" style="color: #c4c4c4">
+  <footer>
+    <img src="{% static 'img/tfc-badge.png' %}" alt="footer badge" />
+    <p>
       Princeton Terrace Club<br/>
       62 Washington Rd.<br/>
       Princeton, NJ 08540<br/>
@@ -38,7 +56,6 @@
       email: <a href="mailto: info@princetonterraceclub.org">info@princetonterraceclub.org</a>
     </p>
     {% leaflet_map "footer_map" %}
-    <img src="{% static 'img/tfc-circle.png' %}" 
-    width="300" height="300" alt="footer circle" />
+    <img src="{% static 'img/tfc-circle.png' %}" alt="footer circle" />
   </footer>
 </body>

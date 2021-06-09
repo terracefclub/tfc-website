@@ -1,0 +1,18 @@
+.msg-box {
+  @apply border-2 rounded-md;
+  @apply align-middle;
+  @apply p-4;
+  @apply border-green-600 text-green-600 bg-green-300;
+
+  &.error {
+    @apply border-red-600 text-red-600 bg-red-300;
+  }
+
+  &.info {
+    @apply border-blue-600 text-blue-600 bg-blue-300;
+  }
+
+  &.warning {
+    @apply border-yellow-600 text-yellow-600 bg-yellow-300;
+  }
+}

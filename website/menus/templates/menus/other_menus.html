@@ -1,0 +1,17 @@
+{% load wagtailcore_tags %}
+
+{% for menu_page in menu_pages %}
+  {% if menu_page == page %}
+    <a class="other-menu border-4 border-green-600 bg-gray-500">
+      THIS WEEK
+    </a>
+  {% elif not menu_page %}
+    <a class="other-menu border-dashed border-4 border-black bg-gray-300">
+      Upcoming ...
+    </a>
+  {% else %}
+    <a href="{% pageurl menu_page %}" class="other-menu" {% if menu_page.newest %}data-isnewest{% elif menu_page.oldest %}data-isoldest{% endif %}>
+      Week of {{ menu_page.starting_day|date:"m/d" }}
+    </a>
+  {% endif %}
+{% endfor %}

@@ -1,0 +1,35 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html class="no-js" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{% block title %}Flabyrinth - Terrace F. Club{% endblock title %}</title>
+    <meta name="description" content="" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    {# Global stylesheets #}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/flabyrinth.css' %}">
+    <link href="{% static 'fontawesome_free/css/all.min.css' %}" rel="stylesheet" type="text/css">
+
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'img/apple-touch-icon.png' %}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32x32.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon-16x16.png' %}">
+    <link rel="manifest" href="{% static 'site.webmanifest' %}">
+    <link rel="shortcut icon" type="image/png" href="{% static 'favicon.ico' %}">
+
+    {% block head %}{% endblock head %}
+  </head>
+
+  <body>
+    {% include 'flabyrinth/sidebar.html' %}
+    <main>
+      {% include 'flabyrinth/header.html' %}
+      {% block content %}{% endblock content %}
+    </main>
+
+    {# Global javascript #}
+    <script type="text/javascript" src="{% static 'js/flabyrinth.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/vendors.js' %}"></script>
+  </body>
+</html>

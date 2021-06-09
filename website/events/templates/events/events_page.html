@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% load wagtailcore_tags tags_main tags_events wagtailimages_tags static %}
+
+{% block body_class %}template-eventspage events{% endblock %}
+
+{% block content %}
+<div class="w-full h-full">
+  <div id="events-main-section">
+
+    <div class="title-wrapper">
+      {% include 'base/rhombus_title.html' with title='Calendar' %}
+      <div id="calendar">
+        {% include 'events/event_calendar.html' %}
+      </div>
+    </div>
+    
+    <div id="detail-social-container">
+      {% include 'events/event_socials.html' %}
+    </div>
+
+    <div class="title-wrapper">
+      {% include 'base/rhombus_title.html' with title='Event Detail' %}
+      <div id="detail-card">
+        {% include 'events/event_detail.html' %}
+      </div>
+    </div>
+    
+  </div>
+
+  <div id="highlights-section">
+
+    <div class="title-wrapper">
+      {% include 'base/rhombus_title.html' with title='Past Highlights' %}
+      <div class="container">
+        {% for event in self.past_highlights %}
+        {% image event.value.image width-400 as event_image %}
+        <div class="event" data-value="{{ event.value.pk }}">
+          <div class="event-image" style="background-image: url({% if event_image %}{{ event_image.url }}{% else %}{% static 'img/tfc_1.jpg' %}{% endif %})"></div>
+          <div class="event-name">{{ event.value.name }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    
+    <div class="title-wrapper">
+      {% include 'base/rhombus_title.html' with title='Upcoming Events' %}
+      <div class="container">
+        {% for event in self.future_highlights %}
+        {% image event.value.image width-400 as event_image %}
+        <div class="event" data-value="{{ event.value.pk }}">
+          <div class="event-image" style="background-image: url({{ event_image.url }})"></div>
+          <div class="event-name">{{ event.value.name }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    
+  </div>
+</div>
+{% endblock %}

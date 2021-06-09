@@ -1,0 +1,29 @@
+{% comment "Avatar Change Form" %}
+Overrides the display of simultaneous avatar update and avatar add forms to
+include a message box in case no avatars are available, and to rearrange the
+display of each form field.
+{% endcomment %}
+
+{% load i18n %}
+{% if not avatars %}
+<div class="msg-box">
+  <p>{% trans "You haven't uploaded an avatar yet. Please upload one now." %}</p>
+</div>
+{% else %}
+<form method="POST" action="{% url 'avatar_change' %}?">
+  {% csrf_token %}
+  {% for field in primary_avatar_form %}
+  {{ field.errors }}
+  {{ field }}
+  {% endfor %}
+  <input type="submit" value="{% trans "Set Default" %}" />
+</form>
+{% endif %}
+<form enctype="multipart/form-data" method="POST" action="{% url 'avatar_add' %}">
+  {% csrf_token %}
+  {% for field in upload_avatar_form %}
+  {{ field.errors }}
+  {{ field }}
+  {% endfor %}
+  <input type="submit" value="{% trans "Upload" %}" />
+</form>

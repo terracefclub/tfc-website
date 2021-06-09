@@ -1,0 +1,81 @@
+@use '../abstracts/mixins' as *;
+
+.gallery {
+  @apply min-h-[400px] max-h-[800px];
+  @apply overflow-y-auto;
+
+  .image {
+    @apply relative;
+    @apply min-w-full;
+
+    img {
+      @apply w-full;
+    }
+
+    &-info {
+      @apply absolute top-3/4;
+      @apply w-full p-3;
+      @apply bg-gray-500 bg-opacity-50;
+      @apply text-white;
+
+      .name {
+        @apply text-lg;
+      }
+    }
+  }
+}
+
+.slider-block {
+  @apply p-4;
+
+  .header {
+    @apply inline-block;
+    @apply m-4 p-2;
+    @apply text-5xl text-black;
+    @apply border-2 rounded-lg border-black;
+    @apply bg-opacity-75 bg-gray-500;
+  }
+}
+
+.slider {
+  @include no-scrollbar();
+
+  @apply border-2 border-black rounded-md;
+  @apply bg-gray-500 bg-opacity-50;
+  @apply whitespace-nowrap overflow-x-auto p-4;
+}
+
+.archive-item {
+  @apply relative top-1/2 transform -translate-y-full;
+  @apply inline-block;
+  @apply h-60 w-40 mr-4;
+  @apply cursor-pointer;
+  @apply rounded-md;
+  @apply bg-gray-600;
+}
+
+.archive-item.pdf .descriptor,
+.archive-item.image .descriptor {
+  @apply invisible group-hover:visible;
+}
+
+.descriptor {
+  @include flex-center();
+
+  @apply absolute;
+  @apply h-full w-full;
+  @apply rounded-md;
+  @apply bg-opacity-50 bg-gray-500;
+}
+
+.title-box {
+  @include flex-center();
+
+  @apply w-3/5;
+  @apply rounded-md;
+  @apply bg-gray-500;
+
+  p {
+    @apply text-center text-white break-all whitespace-pre-wrap;
+  }
+}

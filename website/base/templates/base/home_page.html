@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load static %}
+{% load wagtailcore_tags %}
+
+{% block body_class %}template-homepage carousel archive{% endblock %}
+
+{% block content %}
+<div id="home-container">
+
+  <div id="pinned-area">
+
+    {# The actual pinned posts #}
+    <div class="title-wrapper">
+      {% include 'base/rhombus_title.html' with title="Notable Posts" header="h2" %}
+      {{ page.specific.pinned_posts }}
+    </div>
+
+    {# The current week's menu #}
+    <div class="title-wrapper">
+      {% include 'base/rhombus_title.html' with title="Menu of the Week" header="h4" %}
+      {% with page.specific.get_current_menupage as menu %}
+        {% if not menu %}
+          {% most_recent_menu as menu %}
+        {% endif %}
+      <a href="{% pageurl menu %}" class="archive-item pdf block--center" data-url="{{ menu.doc.url }}">
+        <div class="descriptor invisible">
+          <div class="title-box">
+            <p>{{ item.title }} <span><i class="fas fa-external-link-alt hover:text-blue-400"></i></span></p>
+          </div>
+        </div>
+      </a>
+      {% endwith %}
+    </div>
+  </div>
+</div>
+{% endblock %}

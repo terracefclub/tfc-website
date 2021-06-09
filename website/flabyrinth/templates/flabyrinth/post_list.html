@@ -1,0 +1,44 @@
+{% extends 'flabyrinth/base.html' %}
+{% load avatar_tags tags_main %}
+{% block content %}
+<div id="post-grid">
+  {% for post in posts %}
+  {% for i in 7|range %}
+  <div class="post-card group">
+    <div class="post-card-meta">
+      <a href="{% url 'flabyrinth:profile_detail' post.author.username %}">
+        {% avatar post.author 50 class="rounded-full border-2 border-black hover:border-green-500" %}
+      </a>
+      <p>{{ post.author.username }}</p>
+
+      {% with post.created_at|notequals:post.updated_at as is_modified %}
+      <ul>
+        <li>
+          {% if is_modified %}
+            Published: {{ post.created_at|date:"n-d-y P" }}
+          {% else %}
+            {{ post.created_at }}
+          {% endif %}
+        </li>
+        {% if is_modified %}
+        <li><em>Edited: {{ post.updated_at|date:"n-d-y P" }}</em></li>
+        {% endif %}
+      </ul>
+      {% endwith %}
+
+      {% if post.author == request.user %}
+      <a href="{% url 'flabyrinth:post_update' post.pk %}"><i class="fas fa-edit"></i></a>
+      {% endif %}
+
+    </div>
+    <div class="post-card-content">
+      {{ post.content|safe }}
+    </div>
+    <div class="post-card-footer">
+      <a href="{% url 'flabyrinth:post_detail' post.pk %}"><p>Read More...</p></a>
+    </div>
+  </div>
+  {% endfor %}
+  {% endfor %}
+</div>
+{% endblock content %}

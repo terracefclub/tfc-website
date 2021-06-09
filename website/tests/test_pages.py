@@ -1,22 +1,39 @@
-from django.test import RequestFactory
+import pytest
 
 from wagtail.core.models import Page, Site
-from wagtail.tests.utils import WagtailPageTests, form_data
+from wagtail.tests.utils import WagtailPageTests
 
-from website.base.tests.test_models import HomePageFactory, HomePage
-from website.blog.tests.test_models import BlogCategoryFactory, BlogPageFactory, BlogIndexPageFactory, BlogPage
+from website.base.tests.test_models import HomePageFactory
 
-class TestPageModels(WagtailPageTests):
+from django.apps import apps
+
+@pytest.mark.django_db
+class WagtailTestsBase(WagtailPageTests):
 
   @classmethod
-  def setUpTestData(cls):
-    cls.factory = RequestFactory()
-    cls.site = Site.objects.create(is_default_site=True, root_page=Page.get_first_root_node())
+  def setUpClassData(cls):
+    super(WagtailTestsBase, cls).seUpClass()
+    cls.first_root = Page.get_first_root_node()
+    cls.site = Site.objects.create(
+      is_default_site=True, root_page=cls.first_root
+    )
 
     cls.homepage = HomePageFactory()
-    cls.category1 = BlogCategoryFactory()
-    cls.category2 = BlogCategoryFactory()
-    cls.blogindexpage1 = BlogIndexPageFactory(parent=cls.homepage)
-    cls.blogpage1 = BlogPageFactory(parent=cls.blogindexpage1, categories=(cls.category1, cls.category2,))
-    cls.blogpage2 = BlogPageFactory(parent=cls.blogindexpage1, categories=(cls.category2,))
+    cls.site.root_page = cls.homepage
 
+    cls.site.save()
+
+  def assertNotAllowedSubpageTypes(self, parent_model, child_models, msg=None):
+
+    def get_model(model):
+      if isinstance(model, str):
+        return apps.get_model(*model.split('.'))
+      return model
+
+    parent = get_model(parent_model)
+    children = map(get_model, child_models)
+
+    self.assertNotEquals(
+      set(parent.allowed_subpage_models()),
+      set(children), msg=msg
+    )

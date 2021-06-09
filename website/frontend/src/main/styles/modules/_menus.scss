@@ -1,0 +1,42 @@
+@use '../abstracts/colors' as *;
+
+.menu {
+  @apply flex items-center justify-around;
+  @apply w-full p-2;
+  @apply rounded-md;
+
+  $length: length($pastels);
+
+  @for $i from 1 through $length {
+    &:nth-child(#{$length}n+#{$i}) {
+      background-color: nth($pastels, $i)
+    }
+  }
+
+  &-metadata {
+    @apply flex flex-col items-center gap-2;
+  }
+
+  &-weekday p {
+    @apply font-bold text-3xl;
+  }
+
+  &-list {
+    @apply flex flex-col flex-nowrap;
+    @apply w-4/5;
+  }
+
+  &-group {
+    @apply flex flex-nowrap gap-4;
+
+    &-name b {
+      @apply w-full;
+    }
+
+    .menu-badge {
+      @apply inline;
+      @apply px-1;
+      @apply border-2 border-black rounded-lg;
+    }
+  }
+}

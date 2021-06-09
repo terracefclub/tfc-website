@@ -1,0 +1,14 @@
+{# List of social icons  #}
+{% for link in links %}
+{% with link.0 as social %}
+<a id="{{ social }}" class="detail-social" href="{{ link.1 }}" target="_blank">
+
+  {# ZOOM has no icon in Font Awesome, so specific styling is needed #}
+  <i class="icon
+    {% if social == 'zoom' %}fas fa-video fa-3x
+    {% else %}fab fa-{{ social }}-square fa-4x
+    {% endif %}"
+  ></i>
+</a>
+{% endwith %}
+{% endfor %}

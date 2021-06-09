@@ -1,0 +1,19 @@
+{% comment "Avatar Upload Form" %}
+Overridden the avatar upload template to include a message box and customize
+prompts.
+{% endcomment %}
+{% load i18n %}
+
+{% if not avatars %}
+<div class="msg-box">
+  <p>{% trans "You haven't uploaded an avatar yet. Please upload one now." %}</p>
+</div>
+{% endif %}
+<form enctype="multipart/form-data" method="POST" action="{% url 'avatar_add' %}">
+  {% csrf_token %}
+  {% for field in upload_avatar_form %}
+  {{ field.errors }}
+  {{ field }}
+  {% endfor %}
+  <input type="submit" value="{% trans "Upload" %}" />
+</form>

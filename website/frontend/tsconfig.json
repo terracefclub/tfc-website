@@ -1,0 +1,47 @@
+{
+  "compilerOptions": {
+    "outDir": "./dist/",
+    
+    /* avoids file extension caveats */
+    "module": "ESNext",
+    "target": "ES5",
+    "lib": [
+      "ES2015",
+      "ES2016",
+      "ES2017",
+      "ES2018",
+      "ES2019",
+      "ES2020",
+      "ESNext",
+      "dom"
+    ],
+
+    "importHelpers": true,
+
+    /* necessary with Webpack */
+    "noEmit": true,
+
+    "sourceMap": true,
+
+    /* strict type-checking */
+    "noImplicitAny": true,
+    "strict": true,
+    "strictNullChecks": true,
+
+    /* module resolution */
+    "moduleResolution": "node",
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+
+    "typeRoots": [
+      "./common/types",
+      "./flabyrinth/scripts/types",
+      "./main/scripts/types",
+      "./node_modules/@types"
+    ]
+  },
+  "include": ["src"],
+  "typedocOptions": {
+    "entryPoints": ["src/main/scripts/index.ts", "src/flabyrinth/scripts/index.ts"]
+  }
+}

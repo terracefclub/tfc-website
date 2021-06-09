@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% load wagtailimages_tags %}
+
+{% block body_class %}archive{% endblock body_class %}
+
+{% block content %}
+<div id="archive-container">
+
+  {# Render each media type group as a scrollable container #}
+  {% for name, items in data.items %}
+  <div class="slider-block">
+    <div class="header">
+      <p>{{ name|capfirst }}</p>
+    </div>
+    <div class="slider">
+
+      {# Render each item in group with unique classes for each #}
+      {% for item in items %}
+      <a
+        class="archive-item group {% if name == 'newsletters' or name == 'menus' %}pdf{% elif name == 'murals' %}image{% else %}{{ name }}{% endif %}"
+        data-url="{% if name == 'murals' %}{{ item.file.url }}{% else %}{{ item.url }}{% endif %}"
+        href="{% if name == 'murals' %}{{ item.file.url }}{% else %}{{ item.url }}{% endif %}">
+
+        {# Titles are hidden for non-audio items, activated on hover #}
+        <div class="descriptor {% if name == 'audio' %}flex-col gap-3{% else %}invisible{% endif %}">
+
+          {# Animated play button and source for audio items #}
+          {% if name == 'audio' %}
+          <div class="circle outer">
+            <canvas height="128" width="128"></canvas>
+            <div class="circle inner">
+              <div class="play"></div>
+              <div class="pause hidden group">
+                <div></div>
+                <div></div>
+              </div>
+              <audio src="{{ item.url }}"></audio>
+            </div>
+          </div>
+          {% endif %}
+
+          {# The box with the actual title #}
+          <div class="title-box">
+            <p>{{ item.title }} <span><i class="fas fa-external-link-alt hover:text-blue-400"></i></span></p>
+          </div>
+
+          {# Running time of an audio item #}
+          {% if name == 'audio' %}
+          <p class="text-white"><span class="elapsed"></span> / <span class="duration"></span></p>
+          {% endif %}
+        </div>
+
+        {# Render the image for an image item #}
+        {% if name == 'murals' %}
+        {% image item fill-160x240 %}
+        {% endif %}
+      </a>
+      {% empty %}
+
+      {# Default, placeholder item for when item group is empty #}
+      <a class="archive-item">
+        <div class="descriptor">
+          <div class="title-box">
+            <p>No {{ name }} available.</p>
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+      
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock content %}

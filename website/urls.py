@@ -5,42 +5,45 @@ from django.contrib import admin
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.views.generic.base import RedirectView
 
-from wagtail.admin import urls as wagtailadmin_urls
 from wagtail.core import urls as wagtail_urls
-from wagtail.documents import urls as wagtaildocs_urls
 from wagtail.contrib.sitemaps.views import sitemap
 
-from website.search import views as search_views
+from filebrowser.sites import site
 
 urlpatterns = [
+  path('django-admin/filebrowser/', site.urls),
+  path('grappelli/', include('grappelli.urls')),
+  path('django-admin/doc/', include('django.contrib.admindocs.urls')),
   path('django-admin/', admin.site.urls),
-  path('admin/', include(wagtailadmin_urls)),
-  path('documents/', include(wagtaildocs_urls)),
-  path('search/', search_views.search, name='search'),
+  path('admin/', include('wagtail.admin.urls')),
+  path('documents/', include('wagtail.documents.urls')),
+  path('avatar/', include('avatar.urls')),
+  path('tinymce/', include('tinymce.urls')),
+  path('taggit_autosuggest/', include('taggit_autosuggest.urls')),
+
+  path('flabyrinth/', include('allauth.urls')),
+  path('flabyrinth/', include(('website.flabyrinth.urls', 'flabyrinth'), namespace='flabyrinth')),
+
+  path('', include('website.base.urls')),
+  path('events/', include('website.events.urls')),
+  path('menus/', include('website.menus.urls')),
+  
   #path('favicon.ico', RedirectView.as_view(url=StaticFilesStorage().url('favicon.ico'))),
   path('sitemap.xml', sitemap),
-  #path('accounts/', include('allauth.urls'))
 ]
 
 
 if settings.DEBUG:
-  import debug_toolbar
-  from django.conf.urls.static import static
-  from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
   # Serve static and media files from development server
+  from django.conf.urls.static import static
+  from django.contrib.staticfiles.urls import staticfiles_urlpatterns
   urlpatterns += staticfiles_urlpatterns()
   urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+  # Django development debugging URLs
+  import debug_toolbar
   urlpatterns += [path('__debug__/', include(debug_toolbar.urls))]
 
-urlpatterns = urlpatterns + [
-  # For anything not caught by a more specific rule above, hand over to
-  # Wagtail's page serving mechanism. This should be the last pattern in
-  # the list:
-  
-  path("", include(wagtail_urls)),
-
-  # Alternatively, if you want Wagtail pages to be served from a subpath
-  # of your site, rather than the site root:
-  #    path("pages/", include(wagtail_urls)),
-]
+# Catch-all for pages in Wagtail
+urlpatterns += [path("", include(wagtail_urls))]

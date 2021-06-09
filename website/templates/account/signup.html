@@ -1,0 +1,66 @@
+{% comment "Account Signup Template" %}
+Overridden for display of signup form with grouping divs and a custom field
+order. Form media for writing out a bio, using autocomplete tags, and using
+google maps api autocomplete to populate the address field.
+{% endcomment %}
+
+{% extends "account/base.html" %}
+
+{% load i18n %}
+
+{% block head_title %}{% trans "Signup" %}{% endblock %}
+
+{% block head %}
+{{ form.media }}
+{% endblock head %}
+
+{% block content %}
+<h1>{% trans "Sign Up" %}</h1>
+
+<p style="width: max-content">{% blocktrans %}Already have an account? Then please <a href="{{ login_url }}">sign in</a>.{% endblocktrans %}</p>
+
+<form class="signup" id="signup_form" method="post" action="{% url 'account_signup' %}">
+  {% csrf_token %}
+  <div class="split">
+    {{ form.username }}
+    {{ form.email }}
+  </div>
+  <div class="split">
+    {{ form.password1 }}
+    {{ form.password2 }}
+  </div>
+  <hr/>
+  <h2>Create Profile</h2>
+  <div class="split">
+    {{ form.first_name }}
+    {{ form.last_name }}
+  </div>
+  <div class="split">
+    {{ form.graduation_year }}
+  </div>
+  <div class="split">
+    {{ form.phone }}
+  </div>
+  <p>{{ form.address }}</p>
+  <p>{% blocktrans %} Describe yourself with anything you like. You can paste, drag and drop in, or upload any kind of media directly to this, as well as format your text. Insert links to your social media, side hustle websites, art portfolios, or otherwise.{% endblocktrans %}</p>
+  <p>{{ form.bio }}</p>
+  <p>{{ form.tags }}</p>
+  <hr>
+  <h2>Mentorship Program</h2>
+  <p>{% blocktrans %}Interested in joining our mentorship program as a mentor and/or mentee? Please indicate below and fill out the appropriate information.{% endblocktrans %}</p>
+  <p>{{ form.mentor }} Mentor</p>
+  <p style="display: none">{{ form.summary }}</p>
+  <p style="display: none"><b>Upload your CV here: </b>{{ form.cv }}</p>
+  <p style="display: none">{{ form.mentor_tags }}</p>
+  <hr style="display: none">
+  <p>{{ form.mentee }} Mentee</p>
+  <p style="display: none">{{ form.looking_for_help }}</p>
+  <p style="display: none">{{ form.mentee_tags }}</p>
+  {% if redirect_field_value %}
+  <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+  {% endif %}
+  <button type="submit">{% trans "Sign Up" %} &raquo;</button>
+
+</form>
+
+{% endblock %}

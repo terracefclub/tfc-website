@@ -4,6 +4,10 @@
 
 kubernetes/secrets.yaml
 datadump.json
+credentials.json
+
+website/templates/sandbox.html
+website/base/fixtures/menu_data/
 
 ### Django ###
 *.log

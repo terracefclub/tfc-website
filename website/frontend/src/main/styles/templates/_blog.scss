@@ -1,0 +1,140 @@
+@use '../abstracts/colors';
+@use '../abstracts/mixins' as *;
+
+#pinned-area {
+  @apply flex justify-around items-stretch gap-20;
+}
+
+#blog-paginator {
+  @apply flex items-stretch justify-center gap-2;
+
+  background-color: colors.$gray;
+
+  .page-button {
+    @include flex-center();
+
+    @apply h-14 w-14;
+    @apply text-white text-3xl;
+    @apply cursor-pointer;
+    @apply rounded-lg focus:outline-none;
+    @apply bg-gray-400;
+
+    &.selected {
+      @apply text-white;
+      @apply bg-purple-700;
+    }
+
+    &.disabled {
+      @apply cursor-default;
+      @apply bg-transparent;
+      @apply text-black;
+    }
+
+    &:nth-child(1):not(.disabled):hover,
+    &:nth-child(2):not(.disabled):hover {
+      @apply text-black;
+      @apply bg-yellow-300;
+    }
+
+    &:nth-child(4):not(.disabled):hover,
+    &:nth-child(5):not(.disabled):hover {
+      @apply text-black;
+      @apply bg-blue-700;
+    }
+  }
+}
+
+#blog-list-container {
+  @apply grid grid-cols-2 gap-10;
+}
+
+#blog-filter-container {
+  @apply flex items-center justify-around gap-5;
+  @apply border-2 border-black;
+  @apply h-[8vmin] px-2;
+
+  background-color: colors.$gray;
+}
+
+#main-column {
+  @apply flex flex-col items-stretch justify-start gap-5;
+  @apply my-5;
+}
+
+.blog-filter {
+  @apply flex flex-col justify-start;
+  @apply h-full;
+
+  &:first-child {
+    @apply px-3;
+  }
+
+  &.search {
+    @include flex-center();
+
+    @apply w-[225px] max-w-[225px];
+
+    & > div {
+      @apply flex items-center justify-start gap-1;
+      @apply h-3/5 w-full p-1;
+      @apply border-2 rounded-xl border-black hover:border-green-300;
+
+      input {
+        @apply flex-shrink min-w-[30px] w-auto;
+        @apply bg-transparent;
+        @apply font-bold;
+        @apply focus:outline-none;
+      }
+    }
+  }
+}
+
+#blog-search-spans {
+  @include no-scrollbar();
+
+  @apply flex items-center justify-start gap-1;
+  @apply overflow-x-auto;
+  @apply max-w-[160px];
+}
+
+.blog-sorter {
+  @include flex-center();
+
+  @apply cursor-pointer;
+  @apply gap-2;
+
+  p {
+    @apply rounded-lg;
+    @apply p-1;
+    @apply hover:bg-gray-300;
+  }
+}
+
+.rank-container {
+  @include flex-center();
+
+  @apply gap-2;
+  @apply invisible;
+}
+
+.sorter-ranker {
+  @apply cursor-pointer;
+  @apply border-4 rounded-full border-white hover:border-blue-300;
+}
+
+#blog-pinned-posts-container {
+  @apply flex flex-col justify-around;
+  @apply border-2 border-black;
+  @apply bg-gray-300;
+  @apply p-2;
+
+  p {
+    @apply overflow-ellipsis;
+    @apply text-blue-500;
+  }
+
+  hr {
+    @apply h-0.5;
+    @apply bg-black;
+  }
+}

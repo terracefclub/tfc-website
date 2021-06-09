@@ -18,7 +18,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
 
         {# Global stylesheets #}
-        <link rel="stylesheet" type="text/css" href="{% static 'css/styles.css' %}">
+        <link rel="stylesheet" type="text/css" href="{% static 'css/main.css' %}">
         <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
         <link href="{% static 'fontawesome_free/css/all.min.css' %}" rel="stylesheet" type="text/css">
 
@@ -36,20 +36,26 @@
     <body class="{% block body_class %}{% endblock %}">
         {% wagtailuserbar %}
 
-        <article 
-          class="bg-fixed bg-no-repeat bg-top bg-cover min-h-full flex flex-col items-stretch" 
+        {% get_nav_menu 'sidebar' %}
+        <article id="main-container"
           style="background-image: url({% static 'img/background.jpg' %})"
         >
           {% include 'header.html' %}
-          {% get_nav_menu 'sidebar' %}
           <main>
             {% block content %}{% endblock %}
           </main>
           {% include 'footer.html' %}
         </article>
 
+        {# Main modal #}
+        <div id="modal">
+          <i id="modal-x" class="far fa-times-circle"></i>
+        </div>
+
         {# Global javascript #}
-        <script type="text/javascript" src="{% static 'js/website.js' %}"></script>
+        <script type="text/javascript" src="{% static 'js/main.js' %}"></script>
+        <script type="text/javascript" src="{% static 'js/vendors.js' %}"></script>
+        <script src="//npmcdn.com/pdfjs-dist/build/pdf.js"></script>
 
         {% block extra_js %}
             {# Override this in templates to add extra javascript #}

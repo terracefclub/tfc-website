@@ -1,0 +1,137 @@
+{% load wagtailimages_tags tags_events tags_main %}
+
+{# Set the year and month from content or, if empty, the current day #}
+{% now "Y" as now_year %}
+{% now "m" as now_month %}
+{% firstof start__year now_year as cal_year %}
+{% firstof start__month now_month as cal_month_num %}
+
+{# Form to select the proper monthly calendar and filter events #}
+<form method="get" data-url="{% url 'events_filter' %}">
+  
+  {# Form inputs for calendar year and month #}
+  <input type="number" id="calendar-year" name="year" class="hidden" value="{{ cal_year }}">
+  <input type="number" id="calendar-month" name="month" class="hidden" value="{{ cal_month_num }}">
+
+  <div id="calendar-form">
+
+    {# Control for calendar year input (UP value DOWN) #}
+    <div class="control">
+      <div class="control-button up">
+        <button type="button" id="year-up" data-shift="1"><i class="fas fa-angle-up"></i></button>
+      </div>
+      <div class="control-value"><b>{{ cal_year }}</b></div>
+      <div class="control-button down">
+        <button type="button" id="year-down" data-shift="-1"><i class="fas fa-angle-down"></i></button>
+      </div>
+    </div>
+
+    {# Control for calendar type (not functional yet, just visual for title) #}
+    <div class="control">
+      <div class="control-value"><b>Social Calendar</b></div>
+      <div class="control-button down">
+        <button type="button" id="eventcal-cal-dropdown"><i class="fas fa-angle-down"></i></button>
+      </div>
+    </div>
+
+    {# Control for calendar month input (BACK value FORTH) #}
+    <div class="control">
+      <div class="control-button left">
+        <button type="button" id="month-down" data-shift="-1"><i class="fas fa-angle-left"></i></button>
+      </div>
+      <div class="control-value"><b>{{ cal_month_num|month }}</b></div>
+      <div class="control-button right">
+        <button type="button" id="month-up" data-shift="1"><i class="fas fa-angle-right"></i></button>
+      </div>
+    </div>
+  </div>
+</form>
+
+{# Displays the physical calendar widget #}
+<div id="calendar-grid">
+
+  {% comment "Multi Day Events" %}
+  Render the events that span multiple days.
+  First filter out the events with the same starting and ending day.
+  Next count the number of multi-day events that happen on each day.
+  Finally, display each event as a block that spans multiple calendar days.
+
+  TODO: fix display bugs
+  - blocks are not separated when split by weeks
+  - blocks overlap with events starting on different days
+  - blocks are not correctly ordered by time
+  {% endcomment %}
+  {% with events|multis as multi_day_events %}
+    {% with multi_day_events|days_counter as day_counts %}
+      {% for event in multi_day_events %}
+
+        {% comment "Multi Day Event Positioning" %}
+        multi-day event blocks are moved further down the screen depending on
+        the week of the month and how many other events come before it on the
+        same day.
+
+        the blocks are shifted horizontally only by the day's position in the
+        week. 
+
+        the total width of each block is calculated from the difference between
+        the ending and starting day of the event
+        {% endcomment %}
+        <div 
+          class="multi-day-event" 
+          style="
+            top: calc(20% * ({{ event.start|week_of_month }} - 1) + 0.4 * (100% - 4 * 0rem) / 5 + {{ day_counts|get:event.start.date }} * 1.5vmin); 
+            left: calc(100% / 7 * ({{ event.start.weekday }} - 1) + 2px); 
+            width: calc(100% / 7 * {{ event.end.day|subtract:event.start.day }} - 2 * 2px);"
+            data-value="{{ event.pk }}"
+        >
+          <p>({{ event.start.time }}&nbsp;-&nbsp;{{ event.end.time }})&nbsp;{{ event.name }}</p>
+        </div>
+      {% endfor %}
+    {% endwith %}
+  {% endwith %}  
+
+
+  {% comment "Single Day Events" %}
+  Render actual day blocks in the calendar with single-day events inside.
+  First get a 2D iterable of datetime objects representing the month calendar.
+  Next, for each day in the calendar, filter for the day's events.
+  Lastly render each event as a clickable block in a wrapping column flexbox
+  within the calendar day.
+
+  TODO: introduce color coding (currently cycled over in order to avoid having a
+  monotonic theme) to represent types of events within a particular calendar
+  {% endcomment %}
+  {% calendar cal_year cal_month_num as calendar %}
+  {% for date in calendar %}
+
+    {# Extract events for the day, and boolean for whether in actual month (or just fringe) #}
+    {% with day_events=events|with_date:date same_month=date.month|equals:cal_month_num %}
+    <div class="single-day">
+
+      {# Number for the day of the month in top left #}
+      <div class="single-day-number">{{ date.day }}</div>
+
+      {# Wrapping container for rendering event blocks #}
+      <div class="single-day-events-container">
+        {% for event in day_events %}
+        <div class="single-day-event" data-value="{{ event.pk }}">
+          <p>{{ event.start|date:"H" }}-{{ event.end|date:"H" }} : {{ event.name }}</p>
+        </div>
+        {% endfor %}
+      </div>
+
+      {# Render the first event of the day's main image (poster!) as thumbnail #}
+      {% if day_events %}
+      {% with event0=day_events|get:0 %}
+      {% image event0.image width-400 as event_image %}
+
+      {# Only render if exists and is in the actual month displayed (not fringe) #}
+      {% if event_image and same_month %}
+      <img src="{{ event_image.url }}" alt="image" />
+      {% endif %}
+      {% endwith %}
+      {% endif %}
+    </div>
+    {% endwith %}
+  {% endfor %}
+</div>

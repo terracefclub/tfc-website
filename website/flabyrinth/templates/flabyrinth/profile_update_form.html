@@ -1,0 +1,11 @@
+<form method="POST" action="{% url 'flabyrinth:profile_update' %}">
+  {% csrf_token %}
+  {% for field in form %}
+  {% if not field.is_hidden %}
+    {{ field.errors }}
+    {{ field.label_tag }}
+    {{ field }}
+  {% endif %}
+  {% endfor %}
+  <input type="submit" value="{% trans "Edit" %}">
+</form>

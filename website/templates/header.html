@@ -1,20 +1,26 @@
-{% load static %}
+{% load static wagtailcore_tags account avatar_tags %}
 
-<header class="w-full fixed flex flex-row justify-between items-center p-4 gap-8 border-b-4" style="background-color: #353535; border-color: #c4c4c4">
-  <i id="sidebar-trigger" class="material-icons" style="font-size: 80px; color: #c4c4c4">menu</i>
-  <a href="/"><img src="{% static 'svg/logo.svg' %}" alt="logo" /></a>
-  <div class="rounded-xl h-16 flex-grow border-white hover:border-green-300 border-4 flex flex-row" style="background-color: #c4c4c4">
-    <i class="material-icons" style="font-size: 64px; color: #353535">search</i>
-    <input type="text" class="flex-grow bg-transparent" />
+<header>
+  <button id="sidebar-trigger"><i class="fas fa-bars fa-5x"></i></button>
+  <a id="logo" href="/" style="background-image: url({% static 'svg/logo.svg' %})"></a>
+  <div class="search">
+    <i class="fas fa-search"></i>
+    <input type="text" id="search" />
   </div>
-  <div class="h-16 w-1/12 relative">
-    <a class="rounded-xl border-white border-4 h-full w-full text-xl text-white flex justify-center items-center" style="background-color: #B82815">
-    DONATE!
+  <div class="donate">
+    <a class="button" href="{% slugurl 'donate' %}">DONATE</a>
+    <img class="sparkle1" src="{% static 'svg/sparkle.svg' %}" alt="sparkle" />
+    <img class="sparkle2" src="{% static 'svg/sparkle.svg' %}" alt="sparkle" />
+  </div>
+  {% if request.user.is_authenticated %}
+  <div id="user-header">
+    <p>Hello {% user_display request.user %}!</p>
+    <a id="avatar" href="{% url 'flabyrinth:profile' %}">
+      {% avatar request.user 64 %}
     </a>
-    <img class="absolute top-0.5 left-2" src="{% static 'svg/sparkle.svg' %}" alt="sparkle" />
-    <img class="absolute top-8 left-20" src="{% static 'svg/sparkle.svg' %}" alt="sparkle" />
+    <a class="sign-up" href="{% url 'account_logout' %}">LOGOUT</a>
   </div>
-  <a class="rounded-xl border-white border-4 h-16 w-1/12 text-xl text-white flex justify-center items-center" style="background-color: #13853A">
-    SIGN UP
-  </a>
+  {% else %}
+  <a class="sign-up" href="{% url 'account_login' %}">LOGIN</a>
+  {% endif %}
 </header>

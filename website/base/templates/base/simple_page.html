@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% load wagtailcore_tags tags_main %}
+
+{% block body_class %}template-simplepage{% endblock body_class %}
+
+{% block content %}
+<div class="title-wrapper">
+  {% with self.first_published_at|date:"N jS, Y" as date %}
+  {% include 'base/rhombus_title.html' with title=self.title subtitle="Terrace F. Club | "|addstr:date %}
+  {% endwith %}
+  
+  <div class="title-wrapper__content">
+    {% for block in self.body %}
+      {% if block.block_type == 'html' %}
+      {{ block.value|safe }}
+      {% elif block.block_type == 'text' %}
+      <div>{{ block.value }}</div>
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endblock content %}

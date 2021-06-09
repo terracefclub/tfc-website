@@ -1,11 +1,42 @@
-import factory 
-from wagtail_factories import PageFactory
-from ..models import HomePage
-
 from wagtail.core.models import Page
+from wagtail.tests.utils.form_data import nested_form_data, streamfield
+from website.tests.test_pages import WagtailTestsBase
 
-class HomePageFactory(PageFactory):
-  class Meta:
-    model = HomePage
-  
-  title = factory.Sequence(lambda x: f'Home Page {x}')
+from ..models import FormPage, HomePage, SimplePage, get_all_page_types
+from .factories import FormPageFactory, HomePageFactory
+
+
+""" TODO: Converter for handling `nested_form_data` to wagtail_factories """
+
+class BaseWagtailUnits(WagtailTestsBase):
+
+  def test_home_page_hierarchy(self):
+    self.assertAllowedParentPageTypes(
+      child_model=HomePage, parent_models=[Page, None]
+    )
+    self.assertNotAllowedSubpageTypes(
+      parent_model=HomePage,
+      child_models=[HomePage, 'blog.blogpage', 'menus.weeklymenupage']
+    )
+
+  def test_simple_page_hierarchy(self):
+    self.assertNotAllowedSubpageTypes(
+      SimplePage,
+      child_models=get_all_page_types()
+    )
+
+class BaseDjangoUnits(WagtailTestsBase):
+  def test_form_page_queryset(self):
+    private_pages = FormPageFactory.build_batch(5, is_private=True)
+    public_pages = FormPageFactory.build_batch(5) # is_private=False
+
+    private_pages_query = FormPage.objects.private()
+    public_pages_query = FormPage.objects.public()
+
+    self.assertEquals(private_pages, private_pages_query)
+    self.assertEquals(public_pages, public_pages_query)
+
+    for page in private_pages_query: 
+      self.assertTrue(page.is_private)
+    for page in public_pages_query: 
+      self.assertTrue(page.is_private)

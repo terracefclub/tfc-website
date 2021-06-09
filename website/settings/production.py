@@ -2,24 +2,6 @@ from .base import *
 
 DEBUG = False
 SECURE_SSL_REDIRECT = True
-WAGTAIL_SEARCH_BACKENDS['default']['HOSTS'][0]['use_ssl'] = True
-WAGTAIL_SEARCH_BACKENDS['default']['HOSTS'][0]['verify_certs'] = True
-
-LOGGING = {
-  'version': 1,
-  'disable_existing_loggers': False,
-  'handlers': {
-    'console': {
-      'class': 'logging.StreamHandler',
-    },
-  },
-  'loggers': {
-    'django': {
-      'handlers': ['console'],
-      'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
-    },
-  },
-}
 
 CACHES = {
   'default': {
@@ -31,7 +13,8 @@ CACHES = {
       'CLIENT_CLASS': 'django_redis.client.DefaultClient', 
       'PARSER_CLASS': 'redis.connection.HiredisParser',
 
-      # emulates defualt MemCached behavior to ignore exceptions when cache is down (logging added below!)
+      # emulates defualt MemCached behavior to ignore exceptions when cache 
+      # is down (logging added below!)
       'IGNORE_EXCEPTIONS': True,
 
       # for flexible pickling - does not work on templates!
@@ -46,6 +29,38 @@ CACHE_MIDDLEWARE_SECONDS = 60 * 10 # DEFAULT (10 minutes!)
 CACHE_MIDDLEWARE_KEY_PREFIX = ''   # DEFAULT (only one site using cache)
 
 # session caching!
-SESSION_ENGINE = "django.contrib.sessions.backends.cache"
-SESSION_CACHE_ALIAS = "default"
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_CACHE_ALIAS = 'default'
 DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS = True
+
+LOGGING['loggers'].update({
+  'django': {
+    'handlers': ['file'],
+    'level': 'ERROR',
+    'propagate': True
+  }
+})
+
+# SEARCH SUPPORT
+# from elasticsearch import RequestsHttpConnection
+
+"""
+ELASTICSEARCH_ENDPOINT = 'elasticsearch'
+WAGTAILSEARCH_BACKENDS = {
+  'default': {
+    'BACKEND': 'wagtail.search.backends.elasticsearch7',
+    'HOSTS': [{
+      'host': ELASTICSEARCH_ENDPOINT,
+      'port': int(os.environ.get('ELASTICSEARCH_PORT', '9200')),
+    }],
+    'OPTIONS': {
+      'connection_class': RequestsHttpConnection
+    },
+    'URLS': ['http://<username>:<password>@localhost:9200'],
+    'INDEX': 'wagtail',
+    'TIMEOUT': 5,
+    'OPTIONS': {},
+    'INDEX_SETTINGS': {},
+  }
+}
+"""

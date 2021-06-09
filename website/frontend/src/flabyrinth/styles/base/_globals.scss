@@ -1,0 +1,28 @@
+body {
+  @apply w-full h-full p-0 m-0;
+  @apply bg-gray-700;
+
+  font-family: 'Roboto', sans-serif;
+}
+
+main {
+  @apply ml-52 h-full;
+
+  min-width: 560px;
+}
+
+ul[id$="tags__tagautosuggest"] {
+  @apply border-none;
+
+  & > li:first-child {
+    @apply float-left;
+  }
+
+  & > li:last-child {
+    @apply float-none overflow-auto;
+
+    input {
+      @apply w-full;
+    }
+  }
+}

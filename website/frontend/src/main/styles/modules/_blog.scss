@@ -1,0 +1,68 @@
+@use '../abstracts/colors';
+
+.card {
+  @apply h-[550px] w-[480px];
+  @apply border-2 border-black;
+
+  filter: drop-shadow(10px 10px 4px black);
+
+  &-image {
+    @apply w-full h-[65%];
+    @apply bg-cover;
+
+    p {
+      @apply text-white;
+    }
+  }
+
+  &-info {
+    @apply flex flex-col items-stretch justify-around;
+    @apply w-full h-[35%] p-3;
+
+    background-color: colors.$gray;
+
+    &-header {
+      @apply flex items-center justify-between;
+      @apply mb-2;
+
+      &-title {
+        @apply text-base;
+      }
+
+      &-date {
+        @apply text-sm;
+      }
+    }
+
+    &-intro {
+      @apply text-left;
+    }
+
+    &-line {
+      @apply text-black;
+      @apply mt-auto mb-2;
+      @apply bg-black;
+    }
+
+    &-footer {
+      @apply flex items-center justify-start gap-7;
+      @apply px-2;
+
+      div {
+        @apply flex items-center gap-2;
+
+        &:last-child {
+          @apply ml-auto;
+          @apply cursor-pointer;
+        }
+      }
+    }
+  }
+}
+
+.blog-badge {
+  @apply cursor-pointer;
+  @apply whitespace-nowrap;
+  @apply p-1;
+  @apply text-white rounded-lg;
+}

@@ -1,0 +1,36 @@
+@mixin flex-center {
+  @apply flex items-center justify-center;
+}
+
+@mixin no-scrollbar() {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    @apply hidden;
+  }
+}
+
+@mixin dark-scrollbar() {
+  scrollbar-color: #888 #f1f1f1;
+  scrollbar-width: 10px;
+
+  &:hover {
+    scrollbar-color: #555 #f1f1f1;
+  }
+
+  &::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #888;
+
+    &:hover {
+      background: #555;
+    }
+  }
+}

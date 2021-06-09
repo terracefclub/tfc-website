@@ -1,0 +1,18 @@
+{% extends 'flabyrinth/base.html' %}
+
+{% block head %}
+{{ form.media }}
+{% endblock head %}
+
+{% block content %}
+<form id="bio-form" action="{% url 'flabyrinth:post_update' pk=post.pk %}" method="POST">
+  <div>
+    <p>Update</p>
+    <div>
+      <input id="bio-edit-submit" type="submit" value="SUBMIT">
+    </div>
+  </div>
+  {% csrf_token %}
+  {{ form }}
+</form>
+{% endblock content %}

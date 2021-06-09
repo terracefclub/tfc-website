@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% load static wagtailcore_tags tags_menus tags_main wagtailimages_tags %}
+
+{% block body_class %}template-weeklymenupage menus{% endblock %}
+
+{% block content %}
+<div id="menus-container">
+  <div class="title-wrapper flex flex-col items-center gap-5 w-2/3 p-5 justify-start">
+    {% include 'base/rhombus_title.html' with title="MENUS" %}
+    <div id="menu-grid">
+      {% for menu in page.specific.get_menus %}
+      <div class="menu">
+        <div class="menu-metadata">
+          <div class="menu-weekday"><p>{{ menu.date|dayofweek_symbol }}</p></div>
+          {% if menu.theme %}<div class="menu-theme"><p>{{ menu.theme }}</p></div>{% endif %}
+          <div class="menu-date"><p>{{ menu.date|date:"SHORT_DATE_FORMAT"}}</p></div>
+        </div>
+        <div class="menu-list">
+          {% regroup menu.food_items.all|dictsort:"food_item.course.order" by food_item.course.name as menu_grouped %}
+          {% for group in menu_grouped %}
+          <div class="menu-group">
+            <div class="menu-group-name flex-grow-0 flex-shrink-0"><b>{{ group.grouper }}</b></div>
+            <div class="flex-grow flex-shrink">
+              {% for item in group.list %}
+              {% spaceless %}
+              <p>
+                {% with item.food_item.tags.all|values:'name' as tags %}
+                  {% if "Vegan" in tags %}
+                  <span class="menu-badge bg-gray-200">V</span>&nbsp;
+                  {% elif "Vegetarian" in tags %}
+                  <span class="menu-badge bg-green-200">Veg</span>&nbsp;
+                  {% endif %}
+                  {% if "Gluten-Free" in tags %}
+                  <span class="menu-badge bg-yellow-200">GF</span>&nbsp;
+                  {% endif %}
+                  {% if "Dairy" in tags %}
+                  <span class="menu-badge bg-white">D</span>&nbsp;
+                  {% endif %}
+                  {% if "Nuts" in tags %}
+                  <span class="menu-badge bg-yellow-700 text-white">N</span>&nbsp;
+                  {% endif %}
+                {% endwith %}
+                {{ item.food_item.name }}
+              </p>
+              {% endspaceless %}
+              {% endfor %}
+            </div>
+          </div>
+          {% empty %}
+          <div class="flex items-center justify-center">
+            <p class="text-3xl text-center">No Meals! Kitchen on Break</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+      <div id="other-menus">
+        <div>
+          <button id="menus-forward"><i class="fas fa-chevron-circle-left text-white"></i></button>
+        </div>
+        <div id="other-menus-box" class="no-scrollbar container">
+          {% include 'menus/other_menus.html' with menu_pages=page.specific.other_menupages %}
+        </div>
+        <div>
+          <button id="menus-backward"><i class="fas fa-chevron-circle-right text-white"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="side-column">
+    <div class="title-wrapper flex-grow-0 flex-shrink-0">
+      {% include 'base/rhombus_title.html' with title="FINE BEER" %}
+      <div id="fine-beer-container">
+        <img id="fine-beer-taps" src="{% static 'svg/beer_taps.svg' %}" alt="beer taps" />
+        <div id="fine-beer-logos">
+          {% for item in page.specific.beer_items.all %}
+            <img src="{{ item.beer_item.brewery.logo_url }}" alt="{{ item.beer_item.brewery.name }} logo" />
+          {% empty %}
+          <div class="text-5xl w-full h-24 text-center font-bold flex justify-center items-center border-t-4 border-white" style="background-color: #FFC127;"><p>MUCH BEAST</p></div>
+          {% endfor %}
+        </div>
+        <div id="fine-beer-descriptions">
+          {% for item in page.specific.beer_items.all %}
+            <div class="container">
+              <img src="{% static 'img/beer_'|add:item.form|add:'.png' %}" alt="beer form icon" />
+              <div>
+                <p><b>{{ item.beer_item.name }}&nbsp;({{ item.beer_item.abv }}&percnt;)</b></p>
+                <p>{{ item.beer_item.style }}</p>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <div class="title-wrapper flex flex-col items-center gap-5 flex-grow flex-shrink justify-end">
+      {% include 'base/rhombus_title.html' with title="IMAGE GALLERY" %}
+      <div class="gallery dark-scrollbar w-full">
+        {% for image_info in page.specific.get_food_gallery %}
+          <div class="image">
+            {% if image_info.image %}
+              {% image image_info.image width-400 %}
+              <div class="image-info">
+                <p class="name"><b>{{ image_info|values:'name' }}</b></p>
+                <p>{{ image_info|values:'weekdays'|join:', ' }}</p>
+              </div>
+            {% endif %}
+          </div>
+        {% empty %}
+          <div class="w-full h-64 bg-gray-600 text-white text-center text-5xl flex justify-center items-center">
+            <p>No Images Available</p>
+          </div>
+        {% endfor %}
+      </div>  
+    </div>
+  </div>
+</div>
+
+{% endblock %}

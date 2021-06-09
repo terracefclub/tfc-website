@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% load static wagtailcore_tags wagtailimages_tags tags_main %}
+
+{% block body_class %}template-blogindexpage blog{% endblock %}
+
+{% block content %}
+<div class="flex justify-around items-start gap-24 pt-5">
+  <div id="main-column">
+    <div id="blog-filter-container">
+      <div class="blog-filter">
+        <div style="height: 3vmin"></div>
+        <div class="blog-sorter">
+          <p>All</p>
+        </div>
+      </div>
+      {% with 'Likes Comments Views Date' as list %}
+      {% for value in list.split %}
+      <div class="blog-filter">
+        <div style="height: 3vmin"></div>
+        <div class="blog-sorter" data-sort="unordered">
+          <p>{{ value }}</p>
+          <i class="fas fa-caret-up invisible"></i>
+        </div>
+        <div class="rank-container">
+          {% for i in 4|range %}
+          <div class="sorter-ranker"></div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+      {% endwith %}
+      <div class="blog-filter search">
+        <div>
+          <i class="fas fa-search"></i>
+          <div id="blog-search-spans"></div>
+          <input id="blog-search" type="text" />
+        </div>
+      </div>
+      <div id="blog-paginator">
+        {% comment "" %}
+        <a href="?page=1" class="page-button"><p><i class="fas fa-angle-double-left"></i></p></a>
+        <a {% if results.has_previous %}href="?page={{ results.previous_page_number }}"{% endif %} class="page-button {% if not results.has_previous %}disabled{% endif %}">
+          <p><i class="fas fa-angle-left"></i></p>
+        </a>
+        <a class="page-button selected" href="?page={{ results.number }}">
+          <p>{{ results.number }}<sup><sup class="text-xs">&nbsp;/&nbsp;{{ results.paginator.num_pages }}</sup></sup></p>
+        </a>
+        <a {% if results.has_next %}href="?page={{ results.next_page_number }}"{% endif %} class="page-button {% if not results.has_next %}disabled{% endif %}">
+          <p><i class="fas fa-angle-right"></i></p>
+        </a>
+        <a {% if results.has_next %}href="?page={{ results.paginator.num_pages }}"{% endif %} class="page-button {% if not results.has_next %}disabled{% endif %}"><p><i class="fas fa-angle-double-right"></i></p></a>
+        {% endcomment %}
+        <a class="page-button disabled"><p><i class="fas fa-angle-double-left"></i></p></a>
+        <a class="page-button disabled"><p><i class="fas fa-angle-left"></i></p></a>
+        <a class="page-button selected">
+          <p><span id="page-num">1</span><sup><sup class="text-xs">&nbsp;/&nbsp;<span id="page-count">{{ blogpages|length|page_count }}</span></sup></sup></p>
+        </a>
+        <a class="page-button {% if blogpages|length <= 8 %}disabled{% endif %}"><p><i class="fas fa-angle-right"></i></p></a>
+        <a class="page-button {% if blogpages|length <= 8 %}disabled{% endif %}"><p><i class="fas fa-angle-double-right"></i></p></a>
+      </div>
+    </div>
+
+    <div id="blog-list-container">
+      {% for post in blogpages %}
+      <div class="card {% if forloop.counter > 8 %}hidden{% endif %}">
+        {% image post.specific.main_image width-400 as post_image %}
+        {% cycle 'tfc_1.jpg' 'background.jpg' 'tv_pollack.jpg' 'tv_spirits.png' as img_default silent %}
+        <div class="card-image" style="background-image: url({% if post_image %}{{ post_image.url }}{% else %}{% static 'img/'|add:img_default %}{% endif %})">
+          <div class="flex justify-between w-full p-2">
+            <p class="post-number p-4 text-7xl opacity-50">{{ forloop.counter }}</p>
+            <div class="copied-alert invisible bg-gray-700 text-white text-lg p-2 w-auto border-2 border-white"><p></p></div>
+          </div>
+        </div>
+        <div class="card-info">
+          <div class="card-info-header">
+            <p class="card-info-header-title"><a href="{% pageurl post %}" target="_blank" ><b>{{ post.title }}</b></a></p>
+            <p class="card-info-header-date"><b>{{ post.first_published_at|date:"m/d/Y" }}</b></p>
+          </div>
+          <p class="card-info-intro">
+          {{ post.specific.intro|truncatechars:"200" }}
+          {% for tag in post.specific.tags.all %}
+          <span class="blog-badge
+            {% cycle 'bg-green-700' 'bg-red-700' 'bg-blue-700' %}">
+            {{ tag.name }}
+          </span>&nbsp;
+          {% endfor %}</p>
+
+          <hr class="card-info-line"/>
+          <div class="card-info-footer">
+            <div><i class="far fa-heart"></i><p data-val="{% random 100 as random %}{{ random }}"><b>{% comment %}
+              {{ post.specific.likes|default:"0" }}
+            {% endcomment %}{{ random|trim_digits }}</b></p></div>
+            <div><i class="far fa-comment-alt"></i><p data-val="{% random 25 as random %}{{ random }}"><b>{% comment %}
+              {{ post.specific.comments|default:"0" }}
+            {% endcomment %}{{ random|trim_digits }}</b></p></div>
+            <div><i class="far fa-eye"></i><p data-val="{% random 5000 as random %}{{ random }}"><b>{% comment %}
+              {{ post.specific.views|default:"0" }}
+            {% endcomment %}{{ random|trim_digits }}</b></p></div>
+
+            {# TODO: Add clipboard option and alert when clicked #}
+            <div data-url="{{ post.get_full_url }}"><i class="fas fa-share-alt"></i></div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+
+      {# TODO: Implement pagination buttons for traversing through the different options #}
+    </div>
+  </div>
+
+
+  <div class="title-wrapper">
+    {% include 'base/rhombus_title.html' with title="Pinned Posts" %}
+    <div id="blog-pinned-posts-container">
+      {% for post in page.specific.pinned_posts %}
+      <a href="{% pageurl post.value %}"><p>{{ post.value.title }}</p></a>
+      {% if not forloop.last %}
+      <hr>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

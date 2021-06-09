@@ -1,0 +1,85 @@
+{% extends "flabyrinth/base.html" %}
+{% load account avatar_tags %}
+
+{% block content %}
+<div id="profile-main">
+  <div id="profile-summary">
+    <div id="profile-summary-avatar" class="group">
+      {% avatar request.user 250 %}
+      <div id="profile-summary-avatar-edit">
+        <button><i class="fas fa-pencil-alt"></i></button>
+        <button><i class="fas fa-plus"></i></button>
+        <button><i class="fas fa-minus"></i></button>
+      </div>
+    </div>
+    <div id="profile-summary-details">
+      <div>
+        <p>First Name</p>
+        <p>{{ request.user.first_name }}</p>
+        <button><i class="fas fa-pencil-alt"></i></button>
+      </div>
+      <hr>
+      <div>
+        <p>Last Name</p>
+        <p>{{ request.user.last_name }}</p>
+        <button><i class="fas fa-pencil-alt"></i></button>
+      </div>
+      <hr>
+      <div>
+        <p>Email</p>
+        <p>{{ request.user.email }}</p>
+        <button><i class="fas fa-pencil-alt"></i></button>
+      </div>
+      <hr>
+      <div>
+        <p>Password</p>
+        <p>********************</p>
+        <a href="{% url 'account_change_password' %}"><i class="fas fa-pencil-alt"></i></a>
+      </div>
+      <hr>
+      <div>
+        <p>Phone</p>
+        <p>{{ request.user.profile.phone }}</p>
+        <button><i class="fas fa-pencil-alt"></i></button>
+      </div>
+      <hr>
+      <div>
+        <p>Address</p>
+        {% with request.user.profile.address as address %}
+        <p>{{ address }}</p>
+        {% endwith %}
+        <button><i class="fas fa-pencil-alt"></i></button>
+      </div>
+      <hr>
+      <div>
+        <p>Graduation Year</p>
+        <p>{{ request.user.profile.graduation_year }}</p>
+        <button><i class="fas fa-pencil-alt"></i></button>
+      </div>
+      <hr>
+      <div>
+        <p>Tags</p>
+        <div class="tags">
+          {% for tag in request.user.profile.tags.all %}
+          <span class="tag">{{ tag }}</span>&nbsp;
+          {% endfor %}
+        </div>
+        <button><i class="fas fa-pencil-alt"></i></button>
+      </div>
+    </div>
+  </div>
+  <div id="profile-bio">
+    <div>
+      <p>BIO</p>
+      <button id="bio-edit"><i class="fas fa-pencil-alt"></i></button>
+    </div>
+    {{ request.user.profile.bio|safe }}
+  </div>
+  <div id="form-modal">
+    <div id="form-modal-content">
+      <div id="form-modal-content-form"></div>
+      <span id="form-modal-close">&times;</span>
+    </div>
+  </div>
+</div>
+{% endblock content %}

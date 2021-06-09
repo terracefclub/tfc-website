@@ -1,0 +1,37 @@
+.post-card {
+  @apply relative;
+  @apply w-[500px] h-[500px];
+  @apply border-4 border-black rounded-xl;
+  @apply bg-green-200;
+  @apply overflow-hidden;
+
+  &-meta {
+    @apply flex justify-around items-center;
+    @apply bg-gray-500 bg-opacity-75;
+    @apply p-2;
+
+    p {
+      @apply font-bold text-2xl;
+      @apply align-middle;
+    }
+
+    a {
+      @apply hover:text-blue-400;
+    }
+  }
+
+  &-content {
+    @apply w-full p-2;
+    @apply group-hover:opacity-50;
+  }
+
+  &-footer {
+    @apply absolute;
+    @apply p-2 w-[500px];
+    @apply rounded-b-xl;
+    @apply bg-gray-500 bg-opacity-75;
+    @apply flex items-center justify-center;
+    @apply text-white text-lg;
+    @apply transform top-full -translate-y-full;
+  }
+}

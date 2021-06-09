@@ -1,0 +1,13 @@
+@use '../abstracts/colors';
+
+span.arrow-r {
+  border-left-color: colors.$gray !important;
+}
+
+span.arrow-d {
+  border-top-color: colors.$gray !important;
+}
+
+.block-page_link {
+  margin-left: 3.5rem !important;
+}

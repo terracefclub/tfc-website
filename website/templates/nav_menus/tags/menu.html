@@ -1,20 +1,20 @@
 {% load static tags_main %}
-<div id="sidebar" class="h-screen fixed flex flex-col invisible bg-opacity-50" style="width: 480px; background-color: #353535">
-  <div class="flex flex-row justify-start w-full gap-x-4 px-4 py-2">
-    <a href="https://twitter.com/terracefclub">
+<div id="sidebar">
+  <div class="header">
+    <a href="https://twitter.com/terracefclub" target="_blank">
       <img src="{% static 'svg/twitter.svg' %}" alt="twitter" />
     </a>
-    <a href="https://www.instagram.com/terracefclub/">
+    <a href="https://www.instagram.com/terracefclub/" target="_blank">
       <img src="{% static 'svg/instagram.svg' %}" alt="instagram" />
     </a>
-    <a href="https://www.facebook.com/terracefclub/">
+    <a href="https://www.facebook.com/terracefclub/" target="_blank">
       <img src="{% static 'svg/facebook.svg' %}" alt="facebook" />
     </a>
-    <button class="ml-auto" id="sidebar-x">
+    <button id="sidebar-x">
       <img src="{% static 'svg/x.svg' %}" alt="close" />
     </button>
   </div>
-  <div class="hover:overflow-y-scroll overflow-hidden flex flex-col">
+  <div class="container">
     {% for item in menu_items %}
       {{ item }}
     {% endfor %}

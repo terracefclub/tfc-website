@@ -1,0 +1,57 @@
+aside#sidebar {
+  @apply fixed;
+  @apply w-52 h-full m-0 p-0 overflow-auto;
+  @apply bg-green-700;
+  @apply text-white;
+
+  & > * {
+    @apply block;
+  }
+
+  div#avatar {
+    @apply p-10 pb-0;
+    @apply flex flex-col items-center justify-center gap-1;
+
+    #name {
+      @apply overflow-hidden;
+      @apply font-bold text-xl whitespace-nowrap;
+    }
+
+    #username {
+      @apply overflow-hidden;
+      @apply text-lg whitespace-nowrap;
+    }
+  }
+
+  form#search {
+    @apply p-4;
+
+    & > div {
+      @apply h-10;
+      @apply flex items-stretch justify-center;
+      @apply border-2 border-white;
+
+      input {
+        @apply flex-shrink h-full min-w-0 pl-2;
+        @apply bg-transparent;
+        @apply outline-none;
+      }
+
+      button {
+        @apply flex-shrink-0 h-full w-9;
+        @apply hover:bg-gray-400 bg-opacity-75;
+      }
+    }
+  }
+
+  nav#main-nav a {
+    @apply block;
+    @apply w-full p-4;
+    @apply hover:bg-purple-600;
+
+    &.active {
+      @apply border-l-4 border-pink-600;
+      @apply bg-gray-600;
+    }
+  }
+}
