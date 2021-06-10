@@ -108,6 +108,7 @@ USE_TZ = True
 
 
 ### DEFAULT LOGGERS ###
+
 LOGGING = {
   'version': 1,
   'disable_existing_loggers': False,
@@ -139,13 +140,13 @@ LOGGING = {
       'filters': ['require_debug_true'],
       'formatter': 'simple'
     },
-    'file': {
-      'level': 'ERROR',
-      'class': 'logging.FileHandler',
-      'filters': ['require_debug_false'],
-      'formatter': 'verbose',
-      'filename': os.path.join(BASE_DIR, 'logs/error.log')
-    },
+    # 'file': {
+    #   'level': 'ERROR',
+    #   'class': 'logging.FileHandler',
+    #   'filters': ['require_debug_false'],
+    #   'formatter': 'verbose',
+    #   'filename': os.path.join(BASE_DIR, 'logs/error.log')
+    # },
     'mail_admins': {
       'level': 'ERROR',
       'class': 'django.utils.log.AdminEmailHandler',
@@ -164,10 +165,10 @@ LOGGING = {
       'level': 'DEBUG',
       'propagate': True
     },
-    'django.db.backends': {
-      'handlers': ['file'],
-      'level': 'ERROR',
-      'propagate': True
-    },
+    # 'django.db.backends': {
+    #   'handlers': ['file'],
+    #   'level': 'ERROR',
+    #   'propagate': True
+    # },
   }
 }
