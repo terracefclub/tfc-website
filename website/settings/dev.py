@@ -18,6 +18,7 @@ MIDDLEWARE +=  [
   'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
+
 DATABASES = {
   'default': {
     'ENGINE': 'django.db.backends.postgresql',
@@ -28,6 +29,7 @@ DATABASES = {
     'PASSWORD': 'password',
   }
 }
+
 
 CACHES = {
   'default': {

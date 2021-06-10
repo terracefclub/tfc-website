@@ -16,6 +16,8 @@ django-redis
 django-taggit
 django-taggit-autosuggest
 django-tinymce
+django-toolbelt
+dj_database_url
 docutils
 elasticsearch>=7.0.0,<8.0.0
 factory_boy

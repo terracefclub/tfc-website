@@ -1,4 +1,5 @@
 from .base import *
+import dj_database_url
 
 DEBUG = False
 SECURE_SSL_REDIRECT = True
@@ -22,6 +23,11 @@ CACHES = {
     }
   }
 }
+
+DATABASES['default'] = dj_database_url.config()
+
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Site Caching!
 CACHE_MIDDLEWARE_ALIAS = 'default' # DEFAULT
