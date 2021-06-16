@@ -4,11 +4,7 @@ setup:
       as: DATABASE
     - plan: 'heroku-redis:hobby-dev'
       as: REDIS
-  config:
-    MAPBOX_ACCESS_TOKEN: >-
-      REMOVED_PUBLIC_MAPBOX_TOKEN
-    SECRET_KEY: qstudgtp#7j&3z)191q$yn(qprp0h(6_da^4#habf_*ns6)tc!
-    TINYCLOUD_API_KEY: wlgyq3sb3foypuw0wlan3rjbgbk6n6mmpqk9dovklh62wcjn
+  config: {}
 build:
   packages:
     - gdal-bin
