@@ -13,8 +13,17 @@
 
 	// Set *default* container specific settings.json values on container create.
 	"settings": { 
-    "git.path": ["/usr/bin/git", "/mnt/c/Program Files/Git/cmd/git.exe", "/mnt/c/Program Files/Git/bin/git.exe"],
-		"terminal.integrated.shell.linux": null
+    "git.path": [
+      "/usr/bin/git", 
+      "/mnt/c/Program Files/Git/cmd/git.exe", 
+      "/mnt/c/Program Files/Git/bin/git.exe"
+    ],
+		"terminal.integrated.profiles.linux": {
+      "zsh (login)": {
+        "path": "zsh",
+        "args": ["-l"]
+      }
+    }
 	},
 
 	// Add the IDs of extensions you want installed when the container is created.
