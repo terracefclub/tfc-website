@@ -1,9 +1,0 @@
-image: hashicorp/terraform:light
-
-deploy:
-  stage: deploy
-  script:
-  - login <<< $'yes\n$TF_TOKEN'
-  - init
-  - plan
-  - apply <<< $'yes'

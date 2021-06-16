@@ -3,6 +3,9 @@ set -xe
 
 python manage.py migrate --noinput
 
+coverage run --source='.' manage.py test website
+coverage report
+
 # WARNING:
 #   Migrating database at the same time as starting the server IS NOT THE BEST
 #   PRACTICE. The database should be migrated manually or using the release

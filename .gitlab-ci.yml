@@ -5,7 +5,8 @@ variables:
 
 image:
   name: docker/compose:latest
-  # entrypoint: ["/bin/sh", "-c"]
+
+# image: hashicorp/terraform:light # for production?
 
 stages:
 - build
@@ -28,3 +29,11 @@ test:
   - docker login -u $CI_READ_USER -p $CI_READ_TOKEN $CI_REGISTRY
   - docker-compose pull $IMAGE_TAG
   - docker-compose up $IMAGE_TAG
+
+deploy:
+  stage: deploy
+  script:
+  - login <<< $'yes\n$TF_TOKEN'
+  - init
+  - plan
+  - apply <<< $'yes'
