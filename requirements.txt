@@ -27,6 +27,7 @@ fontawesome-free
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
+gunicorn==20.0.4
 hiredis
 Pillow
 psycopg2
