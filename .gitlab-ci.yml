@@ -1,5 +1,5 @@
 image:
-  name: docker/compose:latest
+  name: docker:stable
   entrypoint: ["/bin/sh", "-c"]
 
 services:
@@ -8,9 +8,9 @@ services:
     command: ["dockerd-entrypoint.sh"]
 
 variables:
-  DOCKER_HOST: tcp://docker:2375/
+  DOCKER_HOST: tcp://docker:2375
   DOCKER_DRIVER: overlay2
-  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_TLS_CERTDIR: ""
   IMAGE_TAG: $CI_REGISTRY/terrace/tech/tfc-website/app
 
 workflow:
