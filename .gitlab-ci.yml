@@ -24,7 +24,7 @@ workflow:
         PROD_ENV: "stable"
 
 before_script:
-- echo "$CI_WRITE_TOKEN" | docker login -u "$CI_WRITE_USER" --password-stdin $CI_REGISTRY
+- echo "$CI_WRITE_TOKEN" | docker login --username "$CI_WRITE_USER" --password-stdin $CI_REGISTRY
 
 stages:
 - build
