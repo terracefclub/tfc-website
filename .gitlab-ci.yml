@@ -1,16 +1,26 @@
 variables:
   DOCKER_HOST: tcp://docker:2375/
   DOCKER_DRIVER: overlay2
-  IMAGE_TAG: $CI_REGISTRY/terrace/tech/tfc-website/app-ci-image
+  IMAGE_TAG: $CI_REGISTRY/terrace/tech/tfc-website/app
+
+workflow:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+      when: always
+      variables:
+        PROD_ENV: "unstable"
+    - if: '$CI_COMMIT_BRANCH == "prod"'
+      when: always
+      variables:
+        PROD_ENV: "stable"
 
 image:
   name: docker/compose:latest
 
-# image: hashicorp/terraform:light # for production?
-
 stages:
 - build
 - test
+- deploy
 
 before_script:
 - docker version 
@@ -20,17 +30,21 @@ build:
   stage: build
   script:
   - docker login -u $CI_WRITE_USER -p $CI_WRITE_TOKEN $CI_REGISTRY
-  - docker-compose build -f docker/docker-compose.yaml -t $IMAGE_TAG
+  - docker-compose build --build-arg mode="prod" -t $IMAGE_TAG .
   - docker-compose push $IMAGE_TAG
 
 test:
+  image: 
   stage: test
   script: 
   - docker login -u $CI_READ_USER -p $CI_READ_TOKEN $CI_REGISTRY
   - docker-compose pull $IMAGE_TAG
-  - docker-compose up $IMAGE_TAG
+  - docker-compose up $IMAGE_TAG -d
+  - sleep 20
+  - docker-compose exec app ./scripts/test.sh
 
 deploy:
+  image: hashicorp/terraform:light
   stage: deploy
   script:
   - login <<< $'yes\n$TF_TOKEN'
