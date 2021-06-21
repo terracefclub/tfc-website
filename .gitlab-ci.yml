@@ -1,6 +1,15 @@
+image:
+  name: docker/compose:latest
+  entrypoint: ["/bin/sh", "-c"]
+
+services:
+  - name: docker:dind
+    entrypoint: ["env", "-u", "DOCKER_HOST"]
+
 variables:
   DOCKER_HOST: tcp://docker:2378/
   DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
   IMAGE_TAG: $CI_REGISTRY/terrace/tech/tfc-website/app
 
 workflow:
@@ -14,34 +23,34 @@ workflow:
       variables:
         PROD_ENV: "stable"
 
-image:
-  name: docker/compose:latest
+before_script:
+- docker login -u $CI_WRITE_USER -p $CI_WRITE_TOKEN $CI_REGISTRY
 
 stages:
 - build
 - test
 - deploy
 
-before_script:
-- docker version 
-- docker-compose version
-
 build:
   stage: build
   script:
-  - docker login -u $CI_WRITE_USER -p $CI_WRITE_TOKEN $CI_REGISTRY
   - docker-compose build --build-arg mode="prod" -t $IMAGE_TAG .
   - docker-compose push $IMAGE_TAG
 
 test:
-  image: 
   stage: test
   script: 
-  - docker login -u $CI_READ_USER -p $CI_READ_TOKEN $CI_REGISTRY
   - docker-compose pull $IMAGE_TAG
   - docker-compose up $IMAGE_TAG -d
   - sleep 20
   - docker-compose exec app ./scripts/test.sh
+
+migrations:
+  stage: test
+  script:
+    - docker-compose pull $IMAGE_TAG
+    - docker-compose up $IMAGE_TAG -d
+    - docker-compose run -T app python manage.py makemigrations
 
 deploy:
   image: hashicorp/terraform:light
