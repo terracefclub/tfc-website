@@ -11,7 +11,12 @@ variables:
   DOCKER_HOST: tcp://docker:2375
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: ""
+  PIP_CACHE_DIR: $CI_PROJECT_DIR/.cache/pip
   IMAGE_TAG: $CI_REGISTRY/terrace/tech/tfc-website/app
+
+cache:
+  paths:
+    - .cache/pip
 
 workflow:
   rules:
@@ -43,8 +48,9 @@ stages:
 build:
   stage: build
   script:
-  - docker-compose build --build-arg mode="prod" -t $IMAGE_TAG .
-  - docker-compose push $IMAGE_TAG
+  - docker-compose build --pull --build-arg mode="prod"
+  - docker image ls
+  - docker-compose push
 
 test:
   stage: test
