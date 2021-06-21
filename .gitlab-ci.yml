@@ -26,7 +26,8 @@ workflow:
 
 before_script:
   - docker info
-  - apk update && apk add --no-cache --virtual docker-cli python3 .docker-compose-deps python3-dev libffi-dev openssl-dev gcc libc-dev make python3 py3-pip py-pip curl libffi-dev openssl-dev gcc libc-dev rust cargo make
+  - apk update
+  - apk add py-pip python3-dev libffi-dev openssl-dev gcc libc-dev rust cargo make
   - pip install docker-compose
   - docker-compose --version
   - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
