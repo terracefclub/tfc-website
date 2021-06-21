@@ -10,7 +10,7 @@ ARG PORT=8000
 ARG WORKDIR=/app
 
 # Create the main user
-RUN groupadd --GID $user_gid $USERNAME && \
+RUN groupadd --gid $user_gid $USERNAME && \
     useradd --uid $USER_UID --gid $USER_GID -m $USERNAME
 # Grant the main user "sudo" access
 RUN apt update --yes && \

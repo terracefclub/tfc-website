@@ -33,11 +33,8 @@ before_script:
   - docker info
   - apk update
   - apk add py-pip python3-dev libffi-dev musl-dev openssl-dev gcc libc-dev rust cargo make
-  - pip --version
   - pip install --upgrade pip
-  - pip --version
   - pip install docker-compose
-  - docker-compose --version
   - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
 
 stages:
