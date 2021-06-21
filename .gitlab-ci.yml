@@ -2,9 +2,10 @@ image:
   name: docker/compose:latest
   entrypoint: ["/bin/sh", "-c"]
 
-services:
-  - name: docker:dind
-    entrypoint: ["env", "-u", "DOCKER_HOST"]
+# services:
+#   - name: docker:dind
+#     entrypoint: ["env", "-u", "DOCKER_HOST"]
+#     command: ["dockerd-entrypoint.sh"]
 
 variables:
   DOCKER_HOST: tcp://docker:2378/
@@ -17,14 +18,14 @@ workflow:
     - if: '$CI_COMMIT_BRANCH == "dev"'
       when: always
       variables:
-        PROD_ENV: "unstable"
+        APP_NAME: $HEROKU_STAGING_UNSTABLE
     - if: '$CI_COMMIT_BRANCH == "prod"'
       when: always
       variables:
-        PROD_ENV: "stable"
+        APP_NAME: $HEROKU_STAGING_STABLE
 
 before_script:
-- docker login -p $CI_WRITE_TOKEN -u $CI_WRITE_USER $CI_REGISTRY
+- echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
 
 stages:
 - build
@@ -59,4 +60,4 @@ deploy:
   - login <<< $'yes\n$TF_TOKEN'
   - init
   - plan
-  - apply <<< $'yes'
+  - apply -var="app_name=$APP_NAME" <<< $'yes'
