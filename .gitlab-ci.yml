@@ -1,5 +1,5 @@
 variables:
-  DOCKER_HOST: tcp://docker:2375/
+  DOCKER_HOST: tcp://docker:2378/
   DOCKER_DRIVER: overlay2
   IMAGE_TAG: $CI_REGISTRY/terrace/tech/tfc-website/app
 
