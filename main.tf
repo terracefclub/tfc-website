@@ -7,10 +7,6 @@ terraform {
   }
 }
 
-variable "app_name" {
-  description = "Flabyrinth"
-}
-
 # provider "helm" {
 #   kubernetes {
 #     config_path = "~/.kube/config"
@@ -33,11 +29,14 @@ resource "heroku_app" "default" {
   name        = var.app_name
   region      = "us"
   stack       = "container"
+  buildpacks  = [
+    "heroku/postgresql",
+    "heroku/redis"
+  ]
 }
 
 resource "heroku_build" "default" {
   app         = heroku_app.default.name
-  buildpacks  = []
 
   source {
     url       = ""
