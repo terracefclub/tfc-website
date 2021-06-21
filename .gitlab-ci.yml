@@ -1,16 +1,16 @@
 image:
-  name: docker/compose:latest
+  name: docker/compose:stable
   entrypoint: ["/bin/sh", "-c"]
 
-# services:
-#   - name: docker:dind
-#     entrypoint: ["env", "-u", "DOCKER_HOST"]
-#     command: ["dockerd-entrypoint.sh"]
+services:
+  - name: docker:dind
+    entrypoint: ["env", "-u", "DOCKER_HOST"]
+    command: ["dockerd-entrypoint.sh"]
 
 variables:
-  DOCKER_HOST: tcp://docker:2378/
+  DOCKER_HOST: tcp://docker:2375/
   DOCKER_DRIVER: overlay2
-  DOCKER_TLS_CERTDIR: ""
+  DOCKER_TLS_CERTDIR: "/certs"
   IMAGE_TAG: $CI_REGISTRY/terrace/tech/tfc-website/app
 
 workflow:
@@ -25,7 +25,9 @@ workflow:
         APP_NAME: $HEROKU_STAGING_STABLE
 
 before_script:
-- echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
+  - docker info
+  - docker-compose --version
+  - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
 
 stages:
 - build
