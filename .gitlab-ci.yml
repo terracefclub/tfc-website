@@ -24,8 +24,6 @@ workflow:
       variables:
         APP_NAME: $HEROKU_STAGING_STABLE
 
-https://github.com/moparisthebest/static-curl/releases/latest
-
 before_script:
   - docker info
   - apt-get update && apt-get upgrade && apt install curl
