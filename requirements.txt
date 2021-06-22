@@ -1,4 +1,3 @@
--e .
 bumpversion
 coverage
 Django>=3.1,<3.2
