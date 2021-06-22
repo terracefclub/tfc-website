@@ -3,15 +3,14 @@ ARG mode
 
 FROM python:3.9.1-slim-buster as base
 
-ARG USERNAME=admin
-ARG USER_UID=1000
-ARG USER_GID=$USER_UID
+ARG GROUPNAME=admin
+ARG USERNAME=main
 ARG PORT=8000
 ARG WORKDIR=/app
 
 # Create the main user
-RUN groupadd --gid $user_gid $USERNAME && \
-    useradd --uid $USER_UID --gid $USER_GID -m $USERNAME
+RUN groupadd $USERNAME && \
+    useradd -g ${GROUPNAME} -m $USERNAME
 # Grant the main user "sudo" access
 RUN apt update --yes && \
     apt-get update --yes && \

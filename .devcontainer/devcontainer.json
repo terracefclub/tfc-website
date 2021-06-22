@@ -6,8 +6,14 @@
   "dockerComposeFile": "../docker-compose.yaml",
   "service": "app",
   "workspaceFolder": "/app",
-  "remoteUser": "admin",
+  "remoteUser": "main",
   "shutdownAction": "stopCompose",
+
+  "build": {
+    "args": {
+      "mode": "dev",
+    },
+  },
 
 	// Set *default* container specific settings.json values on container create.
 	"settings": { 

@@ -15,8 +15,9 @@ variables:
   IMAGE_TAG: $CI_REGISTRY/terrace/tech/tfc-website/app
 
 cache:
+  key: pip-global-cache
   paths:
-    - .cache/pip
+    - $CI_PROJECT_DIR.cache/pip
 
 workflow:
   rules:
@@ -32,9 +33,7 @@ workflow:
 before_script:
   - docker info
   - apk update
-  - apk add py-pip python3-dev libffi-dev musl-dev openssl-dev gcc libc-dev rust cargo make
-  - pip install --upgrade pip
-  - pip install docker-compose
+  - apk add docker-compose
   - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
 
 stages:
