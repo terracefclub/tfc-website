@@ -1,6 +1,4 @@
 # Use an official Python runtime based on Debian 10 "buster" as a parent image.
-ARG mode
-
 FROM python:3.9.1-slim-buster as base
 
 ARG GROUPNAME=chillers
@@ -50,12 +48,13 @@ COPY --chown=$USERNAME:$GROUPNAME . $WORKDIR
 EXPOSE $PORT
 USER $USERNAME
 
-FROM base AS dev
+FROM base AS img_dev
 ENV DJANGO_SETTINGS_MODULE=website.settings.dev
 
-FROM base AS prod
+FROM base AS img_prod
 ENV DJANGO_SETTINGS_MODULE=website.settings.production 
 # CMD ["gunicorn", "website.wsgi:application"]
 
-FROM $mode AS final
+ARG mode
+FROM img_${mode} AS final
 RUN echo "This is the $mode build"
