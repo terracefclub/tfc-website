@@ -34,6 +34,7 @@ before_script:
   - docker info
   - apk update
   - apk add docker-compose
+  - docker-compose --version
   - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
 
 stages:
