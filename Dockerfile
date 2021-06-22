@@ -8,6 +8,8 @@ ARG USERNAME=main
 ARG PORT=8000
 ARG WORKDIR=/app
 
+WORKDIR $WORKDIR
+
 # Create the main user
 RUN groupadd $GROUPNAME && \
     useradd -g ${GROUPNAME} -m $USERNAME
@@ -33,8 +35,8 @@ RUN apt-get install --yes --quiet --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python web server dependencies
-COPY requirements.txt /
-RUN pip install -r /requirements.txt
+COPY requirements.txt .
+RUN pip install -r requirements.txt
 
 # Set environment variables!
 # Force Python stdout and stderr streams to be unbuffered.
@@ -47,7 +49,6 @@ COPY --chown=$USERNAME:$USERNAME . $WORKDIR
 
 EXPOSE $PORT
 USER $USERNAME
-WORKDIR $WORKDIR
 
 FROM base AS dev
 ENV DJANGO_SETTINGS_MODULE=website.settings.dev
