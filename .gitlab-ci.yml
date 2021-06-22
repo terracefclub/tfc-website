@@ -17,7 +17,7 @@ variables:
 cache:
   key: pip-global-cache
   paths:
-    - $CI_PROJECT_DIR.cache/pip
+    - $CI_PROJECT_DIR/.cache/pip
 
 workflow:
   rules:
