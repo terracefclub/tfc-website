@@ -57,5 +57,5 @@ FROM base AS prod
 ENV DJANGO_SETTINGS_MODULE=website.settings.production 
 # CMD ["gunicorn", "website.wsgi:application"]
 
-FROM ${mode} AS final
-RUN "This is the ${mode} build"
+FROM $mode AS final
+RUN echo "This is the $mode build"
