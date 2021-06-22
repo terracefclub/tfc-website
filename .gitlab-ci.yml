@@ -12,7 +12,7 @@ variables:
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: ""
   PIP_CACHE_DIR: $CI_PROJECT_DIR/.cache/pip
-  IMAGE_TAG: $CI_REGISTRY/terrace/tech/tfc-website/app
+  IMAGE: $CI_REGISTRY/terrace/tech/tfc-website
 
 cache:
   key: pip-global-cache
@@ -47,21 +47,21 @@ build:
   script:
   - docker-compose build --pull --build-arg mode="prod"
   - docker image ls
-  - docker-compose push
+  - docker-compose push $IMAGE
 
 test:
   stage: test
   script: 
-  - docker-compose pull $IMAGE_TAG
-  - docker-compose up $IMAGE_TAG -d
+  - docker-compose pull $IMAGE
+  - docker-compose up $IMAGE -d
   - sleep 20
   - docker-compose exec app ./scripts/test.sh
 
 migrations:
   stage: test
   script:
-    - docker-compose pull $IMAGE_TAG
-    - docker-compose up $IMAGE_TAG -d
+    - docker-compose pull $IMAGE
+    - docker-compose up $IMAGE -d
     - docker-compose run -T app python manage.py makemigrations
 
 deploy:
