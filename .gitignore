@@ -10,8 +10,9 @@
 /.vscode/
 /website/templates/sandbox.html
 
-### DATA ###
+### DATA & FRONTEND ###
 /data/
+/website/frontend/static
 /website/media/
 /website/**/fixtures/media/
 
