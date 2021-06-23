@@ -18,6 +18,7 @@ RUN apt-get update --yes && \
     apt-get install -y sudo && \
     echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME && \
     chmod 0440 /etc/sudoers.d/$USERNAME
+USER $USERNAME
 
 # Install system dependencies
 WORKDIR /tmp
@@ -41,14 +42,14 @@ RUN pip install --upgrade pip && \
 
 WORKDIR $BASE_DIR/$FRONTEND_DIR
 COPY $FRONTEND_DIR/package.json .
-RUN npm i
+RUN sudo chown -R $USERNAME:$GROUPNAME && \
+    npm i
 
 WORKDIR $BASE_DIR
 
 # Copy project files
 COPY --chown=$USERNAME:$GROUPNAME . .
 RUN sudo chown -R $USERNAME:$GROUPNAME .
-USER $USERNAME
 
 
 
@@ -60,13 +61,13 @@ CMD ["/bin/sh", "-c", "while sleep 1000; do :; done"]
 
 FROM base AS testing
 ENV DJANGO_SETTINGS_MODULE=website.settings.production
-RUN cd $FRONTEND_DIR && npm run build
+WORKDIR $BASE_DIR/$FRONTEND_DIR
+RUN npm run build
+WORKDIR $BASE_DIR
 
 
 
-FROM base AS production
-ENV DJANGO_SETTINGS_MODULE=website.settings.production
+FROM testing AS production
 ENV PYTHONUNBUFFERED=1
-RUN cd $FRONTEND_DIR && npm run build
 RUN python manage.py collectstatic --noinput
 CMD ["gunicorn", "website.wsgi:application"]
