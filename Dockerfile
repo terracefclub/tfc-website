@@ -33,6 +33,7 @@ RUN apt-get install --yes --quiet --no-install-recommends \
     apt-get install --yes --quiet nodejs
 
 USER $USERNAME
+RUN export PATH=$PATH:/home/$USERNAME/.local/bin
 
 # Install web server dependencies
 WORKDIR $BASE_DIR
