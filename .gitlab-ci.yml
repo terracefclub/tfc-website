@@ -36,6 +36,11 @@ before_script:
   - apk add docker-compose
   - docker-compose --version
   - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
+  - echo SECRET_KEY=$SECRET_KEY >> .env
+  - echo MAPBOX_ACCESS_TOKEN=$MAPBOX_ACCESS_TOKEN >> .env
+  - echo GOOGLE_SERVICE_ACCT_FILE=$GOOGLE_SERVICE_ACCT_FILE >> .env
+  - echo GOOGLE_API_KEY=$GOOGLE_API_KEY >> .env
+  - echo TINYCLOUD_API_KEY=$TINYCLOUD_API_KEY >> .env
 
 stages:
 - build
@@ -45,7 +50,7 @@ stages:
 build:
   stage: build
   script:
-    - docker-compose build --pull --build-arg BUILD_PRODUCTION=1
+    - docker-compose build --pull --build-arg CI_STAGE=production
     - docker image ls
     - docker-compose push $IMAGE
 
