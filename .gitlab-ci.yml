@@ -11,13 +11,13 @@ variables:
   DOCKER_HOST: tcp://docker:2375
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: ""
-  PIP_CACHE_DIR: $CI_PROJECT_DIR/.cache/pip
+  # PIP_CACHE_DIR: $CI_PROJECT_DIR/.cache/pip
   IMAGE: $CI_REGISTRY/terrace/tech/tfc-website_app
 
-cache:
-  key: pip-global-cache
-  paths:
-    - $CI_PROJECT_DIR/.cache/pip
+# cache:
+#   key: pip-global-cache
+#   paths:
+#     - $CI_PROJECT_DIR/.cache/pip
 
 workflow:
   rules:
@@ -45,17 +45,19 @@ stages:
 build:
   stage: build
   script:
-  - docker-compose build --pull --build-arg mode="prod"
-  - docker image ls
-  - docker-compose push $IMAGE
+    - docker-compose build --pull --build-arg BUILD_PRODUCTION=1
+    - docker image ls
+    - docker-compose push $IMAGE
 
 test:
   stage: test
   script: 
-  - docker-compose pull $IMAGE
-  - docker-compose up $IMAGE -d
-  - sleep 20
-  - docker-compose exec app ./scripts/test.sh
+    - docker-compose pull $IMAGE
+    - docker-compose up $IMAGE -d
+    - sleep 20
+    - docker-compose exec -it app coverage run manage.py test website
+    - docker-compose exec -it app coverage npm run test
+    - docker-compose exec -it app coverage report
 
 migrations:
   stage: test
@@ -68,7 +70,7 @@ deploy:
   image: hashicorp/terraform:light
   stage: deploy
   script:
-  - login <<< $'yes\n$TF_TOKEN'
-  - init
-  - plan
-  - apply -var="app_name=$APP_NAME" <<< $'yes'
+    - login <<< $'yes\n$TF_TOKEN'
+    - init
+    - plan
+    - apply -var="app_name=$APP_NAME" <<< $'yes'
