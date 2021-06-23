@@ -22,7 +22,7 @@ USER $USERNAME
 
 # Install system dependencies
 WORKDIR /tmp
-RUN sudo apt-get install --yes --quiet --no-install-recommends \
+RUN sudo apt-get -qq install --yes --quiet --no-install-recommends \
       build-essential \
       gdal-bin \
       libpq-dev \
@@ -31,8 +31,8 @@ RUN sudo apt-get install --yes --quiet --no-install-recommends \
       libwebp-dev \
       git \
       curl && \
-    curl -fsSL https://deb.nodesource.com/setup_14.x | bash - && \
-    sudo apt-get install --yes --quiet nodejs
+    sudo curl -fsSL https://deb.nodesource.com/setup_14.x | sudo bash - && \
+    sudo apt-get -qq install --yes --quiet nodejs
 
 # Install web server dependencies
 WORKDIR $BASE_DIR
