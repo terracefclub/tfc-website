@@ -1,24 +1,27 @@
-# Use an official Python runtime based on Debian 10 "buster" as a parent image.
 FROM python:3.9.1-slim-buster as base
 
 ARG GROUPNAME=chillers
 ARG USERNAME=forkman
 ARG PORT=8000
-ARG WORKDIR=/var/womb
+ARG BASE_DIR=/usr/src/womb
+ARG FRONTEND_DIR=/website/frontend
 
-WORKDIR $WORKDIR
+ENV PORT=$PORT 
+EXPOSE $PORT
+USER $USERNAME
 
 # Create the main user
 RUN groupadd $GROUPNAME && \
-    useradd -g ${GROUPNAME} -m $USERNAME
+    useradd -g $GROUPNAME -m $USERNAME
 # Grant the main user "sudo" access
-RUN apt update --yes && \
-    apt-get update --yes && \
+RUN apt-get update --yes && \
     apt-get install -y sudo && \
     echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME && \
-    chmod 0440 /etc/sudoers.d/$USERNAME  
+    chmod 0440 /etc/sudoers.d/$USERNAME
+
 
 # Install system dependencies
+WORKDIR /tmp
 RUN apt-get install --yes --quiet --no-install-recommends \
       build-essential \
       gdal-bin \
@@ -29,32 +32,42 @@ RUN apt-get install --yes --quiet --no-install-recommends \
       git \
       curl && \
     curl -fsSL https://deb.nodesource.com/setup_14.x | bash - && \
-    apt-get install --yes --quiet nodejs && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install --yes --quiet nodejs
 
-# Install Python web server dependencies
+
+# Install web server dependencies
+WORKDIR $BASE_DIR
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-# Set environment variables!
-# Force Python stdout and stderr streams to be unbuffered.
-ENV PYTHONUNBUFFERED=1
-ENV PORT=$PORT 
+WORKDIR $BASE_DIR/$FRONTEND_DIR
+COPY $FRONTEND_DIR/package.json .
+RUN npm i
+
+WORKDIR $BASE_DIR
+
 
 # Copy project files
-RUN chown $USERNAME:$GROUPNAME $WORKDIR
-COPY --chown=$USERNAME:$GROUPNAME . $WORKDIR
+RUN chown $USERNAME:$GROUPNAME .
+COPY --chown=$USERNAME:$GROUPNAME . .
 
-EXPOSE $PORT
-USER $USERNAME
 
-FROM base AS img_dev
+
+FROM base AS development
 ENV DJANGO_SETTINGS_MODULE=website.settings.dev
+CMD ["/bin/sh", "-c", "while sleep 1000; do :; done"]
 
-FROM base AS img_prod
-ENV DJANGO_SETTINGS_MODULE=website.settings.production 
-# CMD ["gunicorn", "website.wsgi:application"]
 
-ARG mode
-FROM img_${mode} AS final
-RUN echo "This is the $mode build"
+
+FROM base AS testing
+ENV DJANGO_SETTINGS_MODULE=website.settings.production
+RUN npm run build
+
+
+
+FROM base AS production
+ENV DJANGO_SETTINGS_MODULE=website.settings.production
+ENV PYTHONUNBUFFERED=1
+RUN npm run build
+RUN python manage.py collectstatic --noinput
+CMD ["gunicorn", "website.wsgi:application"]
