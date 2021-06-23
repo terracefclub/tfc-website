@@ -6,6 +6,7 @@ ARG PORT=8000
 ARG BASE_DIR=/usr/src/womb
 ARG FRONTEND_DIR=website/frontend
 
+ENV PATH=$PATH:/home/$USERNAME/.local/bin
 ENV PORT=$PORT 
 EXPOSE $PORT
 
@@ -32,9 +33,6 @@ RUN apt-get install --yes --quiet --no-install-recommends \
     curl -fsSL https://deb.nodesource.com/setup_14.x | bash - && \
     apt-get install --yes --quiet nodejs
 
-USER $USERNAME
-RUN export PATH=$PATH:/home/$USERNAME/.local/bin
-
 # Install web server dependencies
 WORKDIR $BASE_DIR
 COPY requirements.txt .
@@ -47,10 +45,10 @@ RUN npm i
 
 WORKDIR $BASE_DIR
 
-
 # Copy project files
 COPY --chown=$USERNAME:$GROUPNAME . .
 RUN sudo chown -R $USERNAME:$GROUPNAME .
+USER $USERNAME
 
 
 
