@@ -38,7 +38,8 @@ RUN export PATH=$PATH:/home/$USERNAME/.local/bin
 # Install web server dependencies
 WORKDIR $BASE_DIR
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt
 
 WORKDIR $BASE_DIR/$FRONTEND_DIR
 COPY $FRONTEND_DIR/package.json .
