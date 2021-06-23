@@ -49,8 +49,8 @@ WORKDIR $BASE_DIR
 
 
 # Copy project files
-RUN chown $USERNAME:$GROUPNAME .
 COPY --chown=$USERNAME:$GROUPNAME . .
+RUN sudo chown -R $USERNAME:$GROUPNAME .
 
 
 
