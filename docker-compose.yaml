@@ -20,17 +20,14 @@ services:
       - "6379:6379"
   app:
     container_name: app
-    build: .
-    ports:
-      - "8000:8000"
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+      target: ${}
     volumes:
-      - ..:/code
-    links:
-      - db:db
-      - redis:redis
+      - .:/code
     depends_on:
       - db
       - redis
-    command: /bin/sh -c "while sleep 1000; do :; done"
 volumes:
   pgdata:
