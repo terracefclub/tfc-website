@@ -1,11 +1,15 @@
-image:
-  name: docker:stable
-  entrypoint: ["/bin/sh", "-c"]
+# image:
+#   name: docker:stable
+#   entrypoint: ["/bin/sh", "-c"]
 
-services:
-  - name: docker:dind
-    entrypoint: ["env", "-u", "DOCKER_HOST"]
-    command: ["dockerd-entrypoint.sh"]
+# services:
+#   - name: docker:dind
+#     entrypoint: ["env", "-u", "DOCKER_HOST"]
+#     command: ["dockerd-entrypoint.sh"]
+
+image:
+  name: docker:dind
+  entrypoint: ["/bin/sh", "-c"]
 
 variables:
   DOCKER_HOST: tcp://docker:2375
