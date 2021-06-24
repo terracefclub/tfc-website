@@ -10,6 +10,7 @@ const prodMode = process.env.NODE_ENV === 'production';
 
 // Modifications for dev for linting
 const plugins = !prodMode ? [
+  new BundleAnalyzerPlugin(),
   new StylelintPlugin({
     files: Path.join('src', '**/*.s?(a|c)ss'),
   }),
@@ -54,7 +55,6 @@ module.exports = {
     },
   },
   plugins: [
-    new BundleAnalyzerPlugin(),
     new CleanWebpackPlugin(),
     new CopyWebpackPlugin({ 
       patterns: [{ 
