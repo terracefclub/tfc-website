@@ -7,9 +7,8 @@
 #     entrypoint: ["env", "-u", "DOCKER_HOST"]
 #     command: ["dockerd-entrypoint.sh"]
 
-image:
-  name: docker:dind
-  entrypoint: ["/bin/sh", "-c"]
+image: docker:latest
+services: [docker:dind]
 
 variables:
   DOCKER_HOST: tcp://docker:2375
