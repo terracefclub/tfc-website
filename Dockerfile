@@ -62,7 +62,7 @@ CMD ["/bin/sh", "-c", "while sleep 1000; do :; done"]
 FROM base AS testing
 ENV DJANGO_SETTINGS_MODULE=website.settings.production
 WORKDIR $BASE_DIR/$FRONTEND_DIR
-RUN npm run build
+RUN npm --prefix $PWD run build
 WORKDIR $BASE_DIR
 
 
