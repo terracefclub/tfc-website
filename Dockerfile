@@ -5,6 +5,7 @@ ARG USERNAME=forkman
 ARG PORT=8000
 ARG BASE_DIR=/usr/src/womb
 ARG FRONTEND_DIR=website/frontend
+ARG FRONTEND_DIR_FULL=$BASE_DIR/$FRONTEND_DIR
 
 ENV PATH=$PATH:/home/$USERNAME/.local/bin
 ENV PORT=$PORT 
@@ -40,10 +41,10 @@ COPY requirements.txt .
 RUN python -m pip install --upgrade pip && \
     pip install -r requirements.txt
 
-WORKDIR $BASE_DIR/$FRONTEND_DIR
+WORKDIR $FRONTEND_DIR_FULL
 COPY $FRONTEND_DIR/package.json .
 RUN sudo chown -R $USERNAME:$GROUPNAME . && \
-    npm i
+    npm --prefix $FRONTEND_DIR_FULL i
 
 WORKDIR $BASE_DIR
 
@@ -61,8 +62,8 @@ CMD ["/bin/sh", "-c", "while sleep 1000; do :; done"]
 
 FROM base AS testing
 ENV DJANGO_SETTINGS_MODULE=website.settings.production
-WORKDIR $BASE_DIR/$FRONTEND_DIR
-RUN npm --prefix $PWD run build
+WORKDIR $FRONTEND_DIR_FULL
+RUN npm --prefix $FRONTEND_DIR_FULL run build
 WORKDIR $BASE_DIR
 
 
