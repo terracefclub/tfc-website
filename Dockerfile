@@ -1,12 +1,14 @@
-ARG GROUPNAME=chillers
-ARG USERNAME=forkman
-ARG PORT=8000
 ARG BASE_DIR=/usr/src/womb
 ARG FRONTEND_DIR=website/frontend
 ARG FRONTEND_DIR_FULL=$BASE_DIR/$FRONTEND_DIR
 
 FROM python:3.9.1-slim as base
-
+ARG PORT=8000
+ARG GROUPNAME=chillers
+ARG USERNAME=forkman
+ARG BASE_DIR
+ARG FRONTEND_DIR
+ARG FRONTEND_DIR_FULL
 ENV PATH=$PATH:/home/$USERNAME/.local/bin
 ENV PORT=$PORT 
 EXPOSE $PORT
@@ -61,6 +63,8 @@ CMD ["/bin/sh", "-c", "while sleep 1000; do :; done"]
 
 
 FROM base AS testing
+ARG BASE_DIR
+ARG FRONTEND_DIR_FULL
 ENV DJANGO_SETTINGS_MODULE=website.settings.production
 WORKDIR $FRONTEND_DIR_FULL
 RUN npm --prefix $FRONTEND_DIR_FULL run build
