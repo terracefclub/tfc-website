@@ -50,26 +50,20 @@ stages:
 build:
   stage: build
   script:
-    - docker-compose build --pull --build-arg CI_STAGE=production
+    - export CI_stage=production
+    - docker-compose build --pull
     - docker image ls
-    - docker-compose push $IMAGE
+    - docker-compose push
 
 test:
   stage: test
   script: 
-    - docker-compose pull $IMAGE
-    - docker-compose up $IMAGE -d
+    - docker-compose pull
+    - docker-compose up -d
     - sleep 20
     - docker-compose exec -it app coverage run manage.py test website
     - docker-compose exec -it app coverage npm run test
     - docker-compose exec -it app coverage report
-
-migrations:
-  stage: test
-  script:
-    - docker-compose pull $IMAGE
-    - docker-compose up $IMAGE -d
-    - docker-compose run -T app python manage.py makemigrations
 
 deploy:
   image: hashicorp/terraform:light
