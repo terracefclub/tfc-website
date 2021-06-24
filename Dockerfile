@@ -1,11 +1,11 @@
-FROM python:3.9.1-slim as base
-
 ARG GROUPNAME=chillers
 ARG USERNAME=forkman
 ARG PORT=8000
 ARG BASE_DIR=/usr/src/womb
 ARG FRONTEND_DIR=website/frontend
 ARG FRONTEND_DIR_FULL=$BASE_DIR/$FRONTEND_DIR
+
+FROM python:3.9.1-slim as base
 
 ENV PATH=$PATH:/home/$USERNAME/.local/bin
 ENV PORT=$PORT 
