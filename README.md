@@ -27,3 +27,9 @@ twine upload --repository testpypi dist/*
 coverage run --source=sample -m pytest test.py
 coverage report -m
 ```
+
+# Initiate CI
+
+```
+docker run --rm -v $PWD:$PWD -v /var/run/docker.sock:/var/run/docker.sock -v gitlab-runner-config:/etc/gitlab-runner --workdir $PWD --name gitlab-runner -e RUNNER_PRE_BUILD_SCRIPT="export $(cat .env | tr '\n' ' ')" gitlab/gitlab-runner:latest exec docker --docker-privileged build
+```
