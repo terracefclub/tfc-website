@@ -2,7 +2,7 @@
   "name": "tfc_website_frontend",
   "description": "Frontend static and scripts for TFC website",
   "scripts": {
-    "build": "webpack --mode production --progress",
+    "build": "TAILWIND_DISABLE_TOUCH=true webpack --mode production --color",
     "dev:build": "TAILWIND_DISABLE_TOUCH=true webpack --watch",
     "dev:serve": "webpack serve --open --hot",
     "lint": "stylelint './src/scss/**/*.scss' && eslint src --fix",
