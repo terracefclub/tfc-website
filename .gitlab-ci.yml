@@ -1,6 +1,6 @@
 image:
   name: docker:20.10.7
-  # entrypoint: ["/bin/sh", "-c"]
+  entrypoint: ["/bin/sh", "-c"]
 
 services:
   - name: docker:20.10.7-dind
@@ -11,24 +11,11 @@ variables:
   DOCKER_HOST: tcp://docker:2375
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: ""
-  # PIP_CACHE_DIR: $CI_PROJECT_DIR/.cache/pip
   IMAGE: $CI_REGISTRY/terrace/tech/tfc-website_app
 
-# cache:
-#   key: pip-global-cache
-#   paths:
-#     - $CI_PROJECT_DIR/.cache/pip
-
-workflow:
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "dev"'
-      when: always
-      variables:
-        APP_NAME: $HEROKU_STAGING_UNSTABLE
-    - if: '$CI_COMMIT_BRANCH == "prod"'
-      when: always
-      variables:
-        APP_NAME: $HEROKU_STAGING_STABLE
+only:
+  - prod
+  - dev
 
 before_script:
   - docker info
@@ -68,6 +55,12 @@ test:
 deploy:
   image: hashicorp/terraform:light
   stage: deploy
+  variables:
+    APP_NAME: |
+      case "$CI_COMMIT_BRANCH" in
+        "prod") echo "$HEROKU_STAGING_STABLE" ;;
+        "dev")  echo "$HEROKU_STAGING_UNSTABLE" ;;
+      esac
   script:
     - login <<< $'yes\n$TF_TOKEN'
     - init
