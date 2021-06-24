@@ -37,12 +37,12 @@ RUN sudo apt-get -qq install --yes --quiet --no-install-recommends \
 # Install web server dependencies
 WORKDIR $BASE_DIR
 COPY requirements.txt .
-RUN pip install --upgrade pip && \
+RUN python -m pip install --upgrade pip && \
     pip install -r requirements.txt
 
 WORKDIR $BASE_DIR/$FRONTEND_DIR
 COPY $FRONTEND_DIR/package.json .
-RUN sudo chown -R $USERNAME:$GROUPNAME && \
+RUN sudo chown -R $USERNAME:$GROUPNAME . && \
     npm i
 
 WORKDIR $BASE_DIR
