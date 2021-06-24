@@ -12,6 +12,7 @@
 
 ### DATA & FRONTEND ###
 /data/
+/static
 /website/frontend/static
 /website/media/
 /website/**/fixtures/media/

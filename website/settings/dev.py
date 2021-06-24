@@ -19,18 +19,6 @@ MIDDLEWARE +=  [
 ]
 
 
-DATABASES = {
-  'default': {
-    'ENGINE': 'django.db.backends.postgresql',
-    'HOST': 'db',
-    #'PORT': 5432, TODO: resolve randomized ports in Docker Compose instance
-    'NAME': 'web',
-    'USER': 'user',
-    'PASSWORD': 'password',
-  }
-}
-
-
 CACHES = {
   'default': {
     'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
