@@ -7,6 +7,9 @@
  */
 
 import { queryElement, queryElementAll } from './utilities/query';
+import { fromEvent } from 'rxjs';
+import { debounceTime } from 'rxjs/operators';
+import { loadHtml } from './utilities/api';
 
 /**
  * Main sidebar display logic as a component. Controls opening and closing, as
@@ -66,10 +69,6 @@ export async function searchLoader(): Promise<void> {
     modal.style.display = 'hidden';
     removeModalContent();
   });
-
-  const { fromEvent } = await import('rxjs');
-  const { debounceTime } = await import('rxjs/operators');
-  const { loadHtml } = await import('./utilities/api');
 
   fromEvent(search, 'keydown')
     .pipe(debounceTime(1000))
