@@ -59,7 +59,7 @@ module.exports = {
     new CopyWebpackPlugin({ 
       patterns: [{ 
 
-        // MUST include '/' after public, otherwise only hollow directories are copied
+        // MUST have '/' after public, if not only hollow directories are copied
         from: Path.resolve(__dirname, 'public/'), 
         to: '' 
       }] 
