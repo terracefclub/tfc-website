@@ -4,8 +4,7 @@ from .base import *
 DEBUG = True
 
 # SECURITY WARNING: define the correct hosts in production!
-ALLOWED_HOSTS = ['*'] 
-INTERNAL_IPS = ['127.0.0.1', '172.17.0.1']
+ALLOWED_HOSTS += ['*']
 
 INSTALLED_APPS = [
   'whitenoise.runserver_nostatic',

@@ -13,6 +13,9 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 
 SITE_ID = 1
 
+INTERNAL_IPS = ['127.0.0.1', 'localhost', '[::1]']
+ALLOWED_HOSTS = INTERNAL_IPS
+
 ROOT_URLCONF = 'website.urls'
 
 WSGI_APPLICATION = 'website.wsgi.application'
@@ -99,7 +102,7 @@ TEMPLATES = [
 
 DATABASES = {
   'default': dj_database_url.parse(
-    'postgres://{user}:{password}@{host}:{port}/{name}'.format(dict(zip(
+    'postgres://{user}:{password}@{host}:{port}/{name}'.format(**dict(zip(
       ['user', 'password', 'host', 'port', 'name'], 
       [os.environ.get(var) for var in [
         'POSTGRES_USER', 'POSTGRES_PASSWORD', 'POSTGRES_HOST', 
@@ -155,13 +158,13 @@ LOGGING = {
       'filters': ['require_debug_true'],
       'formatter': 'simple'
     },
-    # 'file': {
-    #   'level': 'ERROR',
-    #   'class': 'logging.FileHandler',
-    #   'filters': ['require_debug_false'],
-    #   'formatter': 'verbose',
-    #   'filename': os.path.join(BASE_DIR, 'logs/error.log')
-    # },
+    'file': {
+      'level': 'ERROR',
+      'class': 'logging.FileHandler',
+      'filters': ['require_debug_false'],
+      'formatter': 'verbose',
+      'filename': os.path.join(BASE_DIR, 'logs/error.log')
+    },
     'mail_admins': {
       'level': 'ERROR',
       'class': 'django.utils.log.AdminEmailHandler',
@@ -180,10 +183,10 @@ LOGGING = {
       'level': 'DEBUG',
       'propagate': True
     },
-    # 'django.db.backends': {
-    #   'handlers': ['file'],
-    #   'level': 'ERROR',
-    #   'propagate': True
-    # },
+    'django.db.backends': {
+      'handlers': ['file'],
+      'level': 'ERROR',
+      'propagate': True
+    },
   }
 }

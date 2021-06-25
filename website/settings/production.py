@@ -1,8 +1,9 @@
 from .base import *
 
 DEBUG = False
-SECURE_SSL_REDIRECT = True
+SECURE_SSL_REDIRECT = False
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+ALLOWED_HOSTS += os.environ.get('ALLOWED_HOSTS').split(' ')
 
 CACHES = {
   'default': {
@@ -41,27 +42,3 @@ LOGGING['loggers'].update({
     'propagate': True
   }
 })
-
-# SEARCH SUPPORT
-# from elasticsearch import RequestsHttpConnection
-
-"""
-ELASTICSEARCH_ENDPOINT = 'elasticsearch'
-WAGTAILSEARCH_BACKENDS = {
-  'default': {
-    'BACKEND': 'wagtail.search.backends.elasticsearch7',
-    'HOSTS': [{
-      'host': ELASTICSEARCH_ENDPOINT,
-      'port': int(os.environ.get('ELASTICSEARCH_PORT', '9200')),
-    }],
-    'OPTIONS': {
-      'connection_class': RequestsHttpConnection
-    },
-    'URLS': ['http://<username>:<password>@localhost:9200'],
-    'INDEX': 'wagtail',
-    'TIMEOUT': 5,
-    'OPTIONS': {},
-    'INDEX_SETTINGS': {},
-  }
-}
-"""
