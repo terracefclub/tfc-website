@@ -17,6 +17,9 @@
 /website/media/
 /website/**/fixtures/media/
 
+### DEBUG ###
+/logs/
+
 ### BLOAT ###
 __pycache__/
 node_modules/
