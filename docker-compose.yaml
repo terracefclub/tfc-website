@@ -1,6 +1,6 @@
 version: '3.7'
 services:
-  ${POSTGRES_HOST}:
+  db:
     container_name: postgres
     image: postgres:13-alpine
     restart: always
