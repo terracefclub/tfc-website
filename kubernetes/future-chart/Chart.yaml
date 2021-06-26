@@ -1,0 +1,29 @@
+apiVersion: v2
+name: future-chart
+description: A Helm chart for deploying TFC website infrastructure
+type: application
+
+# Versions are expected to follow Semantic Versioning (https://semver.org/)
+version: 0.1.0
+appVersion: 1.0.0
+
+dependencies:
+  - name: bitnami/postgresql
+    version: 10.3.11
+    condition: enabled.database
+    repository: https://charts.bitnami.com/bitnami
+    tags:
+      - postgresql-database
+    import-values:
+      - postgresql
+  - name: bitnami/redis
+    version: 12.8.3
+    condition: enabled.cache
+    repository: https://charts.bitnami.com/bitnami
+    import-values:
+      - redis
+  - name: bitnami/nginx-ingress-controller
+    version: 7.4.6
+    repository: https://charts.bitnami.com/bitnami
+    import-values:
+      - ingress
