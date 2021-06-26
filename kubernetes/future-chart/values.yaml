@@ -17,21 +17,22 @@ service:
   nodePort: 30000
 
 ingress:
-  enabled: false
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
   hosts:
-    - host: chart-example.local
+    - host: future-chart.local
       paths: []
   tls: []
-  #  - secretName: chart-example-tls
+  #  - secretName: secret-tls
   #    hosts:
-  #      - chart-example.local
+  #      - future-chart.local
 
 enabled:
   database: true
-  search: true
+  cache: true
+  ingress: true
 
 imagePullSecrets: []
 nameOverride: ""
@@ -70,12 +71,10 @@ tolerations: []
 
 # Configurations for PostgreSQL
 postgresql:
-  global:
-    postgresql:
-      postgresqlDatabase: web
-      postgresqlUsername: admin
-      existingSecret: secrets-base
-      servicePort: 5432
+  postgresqlDatabase: web
+  postgresqlUsername: admin
+  existingSecret: secret-postgresql
+  extraEnvVarsCM: config-postgresql
   replication:
     enabled: true
     readReplicas: 3
@@ -91,13 +90,6 @@ postgresql:
 redis:
   existingSecret: secrets-base
   existingSecretPasswordKey: redis-password
-  tls:
-    enabled: true
-    authClients: true
-    certificatesSecret: secrets-base
-    certFilename: ""
-    certKeyFilename: ""
-    certCAFilename: ""
   serviceAccount:
     create: true
-    name: ""
+    name: servicer

@@ -12,8 +12,6 @@ dependencies:
     version: 10.3.11
     condition: enabled.database
     repository: https://charts.bitnami.com/bitnami
-    tags:
-      - postgresql-database
     import-values:
       - postgresql
   - name: bitnami/redis
@@ -24,6 +22,7 @@ dependencies:
       - redis
   - name: bitnami/nginx-ingress-controller
     version: 7.4.6
+    condition: enabled.ingress
     repository: https://charts.bitnami.com/bitnami
     import-values:
       - ingress

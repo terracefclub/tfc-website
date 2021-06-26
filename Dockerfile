@@ -74,5 +74,6 @@ WORKDIR $BASE_DIR
 
 FROM testing AS production
 ENV PYTHONUNBUFFERED=1
-RUN python manage.py collectstatic --noinput
+RUN printenv && \
+    python manage.py collectstatic --noinput
 CMD ["gunicorn", "website.wsgi:application"]

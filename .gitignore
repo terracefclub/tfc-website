@@ -4,6 +4,7 @@
 /credentials.json
 /terraform.tfvars
 /kubernetes/secrets.yaml
+/kubernetes/config.yaml
 
 ### DEVELOPMENT ###
 /.devcontainer/
