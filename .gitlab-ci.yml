@@ -23,7 +23,7 @@ before_script:
   - apk add docker-compose
   - docker-compose --version
   - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
-  - ./env-to-file.sh
+  - cat .env.example | sed -r 's/([A-Z_]+)=/\1=$\1/g' | envsubst > .env
 
 stages:
 - build
