@@ -22,16 +22,8 @@ before_script:
   - apk update
   - apk add docker-compose
   - docker-compose --version
-  - echo CI_REGISTRY=$CI_REGISTRY
-  - echo CI_WRITE_USER=$CI_WRITE_USER
-  - echo HEROKU_STAGING_UNSTABLE=$HEROKU_STAGING_UNSTABLE
-  - echo IMAGE=$IMAGE
   - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
-  - echo SECRET_KEY=$SECRET_KEY >> .env
-  - echo MAPBOX_ACCESS_TOKEN=$MAPBOX_ACCESS_TOKEN >> .env
-  - echo GOOGLE_SERVICE_ACCT_FILE=$GOOGLE_SERVICE_ACCT_FILE >> .env
-  - echo GOOGLE_API_KEY=$GOOGLE_API_KEY >> .env
-  - echo TINYCLOUD_API_KEY=$TINYCLOUD_API_KEY >> .env
+  - ./env-to-file.sh
 
 stages:
 - build
