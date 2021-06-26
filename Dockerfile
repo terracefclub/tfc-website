@@ -74,6 +74,4 @@ WORKDIR $BASE_DIR
 
 FROM testing AS production
 ENV PYTHONUNBUFFERED=1
-RUN printenv && \
-    python manage.py collectstatic --noinput
-CMD ["gunicorn", "website.wsgi:application"]
+CMD ["./docker-entrypoint.sh"]
