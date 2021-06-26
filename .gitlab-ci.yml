@@ -23,7 +23,9 @@ before_script:
   - apk add docker-compose
   - docker-compose --version
   - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
-  - cat .env.example | sed -r 's/([A-Z_]+)=/\1=$\1/g' | envsubst > .env
+  - curl -L https://github.com/a8m/envsubst/releases/download/v1.2.0/envsubst-`uname -s`-`uname -m` -o envsubst
+  - chmod +x envsubst
+  - cat .env.example | sed -r 's/([A-Z_]+)=/\1=$\1/g' | ./envsubst > .env
 
 stages:
 - build
