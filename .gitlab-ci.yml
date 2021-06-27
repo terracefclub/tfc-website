@@ -32,8 +32,9 @@ stages:
 
 build:
   stage: build
+  variables:
+    CI_STAGE: production
   script:
-    - export CI_stage=production
     - docker-compose build --pull
     - docker image ls
     - docker-compose push
