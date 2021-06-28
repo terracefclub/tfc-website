@@ -1,9 +1,9 @@
-replicaCount: 3
 
 image:
-  repository: registry.gitlab.com/terrace/tech/tfc-website/app
+  repository: registry.gitlab.com/terrace/tech/tfc-website/terrace_app
   pullPolicy: Always
-  tag: ""
+  tag: "prod"
+replicaCount: 3
 
 serviceAccount:
   create: true
@@ -61,7 +61,7 @@ autoscaling:
   minReplicas: 1
   maxReplicas: 100
   targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
 
 nodeSelector: {}
 affinity: {}
@@ -72,24 +72,22 @@ tolerations: []
 # Configurations for PostgreSQL
 postgresql:
   postgresqlDatabase: web
-  postgresqlUsername: admin
+  postgresqlUsername: user
   existingSecret: secret-postgresql
   extraEnvVarsCM: config-postgresql
   replication:
     enabled: true
     readReplicas: 3
     numSynchronousReplicas: 2
-  service:
-    type: LoadBalancer
-    nodePort: 30000
   persistence:
     selector:
-      db: postgres
+      matchLabels:
+        db: postgres
 
 # Configurations for Redis
 redis:
-  existingSecret: secrets-base
+  existingSecret: secret-redis
   existingSecretPasswordKey: redis-password
   serviceAccount:
-    create: true
+    create: false
     name: servicer
