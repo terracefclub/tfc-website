@@ -8,21 +8,15 @@ version: 0.1.0
 appVersion: 1.0.0
 
 dependencies:
-  - name: bitnami/postgresql
-    version: 10.3.11
+  - name: postgresql
+    version: 10.5.0
     condition: enabled.database
     repository: https://charts.bitnami.com/bitnami
-    import-values:
-      - postgresql
-  - name: bitnami/redis
-    version: 12.8.3
+  - name: redis
+    version: 14.6.2
     condition: enabled.cache
     repository: https://charts.bitnami.com/bitnami
-    import-values:
-      - redis
-  - name: bitnami/nginx-ingress-controller
-    version: 7.4.6
+  - name: nginx-ingress-controller
+    version: 7.6.11
     condition: enabled.ingress
     repository: https://charts.bitnami.com/bitnami
-    import-values:
-      - ingress

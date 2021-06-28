@@ -24,4 +24,5 @@
 ### BLOAT ###
 __pycache__/
 node_modules/
+/kubernetes/**/charts/
 /docs/_build/
