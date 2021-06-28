@@ -26,9 +26,8 @@ resource "heroku_build" "default" {
   app         = heroku_app.default.name
 
   source {
-    url       = ""
     version   = "1.0.0"
-    path      = "/app"
+    path      = "."
   }
 }
 

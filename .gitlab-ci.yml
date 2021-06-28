@@ -11,7 +11,7 @@ variables:
   DOCKER_HOST: tcp://docker:2375
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: ""
-  IMAGE: $CI_REGISTRY/terrace/tech/tfc-website_app
+  IMAGE: $CI_REGISTRY/terrace/tech/tfc-website/terrace_app:$CI_COMMIT_BRANCH
 
 only:
   - prod
@@ -35,16 +35,18 @@ build:
   variables:
     CI_STAGE: production
   script:
-    - docker-compose build --pull
-    - docker image ls
-    - docker-compose push
+    - docker-compose build --pull -t $IMAGE .
+    - CI_STAGE=testing docker-compose build --pull -t $IMAGE-test
+    - docker-compose push $IMAGE
+    - docker-compose push $IMAGE-test
 
 test:
   stage: test
+  variables:
+    CI_STAGE: testing
   script: 
-    - docker-compose pull
-    - docker-compose up -d
-    - sleep 20
+    - docker-compose pull $IMAGE-test
+    - docker-compose up $IMAGE-test -d
     - docker-compose exec -it app coverage run manage.py test website
     - docker-compose exec -it app coverage npm run test
     - docker-compose exec -it app coverage report
@@ -53,6 +55,7 @@ deploy:
   image: hashicorp/terraform:light
   stage: deploy
   variables:
+    CI_STAGE: production
     APP_NAME: |
       case "$CI_COMMIT_BRANCH" in
         "prod") echo "$HEROKU_STAGING_STABLE" ;;
