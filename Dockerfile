@@ -62,7 +62,7 @@ CMD ["/bin/sh", "-c", "while sleep 1000; do :; done"]
 
 
 
-FROM base AS testing
+FROM base AS frontend_build
 ARG BASE_DIR
 ARG FRONTEND_DIR_FULL
 ENV DJANGO_SETTINGS_MODULE=website.settings.production
@@ -72,6 +72,11 @@ WORKDIR $BASE_DIR
 
 
 
-FROM testing AS production
+FROM frontend_build AS testing
+CMD ["./entrypoint-test.sh"]
+
+
+
+FROM frontend_build AS production
 ENV PYTHONUNBUFFERED=1
-CMD ["./docker-entrypoint.sh"]
+CMD ["./entrypoint-prod.sh"]
