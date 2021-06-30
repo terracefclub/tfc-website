@@ -1,68 +1,85 @@
-image:
-  name: docker:20.10.7
-  entrypoint: ["/bin/sh", "-c"]
+# image:
+#   name: docker:20.10.7
+#   entrypoint: ["/bin/sh", "-c"]
 
-services:
-  - name: docker:20.10.7-dind
-    entrypoint: ["env", "-u", "DOCKER_HOST"]
-    command: ["dockerd-entrypoint.sh"]
+# services:
+#   - name: docker:20.10.7-dind
+#     entrypoint: ["env", "-u", "DOCKER_HOST"]
+#     command: ["dockerd-entrypoint.sh"]
+.gitlab-login: &gitlab-login
+  - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
+  - docker info
+
+.heroku-login: &heroku-login
+  - echo $HEROKU_API_KEY | docker login registry.heroku.com --username=_ --password-stdin
+  - docker info
+
+
+
 
 variables:
-  DOCKER_HOST: tcp://docker:2375
-  DOCKER_DRIVER: overlay2
-  DOCKER_TLS_CERTDIR: ""
-  IMAGE: $CI_REGISTRY/terrace/tech/tfc-website/terrace_app:$CI_COMMIT_BRANCH
-
-only:
-  - prod
-  - dev
-
-before_script:
-  - docker info
-  - apk update
-  - apk add docker-compose
-  - docker-compose --version
-  - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
-  - echo $(eval echo $(cat .env.example | sed -r 's/([A-Z_]+)=/\1=$\1/g')) > .env
-
-stages:
-- build
-- test
-- deploy
+  # DOCKER_HOST: tcp://docker:2375
+  # DOCKER_DRIVER: overlay2
+  # DOCKER_TLS_CERTDIR: ""
+  HEROKU_PREFIX: registry.heroku.com/flabyrinth
+  IMAGE_HEROKU: $HEROKU_PREFIX/server:$CI_COMMIT_BRANCH
+  IMAGE_GITLAB: $CI_REGISTRY/terrace/tech/tfc-website/server:$CI_COMMIT_BRANCH
 
 build:
   stage: build
-  variables:
-    CI_STAGE: production
+  image: docker:latest
+  services: [ docker-dind ]
+  only: [ dev, prod ]    
+  before_script:
+    - *gitlab-login
+    - echo $(eval echo $(cat .env.example | sed -r 's/([A-Z_]+)=/\1=$\1/g')) > .env
   script:
-    - docker-compose build --pull -t $IMAGE .
-    - CI_STAGE=testing docker-compose build --pull -t $IMAGE-test
-    - docker-compose push $IMAGE
-    - docker-compose push $IMAGE-test
+    - docker build --pull -t $IMAGE_GITLAB --target production .
+    - docker build --pull -t $IMAGE_GITLAB-test --target testing .
+    - docker push $IMAGE_GITLAB
+    - docker push $IMAGE_GITLAB-test
 
 test:
   stage: test
-  variables:
-    CI_STAGE: testing
+  image: docker:latest
+  services: [ docker-dind ]
+  only: [ dev, prod ]
+  before_script:
+    - *gitlab-login
   script: 
-    - docker-compose pull $IMAGE-test
-    - docker-compose up $IMAGE-test -d
-    - docker-compose exec -it app coverage run manage.py test website
-    - docker-compose exec -it app coverage npm run test
-    - docker-compose exec -it app coverage report
+    - docker pull $IMAGE_GITLAB-test
+    - docker run -it $IMAGE_GITLAB-test
 
-deploy:
+heroku:
+  stage: deploy
+  image: node:lts-alpline
+  only: [ dev ]
+  before_script:
+    - npm i -g heroku
+    - *gitlab-login
+    - *heroku-login
+  script:
+    - docker pull $IMAGE_GITLAB postgres redis
+    - docker tag $IMAGE_GITLAB $IMAGE_HEROKU
+    - docker tag postgres $HEROKU_PREFIX/postgres
+    - docker tag redis $HEROKU_PREFIX/redis
+    - docker push $IMAGE_HEROKU $HEROKU_PREFIX/postgres $HEROKU_PREFIX/redis
+
+stage:
   image: hashicorp/terraform:light
   stage: deploy
-  variables:
-    CI_STAGE: production
-    APP_NAME: |
-      case "$CI_COMMIT_BRANCH" in
-        "prod") echo "$HEROKU_STAGING_STABLE" ;;
-        "dev")  echo "$HEROKU_STAGING_UNSTABLE" ;;
-      esac
+  only: [ dev ]
+  before_script:
+    - echo $(eval echo $(cat terraform.tfvars.example | sed -r 's/([A-Z_]+)=/\1=\"$\U\1\"/g')) > terraform.tfvars
   script:
     - login <<< $'yes\n$TF_TOKEN'
     - init
     - plan
-    - apply -var="app_name=$APP_NAME" <<< $'yes'
+    - apply <<< $'yes'
+
+deploy:
+  image: gcloud:latest
+  stage: deploy
+  only: [ prod ]
+  script:
+    - ls
