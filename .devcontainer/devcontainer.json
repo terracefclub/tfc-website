@@ -1,0 +1,67 @@
+{
+	"name": "TFC Website",
+	
+  "dockerComposeFile": "./docker-compose.yaml",
+  "service": "server",
+  "workspaceFolder": "/usr/src/womb",
+  "shutdownAction": "stopCompose",
+  // "build": {
+  //   "dockerfile": "../Dockerfile",
+  //   "context": "..",
+  //   "target": "development",
+  //   "args": {
+  //     "CI_STAGE": "development",
+  //   },
+  // },
+  "forwardPorts": [8000],
+
+	"settings": { 
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": true 
+    },
+
+    "emmet.includeLanguages": {
+      "django-html": "html"
+    },
+
+    "files.associations": {
+      "**/*.html": "html",
+      "**/templates/**/*.html": "django-html",
+      "**/templates/**/*": "django-txt",
+      "**/requirements{/**,*}.{txt,in}": "pip-requirements",
+      "*.yaml": "yaml"
+    },
+
+    "git.path": ["/usr/bin/git"],
+
+    "terminal.integrated.profiles.linux": {
+      "zsh (login)": {
+        "path": "zsh",
+        "args": ["-l"]
+      }
+    },
+
+    "python.languageServer": "Pylance",
+
+    "css.validate": false,
+    "scss.validate": false,
+    "stylelint.enable": true,
+    "stylelint.configFile": "website/frontend/.stylelintrc.json",
+	},
+
+	// Extensions to be installed when container is created
+	"extensions": [
+    "batisteo.vscode-django",
+    "eamodio.gitlens",
+    "ms-python.python",
+    "bradlc.vscode-tailwindcss",
+    "ritwickdey.liveserver",
+    "tim-koehler.helm-intellisense",
+    "ipedrazas.kubernetes-snippets",
+    "stylelint.vscode-stylelint",
+    "tomoki1207.pdf",
+    "lextudio.restructuredtext",
+    "trond-snekvik.simple-rst",
+    "mtxr.sqltools"
+  ],
+}
