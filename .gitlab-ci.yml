@@ -34,6 +34,7 @@ build:
     - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
     - docker info
     - echo $(eval echo $(cat .env.example | sed -r 's/([A-Z_]+)=/\1=$\1/g')) > .env
+    - cat .env
   script:
     - docker build --pull -t $IMAGE_GITLAB --target production .
     - docker build --pull -t $IMAGE_GITLAB-test --target testing .
