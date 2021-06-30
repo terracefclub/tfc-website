@@ -23,7 +23,7 @@ variables:
   DOCKER_TLS_CERTDIR: ""
   HEROKU_PREFIX: registry.heroku.com/flabyrinth
   IMAGE_HEROKU: $HEROKU_PREFIX/server:$CI_COMMIT_BRANCH
-  IMAGE_GITLAB: $CI_REGISTRY/terrace/tech/tfc-website/server:$CI_COMMIT_BRANCH
+  IMAGE_GITLAB: $CI_REGISTRY/$CI_PROJECT_PATH/server:$CI_COMMIT_BRANCH
 
 build:
   stage: build
