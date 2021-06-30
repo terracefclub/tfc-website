@@ -18,9 +18,9 @@
 
 
 variables:
-  # DOCKER_HOST: tcp://docker:2375
-  # DOCKER_DRIVER: overlay2
-  # DOCKER_TLS_CERTDIR: ""
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
   HEROKU_PREFIX: registry.heroku.com/flabyrinth
   IMAGE_HEROKU: $HEROKU_PREFIX/server:$CI_COMMIT_BRANCH
   IMAGE_GITLAB: $CI_REGISTRY/terrace/tech/tfc-website/server:$CI_COMMIT_BRANCH
