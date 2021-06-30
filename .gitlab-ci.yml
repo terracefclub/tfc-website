@@ -18,7 +18,7 @@
 
 
 variables:
-  DOCKER_HOST: tcp://docker:2375
+  # DOCKER_HOST: tcp://docker:2375
   # DOCKER_DRIVER: overlay2
   # DOCKER_TLS_CERTDIR: ""
   HEROKU_PREFIX: registry.heroku.com/flabyrinth
@@ -28,7 +28,7 @@ variables:
 build:
   stage: build
   image: docker:latest
-  services: [ docker-dind ]
+  services: [ docker:dind ]
   only: [ dev, prod ]    
   before_script:
     - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
@@ -43,7 +43,7 @@ build:
 test:
   stage: test
   image: docker:latest
-  services: [ docker-dind ]
+  services: [ docker:dind ]
   only: [ dev, prod ]
   before_script:
     - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
@@ -54,7 +54,8 @@ test:
 
 heroku:
   stage: deploy
-  image: node:lts-alpline
+  image: node:lts-alpine
+  services: [ docker:dind ]
   only: [ dev ]
   before_script:
     - npm i -g heroku
