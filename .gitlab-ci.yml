@@ -38,6 +38,8 @@ build:
     IMAGE_HEROKU: $HEROKU_PREFIX/server:$CI_COMMIT_BRANCH
     IMAGE_GITLAB: $CI_REGISTRY/$CI_PROJECT_PATH/server:$CI_COMMIT_BRANCH
   before_script:
+    - echo $CI_WRITE_TOKEN $CI_REGISTRY $CI_WRITE_USER
+    - echo $(echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin)
     - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
     - docker info
     - echo $(eval echo $(cat .env.example | sed -r 's/([A-Z_]+)=/\1=$\1/g')) > .env
