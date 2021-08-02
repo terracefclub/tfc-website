@@ -63,7 +63,7 @@ test:
     - docker info
   script: 
     - docker pull $IMAGE_GITLAB-test
-    - docker run -it $IMAGE_GITLAB-test
+    - docker run $IMAGE_GITLAB-test
 
 heroku:
   stage: deploy
