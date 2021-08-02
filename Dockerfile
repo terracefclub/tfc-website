@@ -73,6 +73,7 @@ WORKDIR $BASE_DIR
 
 
 FROM frontend_build AS testing
+RUN chmod +x entrypoint-test.sh
 CMD ["./entrypoint-test.sh"]
 
 
