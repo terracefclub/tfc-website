@@ -1,3 +1,5 @@
+#!/bin/bash
+
 set -xe
 
 coverage run python manage.py test website
