@@ -28,7 +28,7 @@
 build:
   stage: build
   image: docker:latest
-  services: [ docker:dind ]
+  services: [ "docker:dind" ]
     # - name: docker:dind
     #   entrypoint: ["env", "-u", "DOCKER_HOST"]
     #   command: ["dockerd-entrypoint.sh"]
@@ -55,7 +55,7 @@ build:
 test:
   stage: test
   image: docker:latest
-  services: [ docker:dind ]
+  services: [ "docker:dind" ]
   only: [ dev, prod ]
   before_script:
     - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
@@ -67,7 +67,7 @@ test:
 heroku:
   stage: deploy
   image: node:lts-alpine
-  services: [ docker:dind ]
+  services: [ "docker:dind" ]
   only: [ dev ]
   before_script:
     - npm i -g heroku
