@@ -1,29 +1,3 @@
-# image:
-#   name: docker:20.10.7
-#   entrypoint: ["/bin/sh", "-c"]
-
-# services:
-#   - name: docker:20.10.7-dind
-#     entrypoint: ["env", "-u", "DOCKER_HOST"]
-#     command: ["dockerd-entrypoint.sh"]
-# .gitlab-login: &gitlab-login
-#   - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
-#   - docker info
-
-# .heroku-login: &heroku-login
-#   - echo $HEROKU_API_KEY | docker login registry.heroku.com --username=_ --password-stdin
-#   - docker info
-
-
-
-
-# variables:
-#   DOCKER_HOST: tcp://docker:2375
-#   DOCKER_DRIVER: overlay2
-#   DOCKER_TLS_CERTDIR: ""
-#   HEROKU_PREFIX: registry.heroku.com/flabyrinth
-#   IMAGE_HEROKU: $HEROKU_PREFIX/server:$CI_COMMIT_BRANCH
-#   IMAGE_GITLAB: $CI_REGISTRY/$CI_PROJECT_PATH/server:$CI_COMMIT_BRANCH
 
 variables:
   DOCKER_HOST: tcp://docker:2375
@@ -33,37 +7,34 @@ variables:
   IMAGE_HEROKU: $HEROKU_PREFIX/web_app_server:$CI_COMMIT_BRANCH
   IMAGE_GITLAB: $CI_REGISTRY/$CI_PROJECT_PATH/web_app_server:$CI_COMMIT_BRANCH
 
-build:
-  stage: build
-  image: docker:latest
-  services: [ "docker:dind" ]
-    # - name: docker:dind
-    #   entrypoint: ["env", "-u", "DOCKER_HOST"]
-    #   command: ["dockerd-entrypoint.sh"]
-  only: [ dev, prod ]    
-  before_script:
-    - echo $CI_WRITE_TOKEN $CI_REGISTRY $CI_WRITE_USER
-    - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
-    - docker info
-    - echo $(eval echo $(cat .env.example | sed -r 's/([A-Z_]+)=/\1=$\1/g')) > .env
-    - cat .env
-  script:
-    - docker build --pull -t $IMAGE_GITLAB --target production .
-    - docker build --pull -t $IMAGE_GITLAB-test --target testing .
-    - docker push $IMAGE_GITLAB
-    - docker push $IMAGE_GITLAB-test
+# build:
+#   stage: build
+#   image: docker:latest
+#   services: [ "docker:dind" ]
+#   only: [ dev, prod ]    
+#   before_script:
+#     - echo $CI_WRITE_TOKEN $CI_REGISTRY $CI_WRITE_USER
+#     - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
+#     - docker info
+#     - echo $(eval echo $(cat .env.example | sed -r 's/([A-Z_]+)=/\1=$\1/g')) > .env
+#     - cat .env
+#   script:
+#     - docker build --pull -t $IMAGE_GITLAB --target production .
+#     - docker build --pull -t $IMAGE_GITLAB-test --target testing .
+#     - docker push $IMAGE_GITLAB
+#     - docker push $IMAGE_GITLAB-test
 
-test:
-  stage: test
-  image: docker:latest
-  services: [ "docker:dind" ]
-  only: [ dev, prod ]
-  before_script:
-    - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
-    - docker info
-  script: 
-    - docker pull $IMAGE_GITLAB-test
-    - docker run $IMAGE_GITLAB-test
+# test:
+#   stage: test
+#   image: docker:latest
+#   services: [ "docker:dind" ]
+#   only: [ dev, prod ]
+#   before_script:
+#     - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
+#     - docker info
+#   script: 
+#     - docker pull $IMAGE_GITLAB-test
+#     - docker run $IMAGE_GITLAB-test
 
 heroku:
   stage: deploy
