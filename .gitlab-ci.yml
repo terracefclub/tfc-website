@@ -42,9 +42,7 @@ heroku:
   services: [ "docker:dind" ]
   only: [ dev ]
   before_script:
-    - apt-get install --yes curl
-    - curl -fsSL https://deb.nodesource.com/setup_14.x | bash -
-    - apt-get install --yes nodejs
+    - apk add --update nodejs npm
     - npm i -g heroku
     - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
     - docker info
