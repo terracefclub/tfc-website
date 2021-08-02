@@ -25,6 +25,14 @@
 #   IMAGE_HEROKU: $HEROKU_PREFIX/server:$CI_COMMIT_BRANCH
 #   IMAGE_GITLAB: $CI_REGISTRY/$CI_PROJECT_PATH/server:$CI_COMMIT_BRANCH
 
+variables:
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""  
+  HEROKU_PREFIX: registry.heroku.com/flabyrinth
+  IMAGE_HEROKU: $HEROKU_PREFIX/web_app_server:$CI_COMMIT_BRANCH
+  IMAGE_GITLAB: $CI_REGISTRY/$CI_PROJECT_PATH/web_app_server:$CI_COMMIT_BRANCH
+
 build:
   stage: build
   image: docker:latest
@@ -33,13 +41,6 @@ build:
     #   entrypoint: ["env", "-u", "DOCKER_HOST"]
     #   command: ["dockerd-entrypoint.sh"]
   only: [ dev, prod ]    
-  variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_DRIVER: overlay2
-    DOCKER_TLS_CERTDIR: ""
-    HEROKU_PREFIX: registry.heroku.com/flabyrinth
-    IMAGE_HEROKU: $HEROKU_PREFIX/web_app_server:$CI_COMMIT_BRANCH
-    IMAGE_GITLAB: $CI_REGISTRY/$CI_PROJECT_PATH/web_app_server:$CI_COMMIT_BRANCH
   before_script:
     - echo $CI_WRITE_TOKEN $CI_REGISTRY $CI_WRITE_USER
     - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
@@ -48,9 +49,9 @@ build:
     - cat .env
   script:
     - docker build --pull -t $IMAGE_GITLAB --target production .
-    - docker build --pull -t "$IMAGE_GITLAB-test" --target testing .
+    - docker build --pull -t $IMAGE_GITLAB-test --target testing .
     - docker push $IMAGE_GITLAB
-    - docker push "$IMAGE_GITLAB-test"
+    - docker push $IMAGE_GITLAB-test
 
 test:
   stage: test
@@ -61,8 +62,8 @@ test:
     - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
     - docker info
   script: 
-    - docker pull "$IMAGE_GITLAB-test"
-    - docker run -it "$IMAGE_GITLAB-test"
+    - docker pull $IMAGE_GITLAB-test
+    - docker run -it $IMAGE_GITLAB-test
 
 heroku:
   stage: deploy
