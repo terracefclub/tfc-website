@@ -24,29 +24,29 @@ RUN apt-get update --yes && \
 USER $USERNAME
 
 # Install system dependencies
-WORKDIR /tmp
-RUN sudo apt-get -qq install --yes --quiet --no-install-recommends \
-      build-essential \
-      gdal-bin \
-      libpq-dev \
-      python3-dev \
-      zlib1g-dev \
-      libwebp-dev \
-      git \
-      curl && \
-    sudo curl -fsSL https://deb.nodesource.com/setup_14.x | sudo bash - && \
-    sudo apt-get -qq install --yes --quiet nodejs
+# WORKDIR /tmp
+# RUN sudo apt-get -qq install --yes --quiet --no-install-recommends \
+#       build-essential \
+#       gdal-bin \
+#       libpq-dev \
+#       python3-dev \
+#       zlib1g-dev \
+#       libwebp-dev \
+#       git \
+#       curl && \
+#     sudo curl -fsSL https://deb.nodesource.com/setup_14.x | sudo bash - && \
+#     sudo apt-get -qq install --yes --quiet nodejs
 
 # Install web server dependencies
 WORKDIR $BASE_DIR
 COPY requirements.txt .
-RUN python -m pip install --upgrade pip && \
-    pip install -r requirements.txt
+# RUN python -m pip install --upgrade pip && \
+#     pip install -r requirements.txt
 
 WORKDIR $FRONTEND_DIR_FULL
 COPY $FRONTEND_DIR/package.json .
-RUN sudo chown -R $USERNAME:$GROUPNAME . && \
-    npm --prefix $FRONTEND_DIR_FULL i
+RUN sudo chown -R $USERNAME:$GROUPNAME .
+#     npm --prefix $FRONTEND_DIR_FULL i
 
 WORKDIR $BASE_DIR
 
@@ -66,8 +66,8 @@ FROM base AS frontend_build
 ARG BASE_DIR
 ARG FRONTEND_DIR_FULL
 ENV DJANGO_SETTINGS_MODULE=website.settings.production
-WORKDIR $FRONTEND_DIR_FULL
-RUN npm --prefix $FRONTEND_DIR_FULL run build
+# WORKDIR $FRONTEND_DIR_FULL
+# RUN npm --prefix $FRONTEND_DIR_FULL run build
 WORKDIR $BASE_DIR
 
 
