@@ -46,14 +46,11 @@ heroku:
     - npm i -g heroku
     - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
     - docker info
-    - echo $HEROKU_API_KEY | docker login registry.heroku.com --username=_ --password-stdin
-    - docker info
+    - heroku container:login
   script:
-    - docker pull $IMAGE_GITLAB postgres redis
+    - docker pull $IMAGE_GITLAB
     - docker tag $IMAGE_GITLAB $IMAGE_HEROKU
-    - docker tag postgres $HEROKU_PREFIX/postgres
-    - docker tag redis $HEROKU_PREFIX/redis
-    - docker push $IMAGE_HEROKU $HEROKU_PREFIX/postgres $HEROKU_PREFIX/redis
+    - docker push $IMAGE_HEROKU
 
 stage:
   image: hashicorp/terraform:light
