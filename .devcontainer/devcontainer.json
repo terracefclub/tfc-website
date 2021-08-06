@@ -1,18 +1,10 @@
 {
 	"name": "TFC Website",
 	
-  "dockerComposeFile": "./docker-compose.yaml",
+  "dockerComposeFile": "../docker-compose.yaml",
   "service": "server",
   "workspaceFolder": "/usr/src/womb",
   "shutdownAction": "stopCompose",
-  // "build": {
-  //   "dockerfile": "../Dockerfile",
-  //   "context": "..",
-  //   "target": "development",
-  //   "args": {
-  //     "CI_STAGE": "development",
-  //   },
-  // },
   "forwardPorts": [8000],
 
 	"settings": { 
@@ -32,14 +24,7 @@
       "*.yaml": "yaml"
     },
 
-    "git.path": ["/usr/bin/git"],
-
-    "terminal.integrated.profiles.linux": {
-      "zsh (login)": {
-        "path": "zsh",
-        "args": ["-l"]
-      }
-    },
+    "git.path": ["/usr/bin/git", "C:\\Program Files\\Git\\cmd\\git.exe"],
 
     "python.languageServer": "Pylance",
 

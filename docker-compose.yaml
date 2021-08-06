@@ -18,9 +18,9 @@ services:
   server:
     container_name: server
     build:
-      context: ..
+      context: .
       target: development
-    env_file: ../.env
+    env_file: .env
     volumes: [ ./:/usr/src/womb ]
     depends_on: [ postgres, redis ]
 volumes:

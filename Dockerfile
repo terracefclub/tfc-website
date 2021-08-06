@@ -58,6 +58,8 @@ RUN sudo chown -R $USERNAME:$GROUPNAME .
 
 FROM base AS development
 ENV DJANGO_SETTINGS_MODULE=website.settings.dev
+# Default powerline10k theme, no plugins installed
+RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/v1.1.1/zsh-in-docker.sh)"
 CMD ["/bin/sh", "-c", "while sleep 1000; do :; done"]
 
 
