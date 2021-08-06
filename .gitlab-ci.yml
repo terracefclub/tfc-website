@@ -3,48 +3,56 @@ variables:
   DOCKER_HOST: tcp://docker:2375
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: ""  
-  HEROKU_PREFIX: registry.heroku.com/flabyrinth
-  IMAGE_HEROKU: $HEROKU_PREFIX/web_app_server:$CI_COMMIT_BRANCH
-  IMAGE_GITLAB: $CI_REGISTRY/$CI_PROJECT_PATH/web_app_server:$CI_COMMIT_BRANCH
+  APP_NAME: web_app_server
+  GCLOUD_REGISTRY: us.gcr.io
+  GCLOUD_PROJECT: terracefclub
+  GCLOUD_COMPUTE_ZONE: us-central1-a
+  GCLOUD_PREFIX: $GCLOUD_REGISTRY/$GCLOUD_PROJECT
+  CLUSTER_NAME: my-cluster
+  HEROKU_REGISTRY: registry.heroku.com
+  HEROKU_PREFIX: $HEROKU_REGISTRY/flabyrinth
+  IMAGE_HEROKU: $HEROKU_PREFIX/$APP_NAME:$CI_COMMIT_BRANCH
+  IMAGE_GITLAB: $CI_REGISTRY/$CI_PROJECT_PATH/$APP_NAME:$CI_COMMIT_BRANCH
+  IMAGE_GCLOUD: $GCLOUD_PREFIX/$APP_NAME:$$CI_COMMIT_BRANCH
 
-# build:
-#   stage: build
-#   image: docker:latest
-#   services: [ "docker:dind" ]
-#   only: [ dev, prod ]    
-#   before_script:
-#     - echo $CI_WRITE_TOKEN $CI_REGISTRY $CI_WRITE_USER
-#     - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
-#     - docker info
-#     - echo $(eval echo $(cat .env.example | sed -r 's/([A-Z_]+)=/\1=$\1/g')) > .env
-#     - cat .env
-#   script:
-#     - docker build --pull -t $IMAGE_GITLAB --target production .
-#     - docker build --pull -t $IMAGE_GITLAB-test --target testing .
-#     - docker push $IMAGE_GITLAB
-#     - docker push $IMAGE_GITLAB-test
+build:
+  stage: build
+  image: docker:latest
+  services: [ "docker:dind" ]
+  only: [ dev, prod ]    
+  before_script:
+    - echo $CI_WRITE_TOKEN $CI_REGISTRY $CI_WRITE_USER
+    - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
+    - docker info
+    - echo $(eval echo $(cat .env.example | sed -r 's/([A-Z_]+)=/\1=$\1/g')) > .env
+    - cat .env
+  script:
+    - docker build --pull -t $IMAGE_GITLAB --target production .
+    - docker build --pull -t $IMAGE_GITLAB-test --target testing .
+    - docker push $IMAGE_GITLAB
+    - docker push $IMAGE_GITLAB-test
 
-# test:
-#   stage: test
-#   image: docker:latest
-#   services: [ "docker:dind" ]
-#   only: [ dev, prod ]
-#   before_script:
-#     - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
-#     - docker info
-#   script: 
-#     - docker pull $IMAGE_GITLAB-test
-#     - docker run $IMAGE_GITLAB-test
+test:
+  stage: test
+  image: docker:latest
+  services: [ "docker:dind" ]
+  only: [ dev, prod ]
+  before_script:
+    - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
+    - docker info
+  script: 
+    - docker pull $IMAGE_GITLAB-test
+    - docker run $IMAGE_GITLAB-test
 
 heroku:
   stage: deploy
-  image: docker
+  image: docker:latest
   services: [ "docker:dind" ]
   only: [ dev ]
   before_script:
     - apk add --update nodejs npm
     - npm i -g heroku
-    - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
+    - echo $CI_WRITE_TOKEN | docker login $HEROKU_REGISTRY --username $CI_WRITE_USER --password-stdin
     - docker info
     - heroku container:login
   script:
@@ -64,9 +72,32 @@ stage:
     - plan
     - apply <<< $'yes'
 
+gcloud:
+  stage: deploy
+  image: docker:latest
+  services: [ "docker:dind" ]
+  only: [ prod ]
+  before_script:
+    - echo $GOOGLE_SERVICEACCT_CREDENTIALS | docker login $GCLOUD_REGISTRY --username _json_key --password-stdin
+    - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
+    - docker info
+  script:
+    - docker pull $IMAGE_GITLAB
+    - docker tag $IMAGE_GITLAB $IMAGE_GCLOUD
+    - docker push $IMAGE_GCLOUD
+
 deploy:
   image: gcloud:latest
   stage: deploy
   only: [ prod ]
+  environment:
+    name: prod
+  before_script:
+    - echo $$GOOGLE_SERVICEACCT_CREDENTIALS > credentials.json
+    - gcloud auth activate-service-account --key-file=credentials.json
+    - gcloud config set project $GCLOUD_PROJECT
+    - gcloud config set container/cluster $CLUSTER_NAME
+    - gcloud config set compute/zone $GCLOUD_COMPUTE_ZONE
+    - gcloud container clusters get-credentials $CLUSTER_NAME --zone=$GCLOUD_COMPUTE_ZONE
   script:
-    - ls
+    - helm install kubernetes/future-chart
