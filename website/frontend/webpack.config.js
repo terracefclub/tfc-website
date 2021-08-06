@@ -51,7 +51,17 @@ module.exports = {
   optimization: {
     splitChunks: {
       chunks: 'all',
-      name: 'vendors',
+      cacheGroups: {
+        vendors: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors'
+        },
+        default: {
+          name: 'default',
+          minChunks: 2,
+          enforce: true
+        }
+      }
     },
   },
   plugins: [
