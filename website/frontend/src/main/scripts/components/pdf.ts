@@ -1,9 +1,9 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.entry';
 import type { PDFPageProxy } from 'pdfjs-dist/types/display/api';
-import { queryElement, queryElementAll } from '../utilities/query';
+import { queryElement } from '../utilities/query';
 
-GlobalWorkerOptions.workerSrc = '/frontend/node_modules/pdfjs-dist/build/pdf.worker.entry';
+GlobalWorkerOptions.workerSrc =
+  '/frontend/node_modules/pdfjs-dist/build/pdf.worker.entry';
 
 const [width, height] = [160, 240];
 const audioColor = 'rgb(96, 165, 250)';
@@ -14,7 +14,7 @@ const audioColor = 'rgb(96, 165, 250)';
  * @returns a Promise of a canvas element display with the page scaled to fit
  */
 async function generateThumbnail(
-  page: PDFPageProxy
+  page: PDFPageProxy,
 ): Promise<HTMLCanvasElement> {
   const canvas = document.createElement('canvas');
   canvas.setAttribute('width', width.toString());
@@ -24,7 +24,7 @@ async function generateThumbnail(
   const scale = Math.min(width / vp.width, height / vp.height);
 
   const canvasContext = canvas.getContext('2d') as RenderingContext;
-  const viewport = page.getViewport({ scale, rotation: 0, dontFlip: false});
+  const viewport = page.getViewport({ scale, rotation: 0, dontFlip: false });
 
   await page.render({ canvasContext, viewport }).promise;
   return canvas;
@@ -36,8 +36,8 @@ async function generateThumbnail(
  * @param item - The element to append an `HTMLCanvasElement` to
  */
 async function appendDocumentThumbnail(
-  item: HTMLElement, 
-  { pageNum }: { pageNum: number } = { pageNum: 1}
+  item: HTMLElement,
+  { pageNum }: { pageNum: number } = { pageNum: 1 },
 ): Promise<void> {
   const url = item.getAttribute('data-url');
 
@@ -51,8 +51,7 @@ async function appendDocumentThumbnail(
       console.error(error);
     }
   }
-};
-
+}
 
 /**
  * Animate the display and track the audio source of a media archive audio post
@@ -66,11 +65,11 @@ function trackAudio(item: HTMLElement): void {
   const elapsedEl = queryElement(item, '.elapsed', HTMLSpanElement);
   const durationEl = queryElement(item, '.duration', HTMLSpanElement);
 
-  const canvas = queryElement(item, 'canvas', HTMLCanvasElement)
+  const canvas = queryElement(item, 'canvas', HTMLCanvasElement);
   const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
   const width = canvas.width;
   const height = canvas.height;
-  
+
   const externalLink = queryElement(item, '.title-box i', HTMLElement);
 
   /**
@@ -88,9 +87,9 @@ function trackAudio(item: HTMLElement): void {
    * Render the elapsed time and audio duration as a typical digitized string
    * @param isUpdate - whether the element is being updated vs first shown
    */
-  const displayTime = (
-    { isUpdate = false }: { isUpdate?: boolean } = {}
-  ): void => {
+  const displayTime = ({
+    isUpdate = false,
+  }: { isUpdate?: boolean } = {}): void => {
     elapsedEl.innerHTML = digitalize(audio.currentTime);
     if (isUpdate) durationEl.innerHTML = digitalize(audio.duration);
   };
@@ -105,9 +104,15 @@ function trackAudio(item: HTMLElement): void {
     ctx.clearRect(0, 0, width, height);
     ctx.beginPath();
     ctx.fillStyle = audioColor;
-    ctx.moveTo(width/2, height/2);
-    ctx.arc(width/2, height/2, width/2, 0, elapsed/duration * Math.PI*2);
-    ctx.lineTo(width/2, height/2);
+    ctx.moveTo(width / 2, height / 2);
+    ctx.arc(
+      width / 2,
+      height / 2,
+      width / 2,
+      0,
+      (elapsed / duration) * Math.PI * 2,
+    );
+    ctx.lineTo(width / 2, height / 2);
     ctx.fill();
   };
 
@@ -142,39 +147,42 @@ function trackAudio(item: HTMLElement): void {
   });
   playEl.addEventListener('click', pressPlay);
   pauseEl.addEventListener('click', pressPause);
-  externalLink.addEventListener('click', () => 
-    window.open(audio.src, '_blank')
+  externalLink.addEventListener('click', () =>
+    window.open(audio.src, '_blank'),
   );
-};
+}
 
-
-
-
-
-export default function() {
+export default function (): void {
   const docs = document.querySelectorAll('.archive-item.pdf');
   const audios = document.querySelectorAll('.archive-item.audio');
   const sliders = document.querySelectorAll('.slider');
 
   function addSliderHorizontalScrolling(slider: HTMLElement) {
-    slider.addEventListener("wheel", event => {
+    slider.addEventListener('wheel', (event) => {
       const scrollSpeed = 2;
       const willScrollLeft = event.deltaX < 0 && slider.scrollLeft > 0;
-      const willScrollRight = event.deltaX > 0 && 
+      const willScrollRight =
+        event.deltaX > 0 &&
         slider.scrollLeft < slider.scrollWidth - slider.clientWidth;
       if (willScrollLeft || willScrollRight) {
         event.preventDefault();
-        slider.scrollBy({ left: event.deltaX*scrollSpeed, behavior: "smooth" });
+        slider.scrollBy({
+          left: event.deltaX * scrollSpeed,
+          behavior: 'smooth',
+        });
       }
     });
   }
 
   // synchronizes async pdf calls
-  docs?.forEach(async doc => await appendDocumentThumbnail(doc as HTMLAnchorElement));
-  audios?.forEach(audio => trackAudio(audio as HTMLAudioElement));
-  sliders?.forEach(slider => addSliderHorizontalScrolling(slider as HTMLDivElement));
-};
-
+  docs?.forEach(
+    async (doc) => await appendDocumentThumbnail(doc as HTMLAnchorElement),
+  );
+  audios?.forEach((audio) => trackAudio(audio as HTMLAudioElement));
+  sliders?.forEach((slider) =>
+    addSliderHorizontalScrolling(slider as HTMLDivElement),
+  );
+}
 
 /* KEEP TO SEE WORKING LEGACY
 (async () => {

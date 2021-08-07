@@ -1,3 +1,3 @@
-/// <reference path="./functions.d.ts" />
+import './functions';
 
-declare var version: string;
+declare let version: string;

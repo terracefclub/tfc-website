@@ -7,7 +7,6 @@ function mockFunction<T extends common.func>(fn: T): jest.MockedFunction<T> {
 
 describe('Blog Components', () => {
   describe('shareLoader', () => {
-
     beforeAll(() => {
       document.body.innerHTML = `
         <div class="card">
@@ -23,41 +22,50 @@ describe('Blog Components', () => {
 
     function simulate(): void {
       shareLoader();
-      const shareBtn = queryElement(document, 
-        '.card-info-footer div:last-child', HTMLElement);
+      const shareBtn = queryElement(
+        document,
+        '.card-info-footer div:last-child',
+        HTMLElement,
+      );
       shareBtn.click();
     }
 
     it('should display failed alert if invalid clipboard permissions', () => {
       Object.assign(navigator, {
-        permissions: { query: jest.fn(async () => ({ state: 'denied' }))}
+        permissions: { query: jest.fn(async () => ({ state: 'denied' })) },
       });
 
       simulate();
 
       const p = queryElement(document, 'p', HTMLParagraphElement);
-      expect(p.textContent).toBe('Copy failed! - Invalid Clipboard Permissions');
+      expect(p.textContent).toBe(
+        'Copy failed! - Invalid Clipboard Permissions',
+      );
       expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
     });
 
     it('should display successful copy alert and copy url to clipboard', () => {
       Object.assign(navigator, {
-        permissions: { query: jest.fn(async () => ({ state: 'granted' }))},
-        clipboard: { writeText: jest.fn(async () => {})}
+        permissions: { query: jest.fn(async () => ({ state: 'granted' })) },
+        clipboard: {
+          writeText: mockFunction(async () => {
+            Promise.resolve();
+          }),
+        },
       });
 
       simulate();
 
       const p = queryElement(document, 'p', HTMLParagraphElement);
-      const url = "my://fancy.url/oo00oo";
+      const url = 'my://fancy.url/oo00oo';
       expect(p.textContent).toBe('Copied!');
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(url);
     });
 
     it('should display failed copy alert if failed to write to clipboard', () => {
       Object.assign(navigator, {
-        permissions: { query: jest.fn(async () => ({ state: 'granted' }))},
-        clipboard: { writeText: jest.fn(() => Promise.reject<void>())}
+        permissions: { query: jest.fn(async () => ({ state: 'granted' })) },
+        clipboard: { writeText: jest.fn(() => Promise.reject<void>()) },
       });
 
       simulate();
@@ -69,11 +77,14 @@ describe('Blog Components', () => {
 
     it('should display failed alert if no page url is specified on button', () => {
       Object.assign(navigator, {
-        permissions: { query: jest.fn(async () => ({ state: 'granted' }))},
+        permissions: { query: jest.fn(async () => ({ state: 'granted' })) },
       });
-      
-      const shareBtn = queryElement(document, 
-        '.card-info-footer div:last-child', HTMLElement);
+
+      const shareBtn = queryElement(
+        document,
+        '.card-info-footer div:last-child',
+        HTMLElement,
+      );
       shareBtn.removeAttribute('data-url');
       simulate();
 
@@ -85,30 +96,23 @@ describe('Blog Components', () => {
       // if this weren't the last test, to ensure document back to default
       // could refactor as a beforeEach with defaults/resets
     });
-
   });
 
   describe('searchLoader', () => {
+    it('should add a card badge to search if clicked on card');
 
-    it('should add a card badge to search if clicked on card', () => {
+    it('should remove a search badge when clicked');
 
-    });
+    it(
+      'should remove a search badge when hitting backspace in an empty search box',
+    );
 
-    it('should remove a search badge when clicked', () => {
-
-    });
-
-    it('should remove a search badge when hitting backspace in an empty search box', () => {
-
-    });
-
-    it('should add a search badge when hitting enter with a non-empty search box', () => {
-
-    });
+    it(
+      'should add a search badge when hitting enter with a non-empty search box',
+    );
   });
 
   describe('rankedSortAndPaginationLoader', () => {
-
     // Not sure how to go about testing this really complicated system
     // Probably good to refactor as classes with actual functions
   });

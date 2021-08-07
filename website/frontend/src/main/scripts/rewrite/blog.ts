@@ -1,15 +1,14 @@
 class ShareBtn {
-
-  static selector: string = '.card-info-footer div:last-child';
+  static selector = '.card-info-footer div:last-child';
   element: HTMLElement;
   url: string | null;
-  alert: HTMLDivElement | null;
+  alert: HTMLDivElement | null | undefined;
   p: HTMLParagraphElement | null | undefined;
 
   constructor(element: HTMLElement) {
     this.element = element;
     this.url = element.getAttribute('data-url');
-    this.alert = element.closest('.card')!.querySelector('.copied-alert');
+    this.alert = element.closest('.card')?.querySelector('.copied-alert');
     this.p = this.alert?.querySelector('p');
   }
 
@@ -27,27 +26,26 @@ class ShareBtn {
   }
 
   async copyUrl(): Promise<string> {
-
     if (!this.url) {
-      console.error('\'data-url\' not defined on share button.');
+      console.error("'data-url' not defined on share button.");
       return 'Copy failed! - Invalid Link';
     }
 
     try {
-      const permission = await 
-        navigator.permissions.query({ name: "clipboard-write" });
+      const permission = await navigator.permissions.query({
+        name: 'clipboard-write',
+      });
 
-      if (permission.state != "granted" && permission.state != "prompt") {
+      if (permission.state != 'granted' && permission.state != 'prompt') {
         console.error(
           `PermissionStatus value '${permission.state}' does not support` +
-          'writing to \'navigator.clipboard\''
+            "writing to 'navigator.clipboard'",
         );
         return 'Copy failed! - Invalid Clipboard Permissions';
       }
 
       await navigator.clipboard.writeText(this.url);
-
-    } catch(err) {
+    } catch (err) {
       console.error(err);
       return 'Copy failed!';
     }
@@ -69,9 +67,8 @@ class ShareBtn {
 }
 
 abstract class _BlogBadge {
-
   public static parentSelector: string;
-  static selector: string = '.blog-badge';
+  static selector = '.blog-badge';
   private _value: string;
   element: HTMLSpanElement;
   search?: BlogSearch;
@@ -92,16 +89,16 @@ abstract class _BlogBadge {
 type BlogBadge = typeof _BlogBadge;
 
 function BlogBadge(mandatory: { parentSelector: string }) {
-
   // TODO: figure out how to return abstract classes from factory function
   return class extends _BlogBadge {
     static parentSelector = mandatory.parentSelector;
-    setup(): void {}
-  }
+    setup(): void {
+      return;
+    }
+  };
 }
 
 class BlogCardBadge extends BlogBadge({ parentSelector: '.card' }) {
-  
   color: string;
 
   constructor(element: HTMLSpanElement, search?: BlogSearch) {
@@ -110,25 +107,26 @@ class BlogCardBadge extends BlogBadge({ parentSelector: '.card' }) {
   }
 
   setup(): void {
-    this.element.addEventListener('click', () => this.search?.addCardBadge(this));
+    this.element.addEventListener('click', () =>
+      this.search?.addCardBadge(this),
+    );
   }
 }
 
-class BlogSearchBadge extends BlogBadge({ parentSelector: '#blog-search-spans' }) {
-
+class BlogSearchBadge extends BlogBadge({
+  parentSelector: '#blog-search-spans',
+}) {
   setup(): void {
     this.element.addEventListener('click', this.remove);
   }
 
   remove(): void {
     this.element.remove();
-    this.search!.removeBadge(this);
+    if (this.search) this.search.removeBadge(this);
   }
 }
 
-
 class BlogSearch {
-
   static typedBadgeColor = 'rgb(156, 163, 175)';
   input: HTMLInputElement;
   box: HTMLDivElement;
@@ -141,7 +139,7 @@ class BlogSearch {
   }
 
   get values() {
-    return this.badges.map(badge => badge.value);
+    return this.badges.map((badge) => badge.value);
   }
 
   addBadge(badge: BlogSearchBadge): boolean {
@@ -156,9 +154,12 @@ class BlogSearch {
   }
 
   addTypedBadge(): boolean {
-    const value = this.input.value.trim()
+    const value = this.input.value.trim();
     if (value in this.values) return false;
-    const searchBadge = this.createSearchBadge(value, BlogSearch.typedBadgeColor);
+    const searchBadge = this.createSearchBadge(
+      value,
+      BlogSearch.typedBadgeColor,
+    );
 
     // reset search input
     this.input.value = '';
@@ -167,7 +168,7 @@ class BlogSearch {
   }
 
   removeBadge(badge: BlogSearchBadge): void {
-    this.badges = this.badges.filter(badge_ => badge_ !== badge);
+    this.badges = this.badges.filter((badge_) => badge_ !== badge);
   }
 
   createSearchBadge(value: string, color: string): BlogSearchBadge {
@@ -180,12 +181,15 @@ class BlogSearch {
   }
 
   setup(): void {
-    document.addEventListener('keydown', event => {
+    document.addEventListener('keydown', (event) => {
       if (this.input.matches(':focus')) {
-        switch(event.key) {
-          case "Backspace": return this.handleBackspaceKey();
-          case "Enter": return this.addTypedBadge();
-          default: return;
+        switch (event.key) {
+          case 'Backspace':
+            return this.handleBackspaceKey();
+          case 'Enter':
+            return this.addTypedBadge();
+          default:
+            return;
         }
       }
     });
@@ -198,3 +202,5 @@ class BlogSearch {
     }
   }
 }
+
+export default ShareBtn;

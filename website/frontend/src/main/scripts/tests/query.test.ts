@@ -2,11 +2,10 @@ import { queryElement, queryElementAll } from '../utilities/query';
 
 describe('Query utilities', () => {
   describe('queryElement', () => {
-
     beforeAll(() => {
-      document.body.innerHTML = 
-        '<div id="div">' + 
-        '  <input class="search" type="text" />' + 
+      document.body.innerHTML =
+        '<div id="div">' +
+        '  <input class="search" type="text" />' +
         '  <button id="click" />' +
         '  <button id="submit" />' +
         '</div>';
@@ -26,30 +25,34 @@ describe('Query utilities', () => {
     });
 
     it('should throw a type error if the wrong type is specified', () => {
-      expect(() => queryElement(document, 'div', HTMLButtonElement))
-        .toThrowError(TypeError);
-      expect(() => queryElement(document, 'button', HTMLDivElement))
-        .toThrowError(TypeError);
+      expect(() =>
+        queryElement(document, 'div', HTMLButtonElement),
+      ).toThrowError(TypeError);
+      expect(() =>
+        queryElement(document, 'button', HTMLDivElement),
+      ).toThrowError(TypeError);
     });
 
     it('should throw a reference error if the element does not exist', () => {
-      expect(() => queryElement(document, 'div#submit', HTMLDivElement))
-        .toThrowError(ReferenceError);
-      expect(() => queryElement(document, 'button#div', HTMLButtonElement))
-        .toThrowError(ReferenceError);
+      expect(() =>
+        queryElement(document, 'div#submit', HTMLDivElement),
+      ).toThrowError(ReferenceError);
+      expect(() =>
+        queryElement(document, 'button#div', HTMLButtonElement),
+      ).toThrowError(ReferenceError);
     });
 
     it('should throw a reference error before a type error if both would', () => {
-      expect(() => queryElement(document, 'span', HTMLDivElement))
-        .toThrowError(ReferenceError);
+      expect(() => queryElement(document, 'span', HTMLDivElement)).toThrowError(
+        ReferenceError,
+      );
     });
   });
   describe('queryElementAll', () => {
-
     beforeAll(() => {
-      document.body.innerHTML = 
-        '<div id="div">' + 
-        '  <input class="search" type="text" />' + 
+      document.body.innerHTML =
+        '<div id="div">' +
+        '  <input class="search" type="text" />' +
         '  <button id="click" />' +
         '  <button id="submit" class="div" />' +
         '  <div class="search div">Text</div>' +
@@ -69,17 +72,21 @@ describe('Query utilities', () => {
     });
 
     it('should throw a type error if not all elements are same type', () => {
-      expect(() => queryElementAll(document, '.search', HTMLInputElement))
-        .toThrowError(TypeError);
-      expect(() => queryElementAll(document, '.div', HTMLDivElement))
-        .toThrowError(TypeError);
+      expect(() =>
+        queryElementAll(document, '.search', HTMLInputElement),
+      ).toThrowError(TypeError);
+      expect(() =>
+        queryElementAll(document, '.div', HTMLDivElement),
+      ).toThrowError(TypeError);
     });
 
     it('should throw a reference error if no matching elements exist', () => {
-      expect(() => queryElementAll(document, 'div#submit', HTMLDivElement))
-        .toThrowError(ReferenceError);
-      expect(() => queryElementAll(document, 'button#div', HTMLButtonElement))
-        .toThrowError(ReferenceError);
+      expect(() =>
+        queryElementAll(document, 'div#submit', HTMLDivElement),
+      ).toThrowError(ReferenceError);
+      expect(() =>
+        queryElementAll(document, 'button#div', HTMLButtonElement),
+      ).toThrowError(ReferenceError);
     });
   });
 });

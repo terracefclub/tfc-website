@@ -6,16 +6,10 @@
   },
   "extends": [
     "plugin:@typescript-eslint/recommended",
-
-    // disables ESLint rules that conflict with Prettier
-    "prettier/@typescript-eslint",
     "plugin:prettier/recommended"
   ],
   "env": {
     "browser": true,
     "node": true
-  },
-  "rules": {
-    // "semi": 2
   }
 }

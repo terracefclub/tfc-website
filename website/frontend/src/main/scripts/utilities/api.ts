@@ -12,16 +12,17 @@ import 'isomorphic-fetch';
  * `TemplateResponse` and `render` views.
  * @param container the element to load HTML into
  * @param fullUrl the url with query parameters to send a GET request to
- * @returns the response, which is primarily processed when rejected for 
+ * @returns the response, which is primarily processed when rejected for
  * error message display
  */
 export async function loadHtml(
-  container: HTMLElement, fullUrl: string
+  container: HTMLElement,
+  fullUrl: string,
 ): Promise<Response> {
   const init = {
     method: 'get',
     headers: {
-      'Accept': 'text/html',
+      Accept: 'text/html',
       'Content-Type': 'text/html',
     },
   };

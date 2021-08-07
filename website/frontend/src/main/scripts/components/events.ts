@@ -5,21 +5,24 @@ import { queryElement, queryElementAll } from '../utilities/query';
  * @param socialDomains - list of domains to display social link buttons for
  */
 export const eventLoader = async ({
-  socialDomains = []
+  socialDomains = [],
 }: {
-  socialDomains?: string[]
+  socialDomains?: string[];
 } = {}): Promise<void> => {
   const eventBlocks = document.querySelectorAll(
-    '.multi-day-event, .single-day-event, #highlights-section .event'
+    '.multi-day-event, .single-day-event, #highlights-section .event',
   ) as NodeListOf<HTMLElement>;
 
   if (eventBlocks.length <= 0) return;
 
   const detailCard = queryElement(document, '#detail-card', HTMLDivElement);
-  const socialBlock = queryElement(document, 
-    '#detail-social-container', HTMLDivElement);
+  const socialBlock = queryElement(
+    document,
+    '#detail-social-container',
+    HTMLDivElement,
+  );
 
-  const socialParams = new URLSearchParams(socialDomains.map(name => [name]));
+  const socialParams = new URLSearchParams(socialDomains.map((name) => [name]));
 
   /**
    * Call server for `TemplateResponse` inside of `detailCard` and `socialBlock`
@@ -39,18 +42,17 @@ export const eventLoader = async ({
     try {
       Promise.all([
         loadHtml(detailCard, detailUrl),
-        loadHtml(socialBlock, socialsUrl)
+        loadHtml(socialBlock, socialsUrl),
       ]);
     } catch (error) {
       console.error(error);
     }
   }
 
-  eventBlocks.forEach(block => 
-    block.addEventListener('click', () => loadAjaxSocialView(block))
+  eventBlocks.forEach((block) =>
+    block.addEventListener('click', () => loadAjaxSocialView(block)),
   );
 };
-
 
 /**
  * Load in a new calendar, triggering `eventLoader` as well for these changes,
@@ -58,12 +60,15 @@ export const eventLoader = async ({
  */
 export const calendarLoader = (): void => {
   const calendar = queryElement(document, '#calendar', HTMLDivElement);
-  const calButtons = queryElementAll(calendar, 
-    '#calendar-form button', HTMLButtonElement);
+  const calButtons = queryElementAll(
+    calendar,
+    '#calendar-form button',
+    HTMLButtonElement,
+  );
   const calYear = queryElement(document, '#calendar-year', HTMLInputElement);
 
   /**
-   * 
+   *
    * @param button - a form button to trigger calendar form input adjustments
    */
   function updateInputs(button: HTMLButtonElement): void {
@@ -75,16 +80,19 @@ export const calendarLoader = (): void => {
       'month-up': 'calendar-month',
       'month-down': 'calendar-month',
       'year-up': 'calendar-year',
-      'year-down': 'calendar-year'
+      'year-down': 'calendar-year',
     };
-    const isValidKey = (x: string): x is keyof typeof buttonIdToInputId => 
+    const isValidKey = (x: string): x is keyof typeof buttonIdToInputId =>
       x in buttonIdToInputId;
 
     // update hidden input element value by value of `shift`
     const id = button.getAttribute('id') ?? '';
     if (isValidKey(id)) {
-      const input = queryElement(document, 
-        `#${buttonIdToInputId[id]}`, HTMLInputElement);
+      const input = queryElement(
+        document,
+        `#${buttonIdToInputId[id]}`,
+        HTMLInputElement,
+      );
       let newVal = parseInt(input.value) + shift;
 
       // handle increments of `#calendar-year` input when `#calendar-month`
@@ -118,11 +126,12 @@ export const calendarLoader = (): void => {
     } catch (error) {
       console.error(error);
     }
-    
   }
 
-  calButtons.forEach(btn => btn.addEventListener('click', () => {
-    updateInputs(btn);
-    renderCalendar(btn);
-  }));
-}
+  calButtons.forEach((btn) =>
+    btn.addEventListener('click', () => {
+      updateInputs(btn);
+      renderCalendar(btn);
+    }),
+  );
+};

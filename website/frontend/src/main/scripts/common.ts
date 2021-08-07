@@ -19,21 +19,30 @@ import { loadHtml } from './utilities/api';
 export function sidebar(): void {
   const sidebar = queryElement(document, '#sidebar', HTMLDivElement);
   const sidebarClose = queryElement(document, '#sidebar-x', HTMLButtonElement);
-  const sidebarTrigger = queryElement(document, 
-    '#sidebar-trigger', HTMLButtonElement);
+  const sidebarTrigger = queryElement(
+    document,
+    '#sidebar-trigger',
+    HTMLButtonElement,
+  );
   const sidebarNavs = queryElementAll(sidebar, '.nav-drop', HTMLSpanElement);
 
   // sidebar navigation to toggle a link arrow class
   // TODO: toggle display of subnav items!
-  sidebarNavs.forEach(nav => nav.addEventListener('click', () => {
-    nav.classList.toggle('arrow-r');
-    nav.classList.toggle('arrow-d');
-  }));
+  sidebarNavs.forEach((nav) =>
+    nav.addEventListener('click', () => {
+      nav.classList.toggle('arrow-r');
+      nav.classList.toggle('arrow-d');
+    }),
+  );
 
-  sidebarClose.addEventListener('click', () => 
-    sidebar.style.visibility = 'hidden');
-  sidebarTrigger.addEventListener('click', () => 
-    sidebar.style.visibility = 'visible');
+  sidebarClose.addEventListener(
+    'click',
+    () => (sidebar.style.visibility = 'hidden'),
+  );
+  sidebarTrigger.addEventListener(
+    'click',
+    () => (sidebar.style.visibility = 'visible'),
+  );
 }
 
 /**
@@ -44,8 +53,9 @@ export function sidebar(): void {
  */
 export function header(): void {
   const donateBtn = document.querySelector('header div.donate');
-  donateBtn?.addEventListener('click', () => 
-    window.open(donateBtn.getAttribute('href') || undefined));
+  donateBtn?.addEventListener('click', () =>
+    window.open(donateBtn.getAttribute('href') || undefined),
+  );
 }
 
 /**
@@ -61,7 +71,9 @@ export async function searchLoader(): Promise<void> {
    * Reset modal content without removing `modalClose` (e.g. `.slice(1)`)
    */
   function removeModalContent(): void {
-    Array.from(modal.childNodes).slice(1).forEach(node => node.remove());
+    Array.from(modal.childNodes)
+      .slice(1)
+      .forEach((node) => node.remove());
   }
 
   // program the modal close button
@@ -73,7 +85,6 @@ export async function searchLoader(): Promise<void> {
   fromEvent(search, 'keydown')
     .pipe(debounceTime(1000))
     .subscribe(async () => {
-
       // display temporary loading element in modal
       const loading = document.createElement('h1');
       loading.innerHTML = 'Loading...';
