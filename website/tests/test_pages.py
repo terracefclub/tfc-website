@@ -3,7 +3,7 @@ import pytest
 from wagtail.core.models import Page, Site
 from wagtail.tests.utils import WagtailPageTests
 
-from website.base.tests.test_models import HomePageFactory
+from website.base.tests.factories import HomePageFactory
 
 from django.apps import apps
 
@@ -33,7 +33,7 @@ class WagtailTestsBase(WagtailPageTests):
     parent = get_model(parent_model)
     children = map(get_model, child_models)
 
-    self.assertNotEquals(
+    self.assertNotEqual(
       set(parent.allowed_subpage_models()),
       set(children), msg=msg
     )

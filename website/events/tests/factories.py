@@ -50,15 +50,13 @@ class EventFactory(DjangoModelFactory):
   name = Sequence(lambda n: f'Event {n}')
   start = Faker('date_time', end_datetime=now() + timedelta(days=14))
   end = LazyAttribute(lambda obj: obj.start + timedelta(hours=3))
-  description = '<p>' + Faker('paragraph', nb_sentences=5) + '</p>'
+  description = f'<p>{Faker("paragraph", nb_sentences=5)}</p>'
   links = StreamFieldFactory({
-    'stream_block': StreamBlockFactory({
       'url': FuzzyChoice([
         'https://www.instagram.com', 
         'https://www.facebook.com', 
         'https://zoom.us'
       ])
-    })
   })
   image = SubFactory(ImageFactory)
   featured_media = StreamFieldFactory({
@@ -82,14 +80,10 @@ class EventsPageFactory(PageFactory):
   class Meta:
     model = EventsPage
   past_highlights = StreamFieldFactory({
-    'stream_block': StreamBlockFactory({
-      'event': EventChooserBlockFactory
-    })
+    'event': EventChooserBlockFactory
   })
 
   # TODO: lazy selector for only choosing among events in the future?
   future_highlights = StreamFieldFactory({
-    'stream_block': StreamBlockFactory({
-      'event': EventChooserBlockFactory
-    })
+    'event': EventChooserBlockFactory
   })

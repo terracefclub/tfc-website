@@ -10,13 +10,13 @@ class EventDetailViewTest(TestCase):
   def test_context(self):
     event = EventFactory()
     response = self.client.get(reverse('event_detail') + f'?pk={event.pk}')
-    self.assertEquals(response.status_code, 200)
-    self.assertEquals(response.context['event'], event)
+    self.assertEqual(response.status_code, 200)
+    self.assertEqual(response.context['event'], event)
     self.assertContains(response, event.name)
 
   def test_empty_context(self):
     response = self.client.get(reverse('event') + f'?pk=1')
-    self.assertEquals(response.status_code, 200)
+    self.assertEqual(response.status_code, 200)
     self.assertIsNone(response.context['event'])
     self.assertContains(response, "Please select an event in the calendar view to see more information.")
 
@@ -34,7 +34,7 @@ class EventSocialsViewTest(TestCase):
 
   def test_socials_default(self):
     response = self.client.get(self.url + f'?pk={self.event.pk}')
-    self.assertEquals(response.context['links'], [
+    self.assertEqual(response.context['links'], [
       'https://www.instagram.com/terracefclub',
       'https://www.facebook.com/terracefclub',
       'https://zoom.us/tfc'
@@ -44,7 +44,7 @@ class EventSocialsViewTest(TestCase):
     response = self.client.get(self.url + '?' + urlencode({
       'pk': self.event.pk, 'social': ['gather.town', 'facebook', 'zoom']
     }))
-    self.assertEquals(response.context['links'], [
+    self.assertEqual(response.context['links'], [
       'https://gather.town/terracefclub',
       'https://www.facebook.com/terracefclub',
       'https://zoom.us/tfc'
@@ -54,7 +54,7 @@ class EventSocialsViewTest(TestCase):
     response = self.client.get(self.url + '?' + urlencode({
       'pk': self.event.pk, 'social': ['reddit', 'zoom']
     }))
-    self.assertEquals(response.context['links'], [
+    self.assertEqual(response.context['links'], [
       'https://zoom.us/tfc'
     ])
 
@@ -64,7 +64,7 @@ class EventSocialsViewTest(TestCase):
       links__stream_block__url__1='https://gather.town/terracefclub'
     )
     response = self.client.get(self.url + f'?pk={event.pk}')
-    self.assertEquals(response.context['links'], [
+    self.assertEqual(response.context['links'], [
       'https://www.facebook.com',
       'https://www.instagram.com/terracefclub'
       'https://zoom.us/'
@@ -73,11 +73,11 @@ class EventSocialsViewTest(TestCase):
 class EventsFilterViewTest(TestCase):
   def test_missing_fields_invalid(self):
     response = self.client.get(reverse('events_filter') + '?year=2018')
-    self.assertEquals(response.status_code, 400)
+    self.assertEqual(response.status_code, 400)
     self.assertContains(response, 'month was not specified in request')
 
     response = self.client.get(reverse('events_filter') + '?month=5')
-    self.assertEquals(response.status_code, 400)
+    self.assertEqual(response.status_code, 400)
     self.assertContains(response, 'year was not specified in request')
 
   def test_socials_valid_results(self):

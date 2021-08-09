@@ -1,4 +1,4 @@
-from factory import SubFactory, Faker, Sequence
+from factory import SubFactory, Sequence
 from factory.fuzzy import FuzzyChoice
 from website.base.blocks import BodyStreamBlock, HeadingBlock, ImageBlock
 from ..models import FormPage, HomePage, SimplePage
@@ -36,9 +36,7 @@ class HomePageFactory(PageFactory):
   
   title = Sequence(lambda x: f'Home Page {x}')
   pinned_posts = StreamFieldFactory({
-    'stream_block': StreamBlockFactory(**{
-      'page': PageChooserBlockFactory()
-    })
+      'page': PageChooserBlockFactory
   })
   body = StreamFieldFactory({ 'body_stream_block': BodyStreamBlock })
 

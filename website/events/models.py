@@ -22,8 +22,7 @@ from wagtail.admin.edit_handlers import (
 )
 from wagtail.images.edit_handlers import ImageChooserPanel
 
-import datetime
-
+from django.utils import timezone
 
 @register_snippet
 class Event(Orderable, Indexed):
@@ -115,7 +114,7 @@ class EventsPage(Page):
     Passes these and the events they filter into context for view.
     """
     context = super(EventsPage, self).get_context(request)
-    now = datetime.datetime.now()
+    now = timezone.now()
     values = {
       f'start__{field}': getattr(now, field) for field in ['month', 'year']
     }

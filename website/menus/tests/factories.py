@@ -16,7 +16,7 @@ class FoodCourseFactory(DjangoModelFactory):
 
   fooditems = RelatedFactory(
     'website.menus.tests.factories.FoodItemFactory', 
-    factory_related_name='course', action=FoodItem.ACTION_CREATE
+    factory_related_name='course'
   )
 
 class MenuThemeFactory(DjangoModelFactory):
@@ -26,8 +26,7 @@ class MenuThemeFactory(DjangoModelFactory):
 
   menus = RelatedFactory(
     'website.menus.tests.factories.MenuFactory', 
-    factory_related_name='theme', 
-    action=Menu.ACTION_CREATE
+    factory_related_name='theme'
   )
 
 class BreweryFactory(DjangoModelFactory):
@@ -40,7 +39,7 @@ class BreweryFactory(DjangoModelFactory):
 
   beers = RelatedFactory(
     'website.menus.tests.factories.BeerItemFactory', 
-    factory_related_name='brewery', action=BeerItem.ACTION_CREATE
+    factory_related_name='brewery'
   )
 
 class BeerStyleFactory(DjangoModelFactory):
@@ -50,7 +49,7 @@ class BeerStyleFactory(DjangoModelFactory):
 
   beers = RelatedFactory(
     'website.menus.tests.factories.BeerItemFactory', 
-    factory_related_name='style', action=BeerItem.ACTION_CREATE
+    factory_related_name='style'
   )
 
 class FoodItemFactory(TagFactoryMixin):
@@ -62,11 +61,11 @@ class FoodItemFactory(TagFactoryMixin):
 
   images = RelatedFactory(
     'website.menus.tests.factories.FoodItemImageFactory', 
-    factory_related_name='food', action=FoodItemImage.ACTION_CREATE
+    factory_related_name='food'
   )
   menus = RelatedFactory(
     'website.menus.tests.factories.MenuFoodItemFactory', 
-    factory_related_name='food_item', action=MenuFoodItem.ACTION_CREATE
+    factory_related_name='food_item'
   )
 
 class FoodItemImageFactory(DjangoModelFactory):
@@ -85,11 +84,11 @@ class BeerItemFactory(DjangoModelFactory):
     left_digits=2, right_digits=1, positive=True, min_value=4.0, max_value=12.0
   )
   style = SubFactory(BeerStyleFactory)
-  description = '<p>' + Faker('paragraph', nb_sentences=5) + '</p>'
+  description = Faker('paragraph', nb_sentences=5)
 
   weeks = RelatedFactory(
     'website.menus.tests.factories.WeekBeerItemFactory', 
-    factory_related_name='beer_item', action=WeekBeerItem.ACTION_CREATE
+    factory_related_name='beer_item'
   )
 
 class MenuIndexPageFactory(PageFactory):
@@ -104,11 +103,11 @@ class WeeklyMenuPageFactory(PageFactory):
 
   menus = RelatedFactory(
     'website.menus.tests.factories.MenuFactory', 
-    factory_related_name='week', action=Menu.ACTION_CREATE
+    factory_related_name='week'
   )
   beer_items = RelatedFactory(
     'website.menus.tests.factories.WeekBeerItemFactory', 
-    factory_related_name='page', action=WeekBeerItem.ACTION_CREATE
+    factory_related_name='page'
   )
 
 class MenuFactory(DjangoModelFactory):
@@ -122,7 +121,7 @@ class MenuFactory(DjangoModelFactory):
 
   food_items = RelatedFactory(
     'website.menus.tests.factories.MenuFoodItemFactory', 
-    factory_related_name='menu', action=MenuFoodItem.ACTION_CREATE
+    factory_related_name='menu'
   )
 
 class MenuFoodItemFactory(DjangoModelFactory):

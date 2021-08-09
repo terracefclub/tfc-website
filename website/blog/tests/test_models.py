@@ -20,15 +20,15 @@ class BlogIndexPageTests(WagtailTestsBase):
     index = BlogIndexPageFactory()
     blogpages = BlogPageFactory.build_batch(30, parent=index)
     response = self.client.get(index.url)
-    self.assertEquals(
+    self.assertEqual(
       response.context['results'].num_pages, 4
     )
-    self.assertEquals(response.context['results'].number, 1)
+    self.assertEqual(response.context['results'].number, 1)
     for result in response.context['results']:
       self.assertIn(result, blogpages)
     
     response = self.client.get(index.url + '?page=2')
-    self.assertEquals(response.context['results'].number, 2)
+    self.assertEqual(response.context['results'].number, 2)
     for result in response.context['results']:
       self.assertIn(result, blogpages)
 
@@ -38,10 +38,10 @@ class BlogPageTests(WagtailTestsBase):
       gallery_images__0__image__title='Image 1',
       gallery_images__1__image__title='Image 2'
     )
-    self.assertEquals(index.main_image.title, 'Image 1')
+    self.assertEqual(index.main_image.title, 'Image 1')
 
     BlogPageGalleryImage.objects.first().delete()
-    self.assertEquals(index.main_image.title, 'Image 2')
+    self.assertEqual(index.main_image.title, 'Image 2')
 
     BlogPageGalleryImage.objects.first().delete()
     self.assertIsNone(index.main_image)

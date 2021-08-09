@@ -1,6 +1,5 @@
 from django.contrib.auth.models import User
 from factory import Factory, SubFactory
-from factory.declarations import Sequence
 from factory.django import DjangoModelFactory
 from factory.faker import Faker
 from factory.helpers import post_generation
@@ -19,7 +18,7 @@ class UserFactory(DjangoModelFactory):
   
   first_name = Faker('first_name')
   last_name = Faker('last_name')
-  username = Faker('simple_profile', fields=['username'])
+  username = Faker('profile', fields=['username'])
   password = Faker('password', length=14)
 
 

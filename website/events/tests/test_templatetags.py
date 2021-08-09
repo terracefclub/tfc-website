@@ -11,7 +11,7 @@ class EventsTemplateTagsTest(TestCase):
       '{% load tags_events %}'
       '{{ 4|month }}, {{ "11"|month }}'
     ).render()
-    self.assertEquals('APR, NOV', html)
+    self.assertEqual('APR, NOV', html)
 
   def test_get_multiple_days(self):
     pass
@@ -24,7 +24,7 @@ class EventsTemplateTagsTest(TestCase):
       'datetime1': datetime.strptime('05-15-2021', '%m-%d-%Y'),
       'datetime2': datetime.strptime('05-16-2021', '%m-%d-%Y')
     }))
-    self.assertEquals(html, '2, 3')
+    self.assertEqual(html, '2, 3')
 
   def test_with_date(self):
     today = timezone.now()

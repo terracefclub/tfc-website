@@ -1,9 +1,9 @@
-from typing import Sequence
-from factory import Faker, LazyAttribute, post_generation
+from factory import Faker, post_generation
 
 from wagtail_factories.blocks import StreamFieldFactory
 from website.tests.factories import DocumentChooserBlockFactory, PageChooserBlockFactory, RichTextBlockFactory, StreamBlockFactory, TagFactoryMixin
 
+from factory import Sequence
 from factory.declarations import RelatedFactory, SubFactory
 from wagtail_factories.factories import PageFactory
 from website.blog.models import BlogCategory, BlogIndexPage, BlogPageGalleryImage
@@ -19,26 +19,26 @@ class BlogCategoryFactory(DjangoModelFactory):
 class BlogIndexPageFactory(PageFactory):
   class Meta:
     model = BlogIndexPage
-  pinned_posts = StreamFieldFactory({
-    'stream_block': StreamBlockFactory(**{
-      'blog_page': PageChooserBlockFactory()
+  pinned_posts = StreamFieldFactory(
+    StreamBlockFactory(**{
+      'blog_page': PageChooserBlockFactory
     })
-  })
+  )
 
 class BlogPageFactory(TagFactoryMixin, PageFactory):
   date = Faker('date')
   intro = Faker('text', max_nb_chars=250)
-  body = StreamFieldFactory({
-    'stream_block': StreamBlockFactory(**{
+  body = StreamFieldFactory(
+    StreamBlockFactory(**{
       'text': RichTextBlockFactory,
-      'html': '<p>' + Faker('text', max_nb_chars=50) + '</p>',
+      'html': f'<p>{Faker("text", max_nb_chars=50)}</p>',
       'doc': DocumentChooserBlockFactory,
     })
-  })
+  )
 
   gallery_images = RelatedFactory(
     'website.blog.tests.factories.BlogPageGalleryImageFactory', 
-    factory_related_name='page', action=BlogPageGalleryImage.ACTION_CREATE
+    factory_related_name='page'
   )
 
   @post_generation

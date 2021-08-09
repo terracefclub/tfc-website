@@ -5,7 +5,7 @@ class TestUrls(SimpleTestCase):
   def test_base_urls(self):
     url = reverse('archive')
     self.assertEqual(url, '/archive/')
-    self.assertEqual(resolve(url).view_name, 'explore_media')
+    self.assertEqual(resolve(url).view_name, 'archive')
 
     url = reverse('search')
     self.assertEqual(url, '/search/')
@@ -18,7 +18,7 @@ class TestUrls(SimpleTestCase):
 
     url = reverse('event_socials')
     self.assertEqual(url, '/events/socials/')
-    self.assertEqual(resolve(url).view_name, 'event_social')
+    self.assertEqual(resolve(url).view_name, 'event_socials')
 
     url = reverse('events_filter')
     self.assertEqual(url, '/events/filter/')

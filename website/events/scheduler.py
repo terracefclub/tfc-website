@@ -8,6 +8,7 @@ ones with any new information.
 import logging
 import datetime
 import requests
+from django.utils import timezone
 
 import os
 import re
@@ -70,7 +71,7 @@ def new_or_modified_events(gcal):
 
     # only retrieve events modified/created in the past 24 hours
     'updatedMin': (
-      datetime.datetime.now() - datetime.timedelta(days=1)
+      timezone.now() - datetime.timedelta(days=1)
     ).isoformat('T')
   }
 

@@ -1,9 +1,8 @@
 from wagtail.core.models import Page
-from wagtail.tests.utils.form_data import nested_form_data, streamfield
 from website.tests.test_pages import WagtailTestsBase
 
 from ..models import FormPage, HomePage, SimplePage, get_all_page_types
-from .factories import FormPageFactory, HomePageFactory
+from .factories import FormPageFactory
 
 
 """ TODO: Converter for handling `nested_form_data` to wagtail_factories """
@@ -33,8 +32,8 @@ class BaseDjangoUnits(WagtailTestsBase):
     private_pages_query = FormPage.objects.private()
     public_pages_query = FormPage.objects.public()
 
-    self.assertEquals(private_pages, private_pages_query)
-    self.assertEquals(public_pages, public_pages_query)
+    self.assertEqual(private_pages, private_pages_query)
+    self.assertEqual(public_pages, public_pages_query)
 
     for page in private_pages_query: 
       self.assertTrue(page.is_private)

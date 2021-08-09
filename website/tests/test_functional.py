@@ -1,9 +1,7 @@
 
 from datetime import timedelta
 from website.tests.factories import UserFactory
-from website.base.tests.factories import FormPageFactory
 from .test_pages import WagtailTestsBase
-from website.base.models import FormPage, HomePage
 from website.menus.tests.factories import WeeklyMenuPageFactory
 
 
@@ -26,19 +24,19 @@ class HomePageComponentsTest(WagtailTestsBase):
       starting_day=get_most_recent_monday() + timedelta(days=7)
     )
     
-    self.assertEquals(
+    self.assertEqual(
       self.homepage.get_current_menupage(),
       this_menu_page
     )
 
     this_menu_page.delete()
-    self.assertEquals(
+    self.assertEqual(
       self.homepage.get_current_menupage(),
       last_menu_page
     )
     
     last_menu_page.delete()
-    self.assertNotEquals(
+    self.assertNotEqual(
       self.homepage.get_current_menupage(),
       future_menu_page
     )

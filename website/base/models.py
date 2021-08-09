@@ -6,6 +6,7 @@ associated with a particular application that has specific functionality.
 import datetime
 import json
 
+from django.utils import timezone
 from django.conf import settings
 from django.core.serializers.json import DjangoJSONEncoder
 from django.shortcuts import render, redirect
@@ -95,7 +96,7 @@ class HomePage(Page):
     Retrieves the current (time of access) dinner menu for display
     """
     return WeeklyMenuPage.objects\
-      .filter(starting_day__lte=datetime.datetime.now().date())\
+      .filter(starting_day__lte=timezone.now().date())\
       .order_by('starting_day')\
       .last()
 

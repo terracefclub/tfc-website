@@ -1,6 +1,5 @@
 from django.test import TestCase, override_settings
 from django.urls import reverse
-from django.utils.timezone import override
 
 from wagtail_factories import ImageFactory
 from wagtail_factories.factories import DocumentFactory

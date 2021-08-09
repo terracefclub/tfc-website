@@ -1,5 +1,4 @@
 import pytest
-from selenium.webdriver import Chrome
 from django.utils.translation import activate
 
 @pytest.fixture(autouse=True)
