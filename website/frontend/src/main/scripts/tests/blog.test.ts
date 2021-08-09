@@ -99,15 +99,15 @@ describe('Blog Components', () => {
   });
 
   describe('searchLoader', () => {
-    it('should add a card badge to search if clicked on card');
+    test.todo('should add a card badge to search if clicked on card');
 
-    it('should remove a search badge when clicked');
+    test.todo('should remove a search badge when clicked');
 
-    it(
+    test.todo(
       'should remove a search badge when hitting backspace in an empty search box',
     );
 
-    it(
+    test.todo(
       'should add a search badge when hitting enter with a non-empty search box',
     );
   });
