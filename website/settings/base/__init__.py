@@ -18,7 +18,6 @@ INSTALLED_APPS = [
   'website.blog',
   'website.events',
   'website.menus',
-  'website.flabyrinth',
   
   # Authentication
   'allauth',                     # Main backend for authentication

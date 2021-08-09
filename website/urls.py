@@ -20,15 +20,9 @@ urlpatterns = [
   path('avatar/', include('avatar.urls')),
   path('tinymce/', include('tinymce.urls')),
   path('taggit_autosuggest/', include('taggit_autosuggest.urls')),
-
-  path('flabyrinth/', include('allauth.urls')),
-  path('flabyrinth/', include(('website.flabyrinth.urls', 'flabyrinth'), namespace='flabyrinth')),
-
   path('', include('website.base.urls')),
   path('events/', include('website.events.urls')),
   path('menus/', include('website.menus.urls')),
-  
-  #path('favicon.ico', RedirectView.as_view(url=StaticFilesStorage().url('favicon.ico'))),
   path('sitemap.xml', sitemap),
 ]
 

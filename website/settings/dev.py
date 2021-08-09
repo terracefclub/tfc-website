@@ -33,7 +33,3 @@ WAGTAILSEARCH_BACKENDS = {
     'AUTO_UPDATE': True # optimize with False and update_index()
   }
 }
-
-DEBUG_TOOLBAR_CONFIG = {
-  'SHOW_TOOLBAR_CALLBACK': 'website.flabyrinth.middleware.show_toolbar'
-}

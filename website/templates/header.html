@@ -12,15 +12,4 @@
     <img class="sparkle1" src="{% static 'svg/sparkle.svg' %}" alt="sparkle" />
     <img class="sparkle2" src="{% static 'svg/sparkle.svg' %}" alt="sparkle" />
   </div>
-  {% if request.user.is_authenticated %}
-  <div id="user-header">
-    <p>Hello {% user_display request.user %}!</p>
-    <a id="avatar" href="{% url 'flabyrinth:profile' %}">
-      {% avatar request.user 64 %}
-    </a>
-    <a class="sign-up" href="{% url 'account_logout' %}">LOGOUT</a>
-  </div>
-  {% else %}
-  <a class="sign-up" href="{% url 'account_login' %}">LOGIN</a>
-  {% endif %}
 </header>
