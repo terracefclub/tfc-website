@@ -15,7 +15,7 @@ variables:
   IMAGE_GITLAB: $CI_REGISTRY/$CI_PROJECT_PATH/$APP_NAME:$CI_COMMIT_BRANCH
   IMAGE_GCLOUD: $GCLOUD_PREFIX/$APP_NAME:$$CI_COMMIT_BRANCH
 
-.build:
+build:
   stage: build
   image: docker:latest
   services: [ "docker:dind" ]
