@@ -17,6 +17,11 @@
 /website/media/
 /website/**/fixtures/media/
 
+### TESTING ###
+/tests/
+.coverage/
+.pytest_cache/
+
 ### DEBUG ###
 /logs/
 

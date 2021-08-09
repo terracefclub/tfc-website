@@ -37,6 +37,7 @@ pytest-xdist
 tox
 wagtail>=2.12,<2.13
 wagtailmedia
+wagtail-factories
 wagtail-nav-menus
 wagtail-experiments
 wagtailstreamforms

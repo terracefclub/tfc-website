@@ -8,7 +8,7 @@ class PytestRunner:
 
   @classmethod
   def add_arguments(cls, parser):
-    parser.add_argument('--kepdb', action='store_true', help='Preserves DB')
+    parser.add_argument('--keepdb', action='store_true', help='Preserves DB')
 
   def run_tests(self, test_labels):
     """ Add CLI arguments to pytest command by what is on manage.py CLI """
@@ -21,6 +21,12 @@ class PytestRunner:
       argv.append('--reuse-db')
     if self.parallel > 1:
       argv.append(f'-n {self.parallel}')
+
+    # Coverage references project directory through pytest-cov
+    argv.append('--cov=website')
+
+    # Specify new cache directory for pytest
+    argv.append('-o cache_dir=.coverage/pytest_cache')
 
     argv.extend(test_labels)
     return pytest.main(argv)

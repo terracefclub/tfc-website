@@ -2,8 +2,10 @@
 
 set -xe
 
-coverage run python manage.py test website
-coverage run npm run test
+python manage.py test website/
+npm run test
+
 coverage report
+coverage json
 
 exec "$@"

@@ -33,3 +33,9 @@ WAGTAILSEARCH_BACKENDS = {
     'AUTO_UPDATE': True # optimize with False and update_index()
   }
 }
+
+# filter out annoying warnings from external libraries while testing
+import warnings
+from django.utils.deprecation import RemovedInDjango40Warning
+warnings.simplefilter('default')
+warnings.filterwarnings('ignore', category=RemovedInDjango40Warning)
