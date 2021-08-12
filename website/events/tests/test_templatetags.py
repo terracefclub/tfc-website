@@ -10,7 +10,7 @@ class EventsTemplateTagsTest(TestCase):
     html = Template(
       '{% load tags_events %}'
       '{{ 4|month }}, {{ "11"|month }}'
-    ).render()
+    ).render(Context())
     self.assertEqual('APR, NOV', html)
 
   def test_get_multiple_days(self):
@@ -24,13 +24,13 @@ class EventsTemplateTagsTest(TestCase):
       'datetime1': datetime.strptime('05-15-2021', '%m-%d-%Y'),
       'datetime2': datetime.strptime('05-16-2021', '%m-%d-%Y')
     }))
-    self.assertEqual(html, '2, 3')
+    self.assertEqual(html, '3, 4')
 
   def test_with_date(self):
     today = timezone.now()
     tomorrow = today + timedelta(days=1)
-    events_today = EventFactory.build_batch(2, start=today, end=today)
-    events_tomorrow = EventFactory.build_batch(2, start=tomorrow, end=tomorrow)
+    events_today = EventFactory.create_batch(2, start=today, end=today)
+    events_tomorrow = EventFactory.create_batch(2, start=tomorrow, end=tomorrow)
     event_today_to_tomorrow = EventFactory(start=today, end=tomorrow)
 
     html = Template(

@@ -1,5 +1,6 @@
 from django.template import Template, Context
 from django.test import SimpleTestCase
+from django.test.testcases import TestCase
 
 from website.menus.tests.factories import WeeklyMenuPageFactory
 
@@ -8,7 +9,7 @@ class ConcatenateStringsTemplateTagTest(SimpleTestCase):
     html = Template(
       '{% load tags_main %}'
       '{{ "str1"|addstr:"str2" }}'
-    ).render()
+    ).render(Context())
     self.assertInHTML('str1str2', html)
 
 class RetrieveDynamicValueTemplateTagTest(SimpleTestCase):
@@ -28,7 +29,7 @@ class EqualsTemplateTagTest(SimpleTestCase):
     html = Template(
       '{% load tags_main %}'
       '{% with is_match=value|equals:"myvalue" %}'
-      '{{ answer }}'
+      '{{ is_match }}'
       '{% endwith %}'
     ).render(Context({
       'value': 'myvalue'
@@ -40,7 +41,7 @@ class NotEqualsTemplateTagTest(SimpleTestCase):
     html = Template(
       '{% load tags_main %}'
       '{% with is_match=value|notequals:"myvalue" %}'
-      '{{ answer }}'
+      '{{ is_match }}'
       '{% endwith %}'
     ).render(Context({
       'value': 'myvalue'
@@ -67,7 +68,7 @@ class RangeFromNumTemplateTagTest(SimpleTestCase):
       '{% for i in 5|range %}'
       '{{ i }}'
       '{% endfor %}'
-    ).render()
+    ).render(Context())
     self.assertInHTML('01234', html)
 
 class SubtractIntegersTemplateTagTest(SimpleTestCase):
@@ -77,7 +78,7 @@ class SubtractIntegersTemplateTagTest(SimpleTestCase):
       '{% with diff=5|subtract:1 %}'
       '{{ diff }}'
       '{% endwith %}'
-    ).render()
+    ).render(Context())
     self.assertInHTML('4', html)
 
 class RandomNumberTemplateTagTest(SimpleTestCase):
@@ -94,14 +95,14 @@ class RandomNumberTemplateTagTest(SimpleTestCase):
     }))
     self.assertRegex(html, r'[1-9]{5}')
 
-class MostRecentMenuTemplateTagTest(SimpleTestCase):
+class MostRecentMenuTemplateTagTest(TestCase):
   def test_renders(self):
     menu_page = WeeklyMenuPageFactory()
     html = Template(
       '{% load tags_main %}'
       '{% most_recent_menu as week_menus %}'
       '{{ week_menus.title }}'
-    ).render()
+    ).render(Context())
     self.assertInHTML(menu_page.title, html)
 
     new_menu_page = WeeklyMenuPageFactory()
@@ -109,7 +110,7 @@ class MostRecentMenuTemplateTagTest(SimpleTestCase):
       '{% load tags_main %}'
       '{% most_recent_menu as week_menus %}'
       '{{ week_menus.title }}'
-    ).render()
+    ).render(Context())
     self.assertInHTML(new_menu_page.title, new_html)
     self.assertHTMLNotEqual(menu_page.title, new_html)
 
@@ -120,7 +121,7 @@ class TrimDigitsTemplateTagTest(SimpleTestCase):
       '<p>{{ 1500|trim_digits }}</p>'
       '<p>{{ 800|trim_digits }}</p>'
       '<p>{{ 12345|trim_digits }}</p>'
-    ).render()
-    self.assertHTMLEqual(html, '<p>1.5K</p><p>800</p><p>123.4K</p>')
+    ).render(Context())
+    self.assertHTMLEqual(html, '<p>1.5K</p><p>800</p><p>12.3K</p>')
 
 

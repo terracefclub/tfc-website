@@ -6,5 +6,5 @@ class BlogTemplateTagsTest(TestCase):
     html = Template(
       '{% load tags_blog %}'
       '{{ 31|page_count }}'
-    ).render()
+    ).render(Context())
     self.assertEqual('4', html)
