@@ -1,10 +1,10 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
 from wagtail_factories.factories import DocumentFactory, ImageFactory, PageFactory
 from website.tests.factories import TagFactoryMixin
 from factory.declarations import LazyAttribute, LazyAttributeSequence, RelatedFactory, Sequence, SubFactory
 from ..models import *
 from factory.django import DjangoModelFactory
-from factory.fuzzy import FuzzyChoice
+from factory.fuzzy import FuzzyChoice, FuzzyDate
 from factory.faker import Faker
 
 class FoodCourseFactory(DjangoModelFactory):
@@ -98,7 +98,7 @@ class MenuIndexPageFactory(PageFactory):
 class WeeklyMenuPageFactory(PageFactory):
   class Meta:
     model = WeeklyMenuPage
-  starting_day = Faker('date')
+  starting_day = FuzzyDate(start_date=datetime(2010, 1, 1).date())
   doc = SubFactory(DocumentFactory)
 
   menus = RelatedFactory(
@@ -114,7 +114,7 @@ class MenuFactory(DjangoModelFactory):
   class Meta:
     model = Menu
   date = LazyAttributeSequence(
-    lambda obj, n: obj.factory_parent.starting_day + timedelta(days=n-1)
+    lambda obj, n: obj.week.starting_day + timedelta(days=n-1)
   )
   theme = SubFactory(MenuThemeFactory)
   week = SubFactory(WeeklyMenuPageFactory)
