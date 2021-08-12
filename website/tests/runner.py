@@ -23,10 +23,13 @@ class PytestRunner:
       argv.append(f'-n {self.parallel}')
 
     # Coverage references project directory through pytest-cov
-    argv.append('--cov=website')
+    argv.extend([f'--cov={label}' for label in test_labels])
 
     # Specify new cache directory for pytest
     argv.append('-o cache_dir=.coverage/pytest_cache')
+
+    # Suppress annoying third party warnings calling deprecated functions
+    argv.append('-W ignore::django.utils.deprecation.RemovedInDjango40Warning')
 
     argv.extend(test_labels)
     return pytest.main(argv)
