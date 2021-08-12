@@ -31,7 +31,6 @@ module.exports = {
   bail: prodMode ? true : false,
   entry: {
     main: Path.resolve(__dirname, 'src/main/scripts/index.ts'),
-    flabyrinth: Path.resolve(__dirname, 'src/flabyrinth/scripts/index.ts'),
   },
   output: {
     path: Path.join(__dirname, 'static/'),
