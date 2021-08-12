@@ -15,7 +15,7 @@ class EventDetailViewTest(TestCase):
     self.assertContains(response, event.name)
 
   def test_empty_context(self):
-    response = self.client.get(reverse('event') + f'?pk=1')
+    response = self.client.get(reverse('event_detail') + f'?pk=1')
     self.assertEqual(response.status_code, 200)
     self.assertIsNone(response.context['event'])
     self.assertContains(response, "Please select an event in the calendar view to see more information.")
@@ -25,60 +25,60 @@ class EventSocialsViewTest(TestCase):
   def setUp(self):
     super().setUp()
     self.event = EventFactory(
-      links__stream_block__url__0='https://www.instagram.com/terracefclub',
-      links__stream_block__url__1='https://www.facebook.com/terracefclub',
-      links__stream_block__url__2='https://zoom.us/tfc',
-      links__stream_block__url__3='https://gather.town/terracefclub'
+      links__0__url__value='https://www.instagram.com/terracefclub',
+      links__1__url__value='https://www.facebook.com/terracefclub',
+      links__2__url__value='https://zoom.us/tfc',
+      links__3__url__value='https://gather.town/terracefclub'
     )
     self.url = reverse('event_socials')
 
   def test_socials_default(self):
     response = self.client.get(self.url + f'?pk={self.event.pk}')
     self.assertEqual(response.context['links'], [
-      'https://www.instagram.com/terracefclub',
-      'https://www.facebook.com/terracefclub',
-      'https://zoom.us/tfc'
+      ('instagram', 'https://www.instagram.com/terracefclub'),
+      ('facebook', 'https://www.facebook.com/terracefclub'),
+      ('zoom', 'https://zoom.us/tfc')
     ])
 
   def test_socials_three_specific(self):
     response = self.client.get(self.url + '?' + urlencode({
       'pk': self.event.pk, 'social': ['gather.town', 'facebook', 'zoom']
-    }))
+    }, doseq=True))
     self.assertEqual(response.context['links'], [
-      'https://gather.town/terracefclub',
-      'https://www.facebook.com/terracefclub',
-      'https://zoom.us/tfc'
+      ('gather.town', 'https://gather.town/terracefclub'),
+      ('facebook', 'https://www.facebook.com/terracefclub'),
+      ('zoom', 'https://zoom.us/tfc')
     ])
 
   def test_socials_missing_skipped(self):
     response = self.client.get(self.url + '?' + urlencode({
       'pk': self.event.pk, 'social': ['reddit', 'zoom']
-    }))
+    }, doseq=True))
     self.assertEqual(response.context['links'], [
-      'https://zoom.us/tfc'
+      ('zoom', 'https://zoom.us/tfc')
     ])
 
   def test_socials_missing_to_default(self):
     event = EventFactory(
-      links__stream_block__url__0='https://www.instagram.com/terracefclub',
-      links__stream_block__url__1='https://gather.town/terracefclub'
+      links__0__url__value='https://www.instagram.com/terracefclub',
+      links__1__url__value='https://gather.town/terracefclub'
     )
     response = self.client.get(self.url + f'?pk={event.pk}')
     self.assertEqual(response.context['links'], [
-      'https://www.facebook.com',
-      'https://www.instagram.com/terracefclub'
-      'https://zoom.us/'
+      ('instagram', 'https://www.instagram.com/terracefclub'),
+      ('facebook', 'https://www.facebook.com/'),
+      ('zoom', 'https://zoom.us/')
     ])
 
 class EventsFilterViewTest(TestCase):
   def test_missing_fields_invalid(self):
     response = self.client.get(reverse('events_filter') + '?year=2018')
     self.assertEqual(response.status_code, 400)
-    self.assertContains(response, 'month was not specified in request')
+    self.assertIn('month was not specified in request'.encode('UTF-8'), response.content)
 
     response = self.client.get(reverse('events_filter') + '?month=5')
     self.assertEqual(response.status_code, 400)
-    self.assertContains(response, 'year was not specified in request')
+    self.assertIn('year was not specified in request'.encode('UTF-8'), response.content)
 
   def test_socials_valid_results(self):
     event_old = EventFactory(start=timezone.now() - timedelta(days=365))
@@ -88,18 +88,18 @@ class EventsFilterViewTest(TestCase):
     response = self.client.get(reverse('events_filter') + '?' + urlencode({
       'year': timezone.now().year, 'month': timezone.now().month
     }))
-    self.assertQuerysetEqual(response.context['events'], [event_now])
+    self.assertEqual(list(response.context['events']), [event_now])
     self.assertIn('start__year', response.context)
     self.assertIn('start__month', response.context)
 
     response = self.client.get(reverse('events_filter') + '?' + urlencode({
-      'year': timezone.now().year - timedelta(days=365), 
+      'year': (timezone.now() - timedelta(days=365)).year, 
       'month': timezone.now().month
     }))
-    self.assertQuerysetEqual(response.context['events'], [event_old])
+    self.assertEqual(list(response.context['events']), [event_old])
     
     response = self.client.get(reverse('events_filter') + '?' + urlencode({
-      'year': timezone.now().year + timedelta(days=365), 
+      'year': (timezone.now()+ timedelta(days=365)).year, 
       'month': timezone.now().month
     }))
-    self.assertQuerysetEqual(response.context['events'], [event_future])
+    self.assertEqual(list(response.context['events']), [event_future])

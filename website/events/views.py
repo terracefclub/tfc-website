@@ -9,7 +9,7 @@ from .models import Event
 # Home pages of common social media sites
 SOCIALS_DEFAULT_BASE = {
   'instagram': 'https://www.instagram.com/',
-  'facebook': 'https://www.facebook.com',
+  'facebook': 'https://www.facebook.com/',
   'zoom': 'https://zoom.us/'
 }
 SOCIALS_DEFAULT = getattr(settings, 
@@ -87,7 +87,13 @@ def event_social(request):
     matches = [link.value for link in event.links if social in link.value]
 
     # include the first match or the site default otherwise
-    link = matches[0] if len(matches) > 0 else SOCIALS_DEFAULT[social]
+    if len(matches) > 0: 
+      link = matches[0]
+    elif social in SOCIALS_DEFAULT: 
+      link = SOCIALS_DEFAULT[social]
+    else: 
+      continue
+
     links.append((social, link))
 
   context = { 'links': links }

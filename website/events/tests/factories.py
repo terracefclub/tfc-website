@@ -1,17 +1,19 @@
 
+from factory.base import Factory
 from website.events.blocks import MediaBlock
 from wagtail_factories.factories import CollectionMemberFactory, ImageFactory
 from website.tests.factories import StreamBlockFactory
+from wagtail.core.blocks.field_block import URLBlock
 from factory.declarations import LazyAttribute, SubFactory
 from factory.faker import Faker
-from wagtail_factories.blocks import ChooserBlockFactory, StreamFieldFactory
+from wagtail_factories.blocks import BlockFactory, ChooserBlockFactory, StreamFieldFactory
 from ..models import Event, EventsPage
 
 from factory import Sequence
 from factory.fuzzy import FuzzyChoice
 from factory.django import DjangoModelFactory, FileField
 from wagtail_factories import PageFactory
-from django.utils.timezone import now
+from django.utils import timezone
 
 from wagtailmedia.models import get_media_model
 from datetime import timedelta
@@ -44,19 +46,27 @@ class MediaBlockFactory(ChooserBlockFactory):
   def _create(cls, model_class, media):
     return media
 
+class EventURLFactory(BlockFactory):
+  class Meta:
+    model = URLBlock
+
+  value = FuzzyChoice([
+    'https://www.instagram.com/', 
+    'https://www.facebook.com/', 
+    'https://zoom.us/'
+  ])
+
 class EventFactory(DjangoModelFactory):
   class Meta:
     model = Event
   name = Sequence(lambda n: f'Event {n}')
-  start = Faker('date_time', end_datetime=now() + timedelta(days=14))
+  start = Faker('date_time', 
+    end_datetime=timezone.now() + timedelta(days=14),
+    tzinfo=timezone.get_current_timezone())
   end = LazyAttribute(lambda obj: obj.start + timedelta(hours=3))
   description = f'<p>{Faker("paragraph", nb_sentences=5)}</p>'
   links = StreamFieldFactory({
-      'url': FuzzyChoice([
-        'https://www.instagram.com', 
-        'https://www.facebook.com', 
-        'https://zoom.us'
-      ])
+    'url': EventURLFactory
   })
   image = SubFactory(ImageFactory)
   featured_media = StreamFieldFactory({
