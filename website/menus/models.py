@@ -76,7 +76,7 @@ class MenuTheme(ClusterableModel):
   that I feel like. This makes it easy to process then but I am open to 
   restructuring models. TODO NOTE
   """
-  theme = CharField(max_length=50)
+  theme = CharField(max_length=200)
 
   panels = [
     FieldPanel('theme')
@@ -281,7 +281,7 @@ class WeeklyMenuPage(Page):
   """
   starting_day = DateField("First day of the week (Monday)")
   doc = ForeignKey("wagtaildocs.Document", 
-    verbose_name="Menu Document", on_delete=SET_NULL, null=True)
+    verbose_name="Menu Document", on_delete=SET_NULL, null=True, blank=True)
 
   search_fields = Page.search_fields + [
     SearchField('starting_day'),
