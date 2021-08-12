@@ -47,9 +47,9 @@ class Command(BaseCommand):
     # read JSON data in on dinner menu contents
     # ``dates`` is a dictionary of PDF filenames mapped to the Monday they
     # began on
-    with open('website/base/fixtures/data.json', 'r') as file:
+    with open('data/data.json', 'r') as file:
       data = json.load(file)
-    with open('website/base/fixtures/dates.json', 'r') as file:
+    with open('data/dates.json', 'r') as file:
       dates = json.load(file)
     date_to_filename = {date:filename for filename, date in dates.items()}
 
@@ -118,7 +118,7 @@ class Command(BaseCommand):
       logging.info(f'Menu data for {today.date()} added! Data dump at menu_data/{today.date()}.json!')
 
       # save information on imported theme, menu, and page for the week's menus
-      with open(f'website/base/fixtures/menu_data/{today.date()}.json', 'w') as file:
+      with open(f'data/menu_data/{today.date()}.json', 'w') as file:
         json.dump({
           name: value.to_json() if value else value\
           for name, value in [

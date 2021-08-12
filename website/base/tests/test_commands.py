@@ -10,6 +10,10 @@ class DumpFixtureTests(TestCase):
 
 class InitMenuAppTests(TestCase):
   def test_init_menu_app(self):
+    # create a home page because it should already be created when running this command
+    from website.base.tests.factories import HomePageFactory
+    _ = HomePageFactory()
+    
     out = StringIO()
     call_command('init_menu_app', stdout=out)
     self.assertIn('', out.getvalue())
