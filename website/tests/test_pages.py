@@ -12,7 +12,7 @@ class WagtailTestsBase(WagtailPageTests):
 
   @classmethod
   def setUpClassData(cls):
-    super(WagtailTestsBase, cls).seUpClass()
+    super(WagtailTestsBase, cls).setUpClass()
     cls.first_root = Page.get_first_root_node()
     cls.site = Site.objects.create(
       is_default_site=True, root_page=cls.first_root

@@ -4,7 +4,7 @@ from wagtail_factories.blocks import StreamFieldFactory
 from website.tests.factories import DocumentChooserBlockFactory, PageChooserBlockFactory, RichTextBlockFactory, TagFactoryMixin
 
 from factory import Sequence
-from factory.declarations import RelatedFactory, SubFactory
+from factory.declarations import LazyAttribute, LazyFunction, RelatedFactory, SubFactory
 from wagtail_factories.factories import PageFactory
 from website.blog.models import BlogCategory, BlogIndexPage, BlogPage, BlogPageGalleryImage
 from factory.django import DjangoModelFactory
@@ -47,6 +47,13 @@ class BlogPageFactory(TagFactoryMixin, PageFactory):
     if extracted: # list of categories
       for category in extracted:
         self.categories.add(category)
+
+  #main_image = LazyAttribute(BlogPage.main_image.getter)
+  
+  # @post_generation
+  # def main_image(self, create, value, **kwargs):
+  #   if not create: return
+  #   if value: self.main_image = value
 
 class BlogPageGalleryImageFactory(DjangoModelFactory):
   class Meta:

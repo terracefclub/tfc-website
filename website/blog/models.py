@@ -69,7 +69,7 @@ class BlogIndexPage(Page):
 
   def blogpages(self):
     """ Get all live blog pages order by most recent first """
-    return self.get_children().live().order_by('-first_published_at')
+    return self.get_children().specific().live().order_by('-first_published_at')
 
   def get_context(self, request):
     """ Passes blogpages into the page context """

@@ -1,5 +1,6 @@
 [run]
 branch = True
+omit = website/**/tests/*, website/tests/*
 data_file = .coverage/backend/data_file
 
 [report]

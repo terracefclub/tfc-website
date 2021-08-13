@@ -3,7 +3,7 @@
 set -xe
 
 python manage.py test website/
-npm run test
+cd website/frontend && npm run test && cd ../..
 
 coverage report
 coverage json

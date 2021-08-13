@@ -98,6 +98,7 @@ class MenuIndexPageFactory(PageFactory):
 class WeeklyMenuPageFactory(PageFactory):
   class Meta:
     model = WeeklyMenuPage
+
   starting_day = FuzzyDate(start_date=datetime(2010, 1, 1).date())
   doc = SubFactory(DocumentFactory)
 
