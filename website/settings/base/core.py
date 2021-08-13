@@ -102,11 +102,10 @@ TEMPLATES = [
 
 DATABASES = {
   'default': dj_database_url.parse(
-    'postgres://{user}:{password}@{host}:{port}/{name}'.format(**dict(zip(
-      ['user', 'password', 'host', 'port', 'name'], 
+    'postgres://{user}:{password}@{host}:5432/{name}'.format(**dict(zip(
+      ['user', 'password', 'host', 'name'], 
       [os.environ.get(var) for var in [
-        'POSTGRES_USER', 'POSTGRES_PASSWORD', 'POSTGRES_HOST', 
-        'POSTGRES_PORT', 'POSTGRES_DB'
+        'POSTGRES_USER', 'POSTGRES_PASSWORD', 'POSTGRES_HOST', 'POSTGRES_DB'
       ]]
     ))), 
     engine='django.db.backends.postgresql', 
