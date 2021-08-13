@@ -68,7 +68,7 @@ export function shareLoader(): void {
 
   shareBtns.forEach((shareBtn) =>
     shareBtn.addEventListener('click', async () =>
-      displayAlert(shareBtn, await copyUrl(shareBtn)),
+      displayAlert(shareBtn, await copyUrl(shareBtn))
     ),
   );
 }
