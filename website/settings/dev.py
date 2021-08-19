@@ -33,3 +33,14 @@ WAGTAILSEARCH_BACKENDS = {
     'AUTO_UPDATE': True # optimize with False and update_index()
   }
 }
+
+DATABASES = {
+  'default': {
+    'ENGINE': 'django.db.backends.postgresql',
+    'NAME': 'web',
+    'USER': 'user',
+    'PASSWORD': 'password',
+    'HOST': 'postgres',
+    'PORT': '5432',
+  }
+}

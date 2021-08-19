@@ -1,7 +1,7 @@
 const Path = require('path');
-const Webpack = require('webpack');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+const TerserPlugin = require("terser-webpack-plugin");
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const StylelintPlugin = require('stylelint-webpack-plugin');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
@@ -35,17 +35,7 @@ module.exports = {
   output: {
     path: Path.join(__dirname, 'static/'),
     filename: 'js/[name].js',
-    chunkFilename: prodMode ? 'js/[name].[chunkhash:8].chunk.js' : 'js/[name].chunk.js'
-  },
-  devServer: {
-    contentBase: Path.join(__dirname, 'static/'),
-    hot: true,
-    proxy: {
-      '!/static/**': {
-        target: 'http://localhost:8000',
-        changeOrigin: true, 
-      }
-    }
+    chunkFilename: prodMode ? 'js/[name].[chunkhash:8].chunk.js' : 'js/[name].chunk.js',
   },
   optimization: {
     splitChunks: {
@@ -62,6 +52,8 @@ module.exports = {
         }
       }
     },
+    minimize: true,
+    minimizer: [new TerserPlugin()]
   },
   plugins: [
     new CleanWebpackPlugin(),
@@ -87,11 +79,11 @@ module.exports = {
   },
   module: {
     rules: [
-      {
-        test: /\.mjs$/,
-        include: /node_modules/,
-        type: 'javascript/auto',
-      },
+      // {
+      //   test: /\.mjs$/,
+      //   include: /node_modules/,
+      //   type: 'javascript/auto',
+      // },
       {
         test: /\.(t|j)s$/,
         exclude: /node_modules/,

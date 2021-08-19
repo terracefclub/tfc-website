@@ -26,16 +26,9 @@ class BaseWagtailUnits(WagtailTestsBase):
 
 class BaseDjangoUnits(WagtailTestsBase):
   def test_form_page_queryset(self):
-    private_pages = FormPageFactory.create_batch(5, is_private=True)
     public_pages = FormPageFactory.create_batch(5) # is_private=False
 
-    private_pages_query = FormPage.objects.private()
     public_pages_query = FormPage.objects.public()
-
-    self.assertEqual(private_pages, list(private_pages_query))
     self.assertEqual(public_pages, list(public_pages_query))
-
-    for page in private_pages_query: 
-      self.assertTrue(page.is_private)
     for page in public_pages_query: 
       self.assertFalse(page.is_private)

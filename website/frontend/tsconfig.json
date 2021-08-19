@@ -29,19 +29,19 @@
     "strictNullChecks": true,
 
     /* module resolution */
+    "declaration": true,
     "moduleResolution": "node",
     "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true,
 
     "typeRoots": [
       "./common/types",
-      "./flabyrinth/scripts/types",
       "./main/scripts/types",
       "./node_modules/@types"
     ]
   },
   "include": ["src"],
   "typedocOptions": {
-    "entryPoints": ["src/main/scripts/index.ts", "src/flabyrinth/scripts/index.ts"]
+    "entryPoints": ["src/main/scripts/index.ts"]
   }
 }

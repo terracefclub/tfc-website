@@ -6,8 +6,7 @@ from .tinymce import *
 # put any settings that are a mixture of core and extras settings below!
 
 AUTHENTICATION_BACKENDS = [
-  'django.contrib.auth.backends.ModelBackend',
-  'allauth.account.auth_backends.AuthenticationBackend',
+  'django.contrib.auth.backends.ModelBackend'
 ]
 
 # Application definition
@@ -18,20 +17,12 @@ INSTALLED_APPS = [
   'website.blog',
   'website.events',
   'website.menus',
-  
-  # Authentication
-  'allauth',                     # Main backend for authentication
-  'allauth.account',             # NECESSARY for ^
-  'allauth.socialaccount',       # Supports social authentication generally
 
   # Third party
   'fontawesome-free',            # Icons!
   'leaflet',                     # Easily integrating maps into views
   'clearcache',                  # Mgmt support for simple cache clearing
   'wagtail_nav_menus',           # Configurable navigation menus in Wagtail
-  'address',                     # Robust addressing models
-  'avatar',                      # Robust user avatar models
-  'phonenumber_field',           # Robust phone number models
   'modelcluster',                # Simultaneous model instantiation (Wagtail)
   'taggit',                      # MVC support for tagging models
   'taggit_autosuggest',          # autocompletion and UI for taggit system

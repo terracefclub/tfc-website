@@ -187,11 +187,6 @@ class FormPage(AbstractEmailForm):
     ], heading='Email Information')
   ]
 
-  def get_template(self, request):
-    if self.is_private:
-      return 'flabyrinth/form_page.html'
-    return 'base/form_page.html'
-
   def serve(self, request, *args, **kwargs):
     """
     Overridden to serve the form `self.max_submissions_per_user` number of times

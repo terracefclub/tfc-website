@@ -3,11 +3,11 @@
 
 import os
 from django.utils.translation import gettext_lazy as _
-import dj_database_url
 
 SETTINGS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROJECT_DIR = os.path.dirname(SETTINGS_DIR)
 BASE_DIR = os.path.dirname(PROJECT_DIR)
+FIXTURE_DIRS = [os.path.join(BASE_DIR, 'data')]
 
 SECRET_KEY = os.environ.get('SECRET_KEY')
 
@@ -98,20 +98,6 @@ TEMPLATES = [
     },
   },
 ]
-
-
-DATABASES = {
-  'default': dj_database_url.parse(
-    'postgres://{user}:{password}@{host}:5432/{name}'.format(**dict(zip(
-      ['user', 'password', 'host', 'name'], 
-      [os.environ.get(var) for var in [
-        'POSTGRES_USER', 'POSTGRES_PASSWORD', 'POSTGRES_HOST', 'POSTGRES_DB'
-      ]]
-    ))), 
-    engine='django.db.backends.postgresql', 
-    conn_max_age=600
-  ),
-}
 
 ### Internationalization & Language ###
 LANGUAGE_CODE = 'en-us'
