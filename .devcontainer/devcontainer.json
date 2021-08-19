@@ -1,11 +1,18 @@
 {
 	"name": "TFC Website",
 	
-  "dockerComposeFile": "../docker-compose.yaml",
+  "dockerComposeFile": "docker-compose.yaml",
   "service": "server",
   "workspaceFolder": "/usr/src/womb",
   "shutdownAction": "stopCompose",
+  "remoteUser": "forkman",
   "forwardPorts": [8000],
+
+  // add common development tools (i.e. zsh, oh-my-zsh, etc.)
+  "postCreateCommand": "bash .devcontainer/install-dev-tools.sh",
+
+  // synchronize local dotfiles such that entering the docker devcontainer is like starting an interactive login shell
+  "userEnvProbe": "loginInteractiveShell",
 
 	"settings": { 
     "editor.codeActionsOnSave": {
@@ -27,6 +34,12 @@
     "git.path": ["/usr/bin/git", "C:\\Program Files\\Git\\cmd\\git.exe"],
 
     "python.languageServer": "Pylance",
+    "python.testing.pytestArgs": [
+      "."
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.nosetestsEnabled": false,
+    "python.testing.pytestEnabled": true,
 
     "css.validate": false,
     "scss.validate": false,
