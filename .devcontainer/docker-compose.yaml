@@ -2,13 +2,15 @@ version: '3.7'
 services:
   postgres:
     container_name: postgres
-    image: postgres:13-alpine
+    build:
+      context: ..
+      dockerfile: .devcontainer/postgres.Dockerfile
     restart: always
+    env_file: ../.env
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports: [ 5432 ]
+      POSTGRES_DB: web
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
     volumes: [ pgdata:/var/lib/postgresql/data ]
   redis:
     container_name: redis
@@ -18,10 +20,11 @@ services:
   server:
     container_name: server
     build:
-      context: .
+      context: ..
+      dockerfile: server.Dockerfile
       target: development
-    env_file: .env
-    volumes: [ ./:/usr/src/womb ]
+    env_file: ../.env
+    volumes: [ ../:/usr/src/womb ]
     depends_on: [ postgres, redis ]
 volumes:
   pgdata:
