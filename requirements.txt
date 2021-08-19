@@ -29,6 +29,7 @@ google-auth-oauthlib
 gunicorn==20.0.4
 hiredis
 Pillow
+psycopg2-binary
 psycopg2
 pytest
 pytest-cov
