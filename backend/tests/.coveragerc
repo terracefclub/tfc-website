@@ -1,0 +1,18 @@
+[run]
+branch = True
+omit = */migrations/*, */__init__.py
+data_file = tests/.coverage/data_file
+
+[report]
+skip_covered = True
+
+[html]
+directory = tests/.coverage/htmlcov
+title = "Backend Test Coverage Report"
+
+[xml]
+output = tests/.coverage/coverage.xml
+
+[json]
+output = tests/.coverage/coverage.json
+pretty_print = True
