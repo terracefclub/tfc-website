@@ -1,32 +1,35 @@
 
 ### SECRETS ###
-/.env
-/credentials.json
-/terraform.tfvars
-/kubernetes/secrets.yaml
-/kubernetes/config.yaml
+config/
+
+### INFRASTRUCTURE ###
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/terraform.tfvars
+terraform/.terraform.lock.hcl
 
 ### DEVELOPMENT ###
-/.vscode/
-/website/templates/sandbox.html
+.vscode/
+backend/website/templates/sandbox.html
+sandbox/
+future/
+bin/
 
 ### DATA & FRONTEND ###
-/data/
-/static
-/website/frontend/static
-/website/media/
-/website/**/fixtures/media/
+data/
+media/
+static/
 
 ### TESTING ###
-/tests/
 .coverage/
 .pytest_cache/
 
 ### DEBUG ###
-/logs/
+logs/
 
 ### BLOAT ###
 __pycache__/
 node_modules/
-/kubernetes/**/charts/
-/docs/_build/
+kubernetes/**/charts/
+docs/_build/
+terraform/.terraform
