@@ -1,0 +1,7 @@
+-r base.txt
+django-filebrowser==3.14.1
+gunicorn==20.1.0
+setproctitle
+
+# DEPENDENCIES
+django-grappelli==2.15.1

@@ -1,0 +1,6 @@
+-r test.txt
+-r prod.txt
+django-clearcache==1.2.1
+django-debug-toolbar==3.2.2
+flake8==3.9.2
+flake8-django==1.1.2
