@@ -1,16 +1,32 @@
-# Install ZSH
-sudo apt-get update
-sudo apt-get install -qy --no-install-recommends zsh
+#!/bin/bash
 
-# Set ZSH as default
-sudo chsh -s /bin/zsh $(whoami)
+zsh_setup() {
+  sudo apk add zsh 
 
-# Install oh-my-zsh
-cd $HOME
-curl -fsSL https://github.com/robbyrussell/oh-my-zsh/raw/master/tools/install.sh | zsh || true
-cd $BASE_DIR
+  echo "auth sufficient pam_rootok.so" > chsh
+  sudo mv chsh /etc/pam.d/chsh
+  sudo chsh -s /bin/zsh $(whoami)
 
-# Install powerlevel10k theme
-git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k;
+  zsh
 
-source .devcontainer/.zshrc
+  # Install oh-my-zsh
+  omz_url=https://github.com/robbyrussell/oh-my-zsh/raw/master/tools/install.sh
+  curl -fsSL $omz_url | zsh -;
+}
+
+gcloud_setup() {
+  SDK_ZIP="https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-355.0.0-linux-x86_64.tar.gz"
+
+  wget $SDK_ZIP -O /tmp/google-cloud-sdk.tar.gz
+  sudo mkdir -p /usr/local/gcloud
+  sudo tar -C /usr/local/gcloud -xzf /tmp/google-cloud-sdk.tar.gz
+  sudo /usr/local/gcloud/google-cloud-sdk/install.sh
+}
+
+terraform_setup() {
+  sudo apk add terraform
+}
+
+zsh_setup
+gcloud_setup
+terraform_setup

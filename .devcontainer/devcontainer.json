@@ -1,17 +1,15 @@
 {
 	"name": "TFC Website",
-	
+
   "dockerComposeFile": "docker-compose.yaml",
   "service": "server",
   "workspaceFolder": "/usr/src/womb",
   "shutdownAction": "stopCompose",
-  "remoteUser": "forkman",
-  "forwardPorts": [8000],
+  "forwardPorts": [8888],
 
-  // add common development tools (i.e. zsh, oh-my-zsh, etc.)
+  // add common development tools
   "postCreateCommand": "bash .devcontainer/install-dev-tools.sh",
 
-  // synchronize local dotfiles such that entering the docker devcontainer is like starting an interactive login shell
   "userEnvProbe": "loginInteractiveShell",
 
 	"settings": { 
@@ -44,7 +42,14 @@
     "css.validate": false,
     "scss.validate": false,
     "stylelint.enable": true,
-    "stylelint.configFile": "website/frontend/.stylelintrc.json",
+    "stylelint.configFile": "frontend/.stylelintrc.json",
+    
+    "terminal.integrated.profiles.linux": {
+      "zsh -l": {
+        "path": "/bin/zsh",
+        "args": ["-l"],
+      },
+    },
 	},
 
 	// Extensions to be installed when container is created
@@ -60,6 +65,8 @@
     "tomoki1207.pdf",
     "lextudio.restructuredtext",
     "trond-snekvik.simple-rst",
-    "mtxr.sqltools"
+    "mtxr.sqltools",
+    "ms-azuretools.vscode-docker",
+    "run-at-scale.terraform-doc-snippets"
   ],
 }
