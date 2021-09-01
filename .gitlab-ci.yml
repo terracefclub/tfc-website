@@ -1,53 +1,48 @@
 
 variables:
+  APP_NAME: web_app_server
   DOCKER_HOST: tcp://docker:2375
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: ""  
-  APP_NAME: web_app_server
-  GCLOUD_REGISTRY: us.gcr.io
-  GCLOUD_PROJECT: terracefclub
-  GCLOUD_COMPUTE_ZONE: us-central1-a
-  GCLOUD_PREFIX: $GCLOUD_REGISTRY/$GCLOUD_PROJECT
-  CLUSTER_NAME: my-cluster
   HEROKU_REGISTRY: registry.heroku.com
-  HEROKU_PREFIX: $HEROKU_REGISTRY/flabyrinth
-  IMAGE_HEROKU: $HEROKU_PREFIX/$APP_NAME:$CI_COMMIT_BRANCH
-  IMAGE_GITLAB: $CI_REGISTRY/$CI_PROJECT_PATH/$APP_NAME:$CI_COMMIT_BRANCH
-  IMAGE_GCLOUD: $GCLOUD_PREFIX/$APP_NAME:$CI_COMMIT_BRANCH
-
-cache:
-  key: ${CI_COMMIT_REF_SLUG}
-  paths:
-    - website/frontend/node_modules/
+  HEROKU_PREFIX: $HEROKU_REGISTRY/tfc-website-staging-stable
+  HEROKU_IMAGE: $HEROKU_PREFIX/$APP_NAME:$CI_COMMIT_BRANCH
+  GITLAB_IMAGE: $CI_REGISTRY/$CI_PROJECT_PATH/$APP_NAME:$CI_COMMIT_BRANCH
+  GITLAB_LOGIN_DOCKER: >-
+    echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY 
+    --username $CI_WRITE_USER --password-stdin
 
 build:
   stage: build
   image: docker:latest
   services: [ "docker:dind" ]
-  only: [ dev, prod ]    
-  before_script:
-    - echo $CI_WRITE_TOKEN $CI_REGISTRY $CI_WRITE_USER
-    - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
-    - docker info
-    - echo $(eval echo $(cat .env.example | sed -r 's/([A-Z_]+)=/\1=$\1/g')) > .env
-    - cat .env
-  script:
-    - docker build --pull -t $IMAGE_GITLAB --target production .
-    - docker build --pull -t $IMAGE_GITLAB-test --target testing .
-    - docker push $IMAGE_GITLAB
-    - docker push $IMAGE_GITLAB-test
+  only: [ dev, prod ]
+  variables:
+    COMPOSE_DOCKER_CLI_BUILD: 1
+    DOCKER_BUILDKIT: 1
+  script: 
+    - $GITLAB_LOGIN_DOCKER
+    - docker build --pull -t $GITLAB_IMAGE -f docker/server/prod.Dockerfile .
+    - docker build --pull -t $GITLAB_IMAGE-test -f docker/server/test.Dockerfile .
+    - docker push $GITLAB_IMAGE
+    - docker push $GITLAB_IMAGE-test
 
 test:
   stage: test
-  image: docker:latest
-  services: [ "docker:dind" ]
+  image: $GITLAB_IMAGE-test
+  services:
+    - name: postgres:13-buster
+      alias: postgres
+    - name: redis:6.2-alpine
+      alias: redis
+  variables:
+    POSTGRES_DB: web
+    POSTGRES_USER: user
+    POSTGRES_PASSWORD: password
+    POSTGRES_HOST_AUTH_METHOD: trust
   only: [ dev, prod ]
-  before_script:
-    - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
-    - docker info
   script: 
-    - docker pull $IMAGE_GITLAB-test
-    - docker run $IMAGE_GITLAB-test
+    - ./docker/server/entrypoint-test.sh
 
 heroku:
   stage: deploy
@@ -55,54 +50,27 @@ heroku:
   services: [ "docker:dind" ]
   only: [ dev ]
   before_script:
-    - apk add --update nodejs npm
+    - $GITLAB_LOGIN_DOCKER
+    - apk add nodejs npm
     - npm i -g heroku
-    - echo $CI_WRITE_TOKEN | docker login $HEROKU_REGISTRY --username $CI_WRITE_USER --password-stdin
-    - docker info
     - heroku container:login
   script:
-    - docker pull $IMAGE_GITLAB
-    - docker tag $IMAGE_GITLAB $IMAGE_HEROKU
-    - docker push $IMAGE_HEROKU
+    - docker pull $GITLAB_IMAGE
+    - docker tag $GITLAB_IMAGE $HEROKU_IMAGE
+    - docker push $HEROKU_IMAGE
 
-stage:
-  image: hashicorp/terraform:light
+terraform:
   stage: deploy
   only: [ dev ]
-  before_script:
-    - echo $(eval echo $(cat terraform.tfvars.example | sed -r 's/([A-Z_]+)=/\1=\"$\U\1\"/g')) > terraform.tfvars
+  variables:
+  #   GCLOUD_SDK: https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-354.0.0-linux-x86_64.tar.gz
+  # before_script:
+  #   - wget $GCLOUD_SDK -O - | tar -xzf -
+  #   - ./google-cloud-sdk/install.sh --quiet
+  #   - source google-cloud-sdk/path.bash.inc
+  #   - gcloud init
   script:
     - login <<< $'yes\n$TF_TOKEN'
     - init
-    - plan
-    - apply <<< $'yes'
-
-gcloud:
-  stage: deploy
-  image: docker:latest
-  services: [ "docker:dind" ]
-  only: [ prod ]
-  before_script:
-    - echo $GOOGLE_SERVICEACCT_CREDENTIALS | docker login $GCLOUD_REGISTRY --username _json_key --password-stdin
-    - echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY --username $CI_WRITE_USER --password-stdin
-    - docker info
-  script:
-    - docker pull $IMAGE_GITLAB
-    - docker tag $IMAGE_GITLAB $IMAGE_GCLOUD
-    - docker push $IMAGE_GCLOUD
-
-deploy:
-  image: gcloud:latest
-  stage: deploy
-  only: [ prod ]
-  environment:
-    name: prod
-  before_script:
-    - echo $$GOOGLE_SERVICEACCT_CREDENTIALS > credentials.json
-    - gcloud auth activate-service-account --key-file=credentials.json
-    - gcloud config set project $GCLOUD_PROJECT
-    - gcloud config set container/cluster $CLUSTER_NAME
-    - gcloud config set compute/zone $GCLOUD_COMPUTE_ZONE
-    - gcloud container clusters get-credentials $CLUSTER_NAME --zone=$GCLOUD_COMPUTE_ZONE
-  script:
-    - helm install kubernetes/future-chart
+    - plan -var-file=$TF_VARS
+    - apply -var-file=$TF_VARS <<< $'yes'
