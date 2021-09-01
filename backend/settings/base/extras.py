@@ -1,0 +1,12 @@
+from wagtail_nav_menus.defaults import (
+  WAGTAIL_NAV_MENU_CHOICES_DEFAULT, WAGTAIL_NAV_MENU_TYPES_DEFAULT
+)
+### WAGTAIL_NAV_MENUS ###
+WAGTAIL_NAV_MENU_TYPES = WAGTAIL_NAV_MENU_TYPES_DEFAULT + [] # nothing added yet
+WAGTAIL_NAV_MENU_CHOICES = WAGTAIL_NAV_MENU_CHOICES_DEFAULT + (
+  ("sidebar", "Sidebar"),
+)
+
+from glob import glob
+GDAL_LIBRARY_PATH = glob('/usr/lib/libgdal.so.*')[0]
+GEOS_LIBRARY_PATH = glob('/usr/lib/libgeos_c.so.*')[0]
