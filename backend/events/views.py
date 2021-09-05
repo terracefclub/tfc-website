@@ -1,10 +1,29 @@
 from django.shortcuts import render 
 from django.conf import settings
 from django.http import HttpResponseBadRequest
+from django.db.models import F
 from django.views.decorators.http import require_http_methods
 from .models import Event
 
+def get_calendar_form_context(**params):
+  all_years = Event.objects\
+    .annotate(year=F('start__year'))\
+    .distinct('year')\
+    .order_by('-year')\
+    .values_list('year', flat=True)
+  all_months = [
+    'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP',
+    'OCT', 'NOV', 'DEC'
+  ]
 
+  # filter by starting date in time range specified by `fields`
+  db_params = {f'start__{field}': value for field, value in params.items()}
+
+  return { 
+    'all_years': all_years, 'all_months': all_months,
+    'events': Event.objects.filter(**db_params),
+    **{f'cal_{field}': value for field, value in params.items()}
+  }
 
 # Home pages of common social media sites
 SOCIALS_DEFAULT_BASE = {
@@ -129,10 +148,8 @@ def events_filter(request):
     if field not in request.GET:
       return HttpResponseBadRequest(f'{field} was not specified in request')
   
-  # filter by starting date in time range specified by `fields`
-  q_params = [request.GET[field] for field in fields]
-  db_params = {f'start__{field}': int(p) for field, p in zip(fields, q_params)}
-  events = Event.objects.filter(**db_params)
+  context = get_calendar_form_context(**{
+    field: int(request.GET[field]) for field in fields
+  })
 
-  context = { 'events': events, **db_params}
   return render(request, 'events/event_calendar.html', context)

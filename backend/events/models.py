@@ -114,10 +114,17 @@ class EventsPage(Page):
     Passes these and the events they filter into context for view.
     """
     context = super(EventsPage, self).get_context(request)
+
+    from .views import get_calendar_form_context, SOCIALS_DEFAULT
+    fields = ['month', 'year']
     now = timezone.now()
-    values = {
-      f'start__{field}': getattr(now, field) for field in ['month', 'year']
-    }
-    context['events'] = Event.objects.filter(**values)
+    context.update(get_calendar_form_context(**{
+      field: getattr(now, field) for field in fields
+    }))
+    context['links'] = SOCIALS_DEFAULT.items()
+
+    from wagtail.images.models import Image
+    context['img_default'] = Image.objects.get(title__icontains='tfc_1.jpg')
+
     return context
   
