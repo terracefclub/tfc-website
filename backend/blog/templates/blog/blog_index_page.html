@@ -68,7 +68,7 @@
         <div class="card-image" style="background-image: url({% if post_image %}{{ post_image.url }}{% else %}{% static 'img/'|add:img_default %}{% endif %})">
           <div class="flex justify-between w-full p-2">
             <p class="post-number p-4 text-7xl opacity-50">{{ forloop.counter }}</p>
-            <div class="copied-alert invisible bg-gray-700 text-white text-lg p-2 w-auto border-2 border-white"><p></p></div>
+            <div class="copied-alert invisible bg-gray text-white text-lg p-2 w-auto border-2 border-white"><p></p></div>
           </div>
         </div>
         <div class="card-info">
@@ -80,7 +80,7 @@
           {{ post.specific.intro|truncatechars:"200" }}
           {% for tag in post.specific.tags.all %}
           <span class="blog-badge
-            {% cycle 'bg-green-700' 'bg-red-700' 'bg-blue-700' %}">
+            {% cycle 'bg-green' 'bg-red' 'bg-blue' %}">
             {{ tag.name }}
           </span>&nbsp;
           {% endfor %}</p>

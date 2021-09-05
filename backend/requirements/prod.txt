@@ -2,6 +2,7 @@
 django-filebrowser==3.14.1
 gunicorn==20.1.0
 setproctitle
+newrelic==6.8.1.164
 
 # DEPENDENCIES
 django-grappelli==2.15.1

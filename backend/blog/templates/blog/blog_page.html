@@ -11,12 +11,12 @@
     <div class="flex flex-wrap w-56 items-center justify-center">
       {% for tag in page.tags.all %}
       <span class="blog-badge
-        {% cycle 'bg-green-700' 'bg-red-700' 'bg-blue-700' %}">
+        {% cycle 'bg-green' 'bg-red' 'bg-blue' %}">
         {{ tag.name }}
         </span>&nbsp;
       {% endfor %}
     </div>
-    <div class="mt-4 mb-10 flex flex-col items-center justify-start gap-10 bg-gray-200 border-4 border-black bg-opacity-85" style="max-width: 90%">
+    <div class="mt-4 mb-10 flex flex-col items-center justify-start gap-10 bg-gray border-4 border-black bg-opacity-85" style="max-width: 90%">
       {% for block in self.body %}
         {% if block.block_type == 'html' %}
           {{ block.value }}
@@ -40,7 +40,7 @@
           </div>
         </div>
       {% empty %}
-        <div class="w-full h-52 flex justify-center items-center text-center border-2 border-black bg-opacity-85 bg-gray-200 p-5">
+        <div class="w-full h-52 flex justify-center items-center text-center border-2 border-black bg-opacity-85 bg-gray p-5">
           <p class="text-lg">No Images in Post Gallery!</p>
         </div>
       {% endfor %}

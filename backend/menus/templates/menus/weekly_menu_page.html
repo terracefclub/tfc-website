@@ -26,18 +26,18 @@
               <p>
                 {% with item.food_item.tags.all|values:'name' as tags %}
                   {% if "Vegan" in tags %}
-                  <span class="menu-badge bg-gray-200">V</span>&nbsp;
+                  <span class="menu-badge bg-gray">V</span>&nbsp;
                   {% elif "Vegetarian" in tags %}
-                  <span class="menu-badge bg-green-200">Veg</span>&nbsp;
+                  <span class="menu-badge bg-green">Veg</span>&nbsp;
                   {% endif %}
                   {% if "Gluten-Free" in tags %}
-                  <span class="menu-badge bg-yellow-200">GF</span>&nbsp;
+                  <span class="menu-badge bg-yellow">GF</span>&nbsp;
                   {% endif %}
                   {% if "Dairy" in tags %}
                   <span class="menu-badge bg-white">D</span>&nbsp;
                   {% endif %}
                   {% if "Nuts" in tags %}
-                  <span class="menu-badge bg-yellow-700 text-white">N</span>&nbsp;
+                  <span class="menu-badge bg-yellow text-white">N</span>&nbsp;
                   {% endif %}
                 {% endwith %}
                 {{ item.food_item.name }}
@@ -107,7 +107,7 @@
             {% endif %}
           </div>
         {% empty %}
-          <div class="w-full h-64 bg-gray-600 text-white text-center text-5xl flex justify-center items-center">
+          <div class="w-full h-64 bg-gray text-white text-center text-5xl flex justify-center items-center">
             <p>No Images Available</p>
           </div>
         {% endfor %}
