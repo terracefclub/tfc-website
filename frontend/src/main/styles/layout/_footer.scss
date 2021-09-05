@@ -17,3 +17,7 @@ footer {
     color: colors.$gray;
   }
 }
+
+.spacer {
+  @apply flex-grow;
+}

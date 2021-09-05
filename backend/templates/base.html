@@ -33,18 +33,21 @@
     </head>
 
     <body class="{% block body_class %}{% endblock %}">
+        <div id="bg-image"
+          style="background-image: url({% static 'img/background.jpg' %})"
+        ></div>
+
         {% wagtailuserbar %}
 
         {% get_nav_menu 'sidebar' %}
-        <article id="main-container"
-          style="background-image: url({% static 'img/background.jpg' %})"
-        >
-          {% include 'header.html' %}
-          <main>
-            {% block content %}{% endblock %}
-          </main>
-          {% include 'footer.html' %}
-        </article>
+
+        {% include 'header.html' %}
+
+        <main>
+          {% block content %}{% endblock %}
+        </main>
+
+        {% include 'footer.html' %}
 
         {# Main modal #}
         <div id="modal">

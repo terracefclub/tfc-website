@@ -1,10 +1,8 @@
 @use '../abstracts/colors';
 @use '../abstracts/mixins' as *;
 
-@import '../abstracts/layers';
-
 header {
-  @apply fixed z-10;
+  @apply fixed z-10 h-[10vh];
   @apply flex justify-between items-center gap-8;
   @apply w-full p-4;
   @apply border-b-4;
@@ -29,7 +27,7 @@ header {
   div.search {
     @apply h-16 px-2 min-w-[160px] flex-shrink;
     @apply flex items-center gap-3;
-    @apply rounded-xl border-white hover:border-green-300 border-4;
+    @apply rounded-xl border-white hover:border-green border-4;
 
     background-color: colors.$gray;
     flex-basis: 500px;
