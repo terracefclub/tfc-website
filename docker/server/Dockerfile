@@ -57,7 +57,7 @@ ENV BASEDIR=$BASEDIR \
     PYTHONUNBUFFERED=1 \
     STAGE=$STAGE
 EXPOSE 8000
-ENTRYPOINT $BASEDIR/docker/server/entrypoint.sh
+ENTRYPOINT ["./docker/server/entrypoint.sh"]
 CMD ["start"]
 
 
@@ -89,7 +89,6 @@ USER $username
 FROM post_dev AS prod
 ARG username
 ARG BASEDIR
-ARG SQL_INSTANCE
 ARG PROXY_BINARY="https://storage.googleapis.com/cloudsql-proxy/v1.21.0/cloud_sql_proxy.linux.amd64"
 RUN \
     # Add Cloud SQL Auth Proxy tool for authenticated access to GCP postgres
@@ -97,5 +96,4 @@ RUN \
     chmod +x /usr/local/bin/cloud_sql_proxy; \
     # Remove unnecessary testing files
     rm -rf backend/tests frontend/tests
-ENV SQL_INSTANCE=$SQL_INSTANCE
 USER $username

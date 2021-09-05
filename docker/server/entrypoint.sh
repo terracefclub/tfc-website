@@ -39,11 +39,14 @@ manage_django_init_changes() {
 
 run_gunicorn_server() {
   ACCESSLOGFILE=$BASEDIR/logs/gunicorn.log
-  WSGI=$BASEDIR/backend/wsgi
   NUM_WORKERS=3
 
+  newrelic=""
+  [ "$NEW_RELIC_LICENSE_KEY" ] && newrelic="newrelic-admin run-program"
+
   echo "Booting up the server to listen at port ${PORT:-8000} ... "
-  gunicorn $WSGI:application \
+  cd backend
+  $newrelic gunicorn wsgi:application \
     --bind=0.0.0.0:${PORT:-8000} \
     --workers=$NUM_WORKERS \
     --access-logfile=$ACCESSLOGFILE \
@@ -51,6 +54,7 @@ run_gunicorn_server() {
     --user=$(id -un) \
     --group=$(id -gn) \
     "$@"
+  cd ..
 }
 
 test_django_server() {

@@ -1,6 +1,0 @@
-*
-!backend/
-!frontend/
-!docker/server/entrypoint-prod.sh
-backend/tests/
-frontend/tests/
