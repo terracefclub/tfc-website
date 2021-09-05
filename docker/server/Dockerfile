@@ -75,20 +75,20 @@ USER $username
 
 
 FROM base AS post_dev
+ARG username
+ARG groupname
 COPY --chown=$username:$groupname . .
 
 
 
 FROM post_dev AS test
 ARG username
-ARG BASEDIR
 USER $username
 
 
 
 FROM post_dev AS prod
 ARG username
-ARG BASEDIR
 ARG PROXY_BINARY="https://storage.googleapis.com/cloudsql-proxy/v1.21.0/cloud_sql_proxy.linux.amd64"
 RUN \
     # Add Cloud SQL Auth Proxy tool for authenticated access to GCP postgres
