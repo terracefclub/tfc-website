@@ -3,7 +3,7 @@ ARG BASEDIR=/usr/src/womb
 
 
 FROM node AS frontend
-COPY frontend/package*.json .
+COPY frontend/package*.json ./
 RUN npm install
 COPY frontend .
 RUN npm run build
