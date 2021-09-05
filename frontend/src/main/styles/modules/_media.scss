@@ -15,7 +15,7 @@
     &-info {
       @apply absolute top-3/4;
       @apply w-full p-3;
-      @apply bg-gray-500 bg-opacity-50;
+      @apply bg-gray bg-opacity-50;
       @apply text-white;
 
       .name {
@@ -33,7 +33,7 @@
     @apply m-4 p-2;
     @apply text-5xl text-black;
     @apply border-2 rounded-lg border-black;
-    @apply bg-opacity-75 bg-gray-500;
+    @apply bg-opacity-75 bg-gray;
   }
 }
 
@@ -41,7 +41,7 @@
   @include no-scrollbar();
 
   @apply border-2 border-black rounded-md;
-  @apply bg-gray-500 bg-opacity-50;
+  @apply bg-gray bg-opacity-50;
   @apply whitespace-nowrap overflow-x-auto p-4;
 }
 
@@ -51,7 +51,7 @@
   @apply h-60 w-40 mr-4;
   @apply cursor-pointer;
   @apply rounded-md;
-  @apply bg-gray-600;
+  @apply bg-gray;
 }
 
 .archive-item.pdf .descriptor,
@@ -65,7 +65,7 @@
   @apply absolute;
   @apply h-full w-full;
   @apply rounded-md;
-  @apply bg-opacity-50 bg-gray-500;
+  @apply bg-opacity-50 bg-gray;
 }
 
 .title-box {
@@ -73,7 +73,7 @@
 
   @apply w-3/5;
   @apply rounded-md;
-  @apply bg-gray-500;
+  @apply bg-gray;
 
   p {
     @apply text-center text-white break-all whitespace-pre-wrap;

@@ -8,6 +8,21 @@
   ],
   "rules": {
     "at-rule-no-unknown": null,
+    "at-rule-empty-line-before": [
+      "always",
+      {
+        "except": [
+          "inside-block"
+        ],
+        "ignore": [
+          "after-comment",
+          "blockless-after-blockless"
+        ],
+        "ignoreAtRules": [
+          "for"
+        ]
+      }
+    ],
     "scss/at-rule-no-unknown": [
       true,
       {

@@ -10,12 +10,23 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        darkishgray: '#585B5C',
-        darkgray: '#3C3E3E',
-        darkgreen: '#354E35',
-        darkergray: '#2C2F2E',
+        darkishgray: '#585b5c',
+        darkgray: '#3c3e3e',
+        darkgreen: '#354e35',
+        darkergray: '#2c2f2e',
         offwhite: '#b7ab98',
-        greenish: '#5CC258'
+        greenish: '#5cc258',
+        dark: '#353535',
+        darker: '#26292a',
+        green: '#248437',
+        blue: '#186586',
+        brown: '#8f5a05',
+        yellow: '#d9bb36',
+        purple: '#7d2b7b',
+        red: '#b82815',
+        gray: '#c4c4c4',
+        'facebook-blue': '#4267b2',
+        'zoom-blue': '#2d8cff'
       }
     },
   },

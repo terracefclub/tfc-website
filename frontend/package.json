@@ -6,13 +6,12 @@
     "dev:build": "TAILWIND_DISABLE_TOUCH=true webpack --watch",
     "dev:serve": "webpack serve --open --hot",
     "lint": "stylelint './src/**/styles/**/*.scss' && eslint src --fix",
-    "test": "jest --runInBand",
-    "sandbox": "TAILWIND_DISABLE_TOUCH=true postcss ./sandbox/index.css -o ./sandbox/dist.css -w"
+    "test": "jest --runInBand"
   },
   "target": "web",
   "repository": {
     "type": "git",
-    "url": "git+https://gitlab.com/terracefclub/tech/tfc-git"
+    "url": "git+https://gitlab.com/terracefclub/tech/tfc-website.git"
   },
   "keywords": [],
   "author": "Tristan Schrader",

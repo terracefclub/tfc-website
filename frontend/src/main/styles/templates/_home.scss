@@ -42,7 +42,7 @@
 
   a {
     @apply cursor-pointer;
-    @apply hover:text-blue-300;
+    @apply hover:text-blue;
   }
 }
 
@@ -54,10 +54,10 @@
 
   .carousel-dot {
     @apply cursor-pointer;
-    @apply rounded-full border-8 border-white hover:border-blue-300;
+    @apply rounded-full border-8 border-white hover:border-blue;
 
     &.active {
-      @apply border-green-600;
+      @apply border-green;
     }
   }
 }
