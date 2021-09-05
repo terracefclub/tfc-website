@@ -5,8 +5,9 @@
 
   {# ZOOM has no icon in Font Awesome, so specific styling is needed #}
   <i class="icon
-    {% if social == 'zoom' %}fas fa-video fa-3x
-    {% else %}fab fa-{{ social }}-square fa-4x
+    {% if social == 'zoom' %}fas fa-video
+    {% elif social == 'instagram' %}fab fa-instagram fa-2x
+    {% else %}fab fa-{{ social }}-square fa-2x
     {% endif %}"
   ></i>
 </a>
