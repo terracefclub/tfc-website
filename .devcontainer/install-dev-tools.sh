@@ -8,7 +8,7 @@ zsh_setup() {
   sudo chsh -s /bin/zsh $(whoami)
 
   zsh
-
+  
   # Install oh-my-zsh
   omz_url=https://github.com/robbyrussell/oh-my-zsh/raw/master/tools/install.sh
   curl -fsSL $omz_url | zsh -;
@@ -27,6 +27,12 @@ terraform_setup() {
   sudo apk add terraform
 }
 
-zsh_setup
-gcloud_setup
-terraform_setup
+if [[ $# -eq 0 ]]; then
+  zsh_setup
+  gcloud_setup
+  terraform_setup
+  exit 1
+else
+  "$@"
+fi
+

@@ -31,18 +31,17 @@ services:
         STAGE: dev
     entrypoint: /bin/bash
     env_file: 
+      - ../config/credentials.json
       - ../config/env/postgres.local.env
       - ../config/env/local-ci.env
       - ../config/env/.env
     stdin_open: true
     volumes:
       - ../:${BASEDIR}
-      - gcloud-config:/home/${UUID}/.config
-      - terraform-config:/home/${UUID}/.terraform.d
+      - dev-home:/home/${UUID}
     depends_on:
       - postgres
       - redis
 volumes:
   pgdata:
-  gcloud-config:
-  terraform-config:
+  dev-home:
