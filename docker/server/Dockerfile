@@ -1,6 +1,6 @@
 ARG username=forkman
 ARG BASEDIR=/usr/src/womb
-
+ARG groupname=chillers
 
 FROM node AS frontend
 COPY frontend/package*.json ./
@@ -11,12 +11,12 @@ RUN npm run build
 
 
 FROM python:3.9-alpine AS base
-ARG groupname=chillers
 ARG apknocache=""
 ARG pipargs=""
 ARG STAGE
 ARG BASEDIR
 ARG username
+ARG groupname
 
 WORKDIR $BASEDIR
 SHELL ["/bin/ash", "-eux", "-o", "pipefail", "-c"]
