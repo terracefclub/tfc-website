@@ -10,6 +10,10 @@
   }
 }
 
+@mixin horizontal-scrollbar() {
+  @apply whitespace-nowrap overflow-x-scroll;
+}
+
 @mixin dark-scrollbar() {
   scrollbar-color: #888 #f1f1f1;
   scrollbar-width: 10px;

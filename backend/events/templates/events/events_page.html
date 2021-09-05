@@ -4,57 +4,57 @@
 {% block body_class %}template-eventspage events{% endblock %}
 
 {% block content %}
-<div class="w-full h-full">
+<article id="events-page">
   <div id="events-main-section">
-
-    <div class="title-wrapper">
-      {% include 'base/rhombus_title.html' with title='Calendar' %}
-      <div id="calendar">
-        {% include 'events/event_calendar.html' %}
+    <div id="calendar">
+      {% include 'events/event_calendar.html' %}
+    </div>
+    <div id="event-detail">
+      <div id="detail-social-container">
+        {% include 'events/event_socials.html' %}
       </div>
-    </div>
-    
-    <div id="detail-social-container">
-      {% include 'events/event_socials.html' %}
-    </div>
-
-    <div class="title-wrapper">
-      {% include 'base/rhombus_title.html' with title='Event Detail' %}
       <div id="detail-card">
         {% include 'events/event_detail.html' %}
       </div>
     </div>
-    
   </div>
 
   <div id="highlights-section">
 
+    {% if self.past_highlights|length > 0 %}
     <div class="title-wrapper">
       {% include 'base/rhombus_title.html' with title='Past Highlights' %}
-      <div class="container">
+      <div class="events-reel">
+        <div class="events-reel-blur"></div>
         {% for event in self.past_highlights %}
         {% image event.value.image width-400 as event_image %}
-        <div class="event" data-value="{{ event.value.pk }}">
-          <div class="event-image" style="background-image: url({% if event_image %}{{ event_image.url }}{% else %}{% static 'img/tfc_1.jpg' %}{% endif %})"></div>
-          <div class="event-name">{{ event.value.name }}</div>
+        {% static 'img/'|addstr:img_default.title as img_default_url %}
+        <div class="event-card-simple" data-value="{{ event.value.pk }}"
+          style="background-image: url({% firstof event_image.url img_default_url %})">
+          <div class="event-card-simple-name">{{ event.value.name }}</div>
         </div>
         {% endfor %}
       </div>
     </div>
-    
+    {% endif %}
+
+    {% if self.future_highlights|length > 0 %}
     <div class="title-wrapper">
       {% include 'base/rhombus_title.html' with title='Upcoming Events' %}
-      <div class="container">
+      <div class="events-reel">
+        <div class="events-reel-blur"></div>
         {% for event in self.future_highlights %}
         {% image event.value.image width-400 as event_image %}
-        <div class="event" data-value="{{ event.value.pk }}">
-          <div class="event-image" style="background-image: url({{ event_image.url }})"></div>
-          <div class="event-name">{{ event.value.name }}</div>
+        {% static 'img/'|addstr:img_default.title as img_default_url %}
+        <div class="event-card-simple" data-value="{{ event.value.pk }}"
+          style="background-image: url({% firstof event_image.url img_default_url %})">
+          <div class="event-card-simple-name">{{ event.value.name }}</div>
         </div>
         {% endfor %}
       </div>
     </div>
+    {% endif %}
     
   </div>
-</div>
+</article>
 {% endblock %}
