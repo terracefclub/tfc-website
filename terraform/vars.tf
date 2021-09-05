@@ -40,3 +40,6 @@ output "cloudsql_certs" {
 output "media_bucket_url" {
   value = module.buckets.media_bucket_url
 }
+output "cloudsql_instance" {
+  value = module.postgres.database.connection_name
+}

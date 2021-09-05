@@ -42,11 +42,12 @@ IMAGE_GITLAB="$CI_REGISTRY/terrace/tech/tfc-website/web_app_server:prod"
 
 
 test_build() {
-  COMPOSE_DOCKER_CLI_BUILD=1 
-  DOCKER_BUILDKIT=1 
+  # COMPOSE_DOCKER_CLI_BUILD=1 
+  # DOCKER_BUILDKIT=1 
 
   docker build "$@" --pull -t "$IMAGE_GITLAB" \
-    -f docker/server/prod.Dockerfile .
+    --build-arg STAGE=prod \
+    -f docker/server/Dockerfile .
 }
 
 test_push() {
@@ -60,14 +61,16 @@ test_push() {
 
 test_run() {
   GOOGLE_CREDENTIALS=$(cat config/credentials.json | base64)
+  SQL_INSTANCE=$(terraform -chdir=terraform output -raw cloudsql_instance)
   LOCAL_CACHE=1
   args=()
+
+  echo "$SQL_INSTANCE"
 
   docker stop test_prod && docker rm test_prod
 
   if [ "$LOCAL_CACHE" ]; then 
     args+=("--env LOCAL_CACHE=1" "--network test_net")
-    echo "Args = ${args[@]}"
     echo "Creating test network."
     docker network inspect test_net &> /dev/null || \
       docker network create --driver bridge test_net
@@ -78,6 +81,7 @@ test_run() {
 
   docker run -it -p 8000:8000 ${args[@]} \
     --env GOOGLE_CREDENTIALS="$GOOGLE_CREDENTIALS" \
+    --env SQL_INSTANCE="$SQL_INSTANCE" \
     --name test_prod \
     --env-file config/env/.env \
     --env-file config/env/postgres.env \

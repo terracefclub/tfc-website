@@ -14,6 +14,7 @@ terraform {
     }
   }
   backend "gcs" {
+    credentials = "../config/credentials.json"
     bucket = "tfc-secrets"
     prefix = "terraform"
   }
@@ -39,24 +40,6 @@ provider "herokux" {
 
 
 
-data "terraform_remote_state" "state" {
-  backend = "gcs" 
-  config = {
-    bucket = "tfc-secrets"
-    prefix = "terraform/state"
-  }
-}
-
-# what's this for???
-resource "template_file" "template" {
-  template = "${greeting}"
-  vars {
-    greeting = "${data.terraform_remote_state.state.greeting}"
-  }
-}
-
-
-
 resource "google_service_account" "forkman" {
   account_id   = "forkman"
   description  = "for forking it up"
@@ -74,6 +57,7 @@ resource "heroku_app" "default" {
     POSTGRES_HOST = "localhost"
     ALLOWED_HOSTS = "${var.heroku_app}.herokuapp.com"
     NEW_RELIC_APP_NAME = "Flabyrinth Returns"
+    SQL_INSTANCE = module.postgres.database.connection_name
   }
 
   sensitive_config_vars = {
