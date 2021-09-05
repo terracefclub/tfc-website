@@ -1,195 +1,416 @@
 @use '../abstracts/mixins' as *;
 @use '../abstracts/colors';
 
+#calendar-year,
+#calendar-month {
+  display: none;
+}
+
 #calendar {
   @apply flex flex-col items-stretch justify-start gap-2;
 
+  color: colors.$dark;
+  flex: 2;
+
   &-grid {
     @apply relative;
-    @apply grid grid-cols-7;
-    @apply border-black border-4;
-    @apply w-[900px] h-[600px];
-    @apply bg-opacity-75 bg-gray-600;
+    @apply grid grid-cols-7 gap-2;
+
+    &-loading-modal {
+      @apply hidden justify-center items-center;
+      @apply absolute inset-0 h-full w-full;
+
+      background-color: rgba(colors.$dark, 0.5);
+
+      .spinner {
+        @include flex-center();
+        @apply relative h-3/5;
+
+        aspect-ratio: 1 / 1;
+        background-color: colors.$gray;
+        border-radius: 50%;
+      }
+    }
   }
 }
 
-#calendar-form {
-  @apply flex items-stretch justify-start gap-4;
+* {
+  box-sizing: border-box;
 }
 
-.multi-day-event {
-  @apply absolute z-[50];
-  @apply overflow-hidden text-left align-middle text-sm;
-  @apply p-1 h-[1.5vmin];
-  @apply bg-green-300;
+.spinner-text {
+  animation: loading-opacity 2s ease-out infinite;
+  font-size: 2rem;
+}
+
+.spinner-sector {
+  border-radius: 100%;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 1rem solid transparent;
+  mix-blend-mode: overlay;
+}
+
+.spinner-sector-blue {
+  animation: rotate 2.5s ease-out infinite;
+  border-top: 1rem solid colors.$blue;
+}
+
+.spinner-sector-purple {
+  animation: rotate 3s ease-in infinite;
+  border-top: 1rem solid colors.$purple;
+}
+
+.spinner-sector-green {
+  animation: rotate 2s ease-in-out infinite;
+  border-top: 1rem solid colors.$green;
+}
+
+.spinner-sector-yellow {
+  animation: rotate 1.5s ease-in-out infinite;
+  border-top: 1rem solid colors.$yellow;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes loading-opacity {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  25%,
+  75% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 0.1;
+  }
+}
+
+#calendar-form-content,
+#calendar-header-container {
+  @apply flex items-stretch gap-2;
+}
+
+.calendar-header {
+  display: inline-block;
+  text-align: center;
+  background-color: colors.$dark;
+  color: whitesmoke;
+  // border: 0.25rem solid colors.$gray;
+  cursor: default;
+  padding: 0.5rem;
+  width: 100%;
+}
+
+.dropdown {
+  position: relative;
+  display: inline-block;
+  flex: 1;
+
+  &__base {
+    background-color: colors.$gray;
+    border: 0.25rem solid colors.$dark;
+    cursor: default;
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &:nth-child(1),
+  &:nth-child(2) {
+    flex: 1;
+  }
+
+  &:nth-child(3) {
+    flex: 2;
+  }
+
+  &:nth-child(1) &__base,
+  &:nth-child(1) &__content__item {
+    background-color: colors.$yellow;
+  }
+
+  &:nth-child(2) &__base,
+  &:nth-child(2) &__content__item {
+    background-color: colors.$purple;
+    color: whitesmoke;
+  }
+
+  &:nth-child(3) &__base,
+  &:nth-child(3) &__content__item {
+    background-color: colors.$green;
+    color: whitesmoke;
+  }
+
+  $dropdown: &;
+
+  &__content {
+    position: absolute;
+    z-index: 1;
+    display: none;
+    width: 100%;
+    overflow-y: scroll;
+    height: 700%;
+
+    &.visible {
+      display: block;
+    }
+
+    &__item {
+      border: solid colors.$dark;
+      border-width: 0.125rem 0.25rem;
+      padding: 0.5rem;
+      cursor: pointer;
+
+      // the "dropdown" grandparent selector is for cascade specificity
+      #{$dropdown} &:hover {
+        background-color: colors.$blue;
+        color: whitesmoke;
+      }
+    }
+  }
+
+  &__button {
+    padding: 0.125rem;
+  }
 }
 
 .single-day {
-  @apply relative;
-  @apply flex flex-col flex-nowrap items-stretch justify-start;
-  @apply m-1;
-  @apply border-2 border-black;
-  @apply bg-gray-300;
-
-  img {
-    @apply absolute left-full;
-    @apply max-w-[75%] max-h-[75%] p-1;
-  }
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: flex-start;
+  border: 0.25rem solid colors.$dark;
+  background-color: colors.$gray;
+  padding: 0.125rem 0;
+  aspect-ratio: 1 / 1;
 
   &-number {
-    @apply p-2 pb-0;
-    @apply text-left;
+    padding-left: 0.25rem;
   }
 
   &-events-container {
-    @apply flex flex-col items-stretch justify-start gap-0.5;
-    @apply min-h-0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 0.125rem;
+    overflow: hidden;
   }
 
   &-event {
-    @apply flex items-start justify-start;
-    @apply text-left align-middle text-black;
-    @apply cursor-pointer;
-    @apply h-5 overflow-hidden pl-1;
-
-    p {
-      @apply break-all;
-    }
+    cursor: pointer;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    text-align: center;
+    overflow: hidden;
+    font-size: 0.75rem;
+    padding: 0 0.25rem;
+    color: white;
 
     &:nth-child(4n+1) {
-      @apply bg-green-400;
+      @apply bg-green;
     }
 
     &:nth-child(4n+2) {
-      @apply bg-blue-400;
+      @apply bg-blue;
     }
 
     &:nth-child(4n+3) {
-      @apply bg-red-400;
+      @apply bg-red;
     }
 
     &:nth-child(4n+4) {
-      @apply bg-yellow-400;
+      @apply bg-yellow text-dark;
     }
 
-    .event-detail {
-      @apply absolute z-[100] left-1/3 -top-1/2;
-      @apply hidden h-24 w-40;
-      @apply rounded-md;
-      @apply bg-red-500;
-    }
-
-    &:hover + .event-detail {
-      @apply block;
+    &:hover {
+      position: absolute;
+      min-width: 8vw;
     }
   }
+}
+
+#events-main-section {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 1.25rem;
 }
 
 #detail-social-container {
   @include flex-center();
 
-  @apply self-center;
-  @apply flex-col gap-5;
-  @apply ml-20;
+  @apply gap-5;
+
+  flex: 0 0 auto;
 
   .detail-social {
-    @apply px-1;
     @apply rounded-lg;
     @apply cursor-pointer;
 
     &#facebook {
-      @apply bg-blue-300;
+      @apply bg-white text-facebook-blue;
+      @apply px-1;
     }
 
     &#zoom {
-      @apply bg-blue-500;
-      @apply py-1.5;
+      @apply bg-zoom-blue text-white;
+      @apply py-1 px-2;
     }
 
     &#instagram {
+      @apply text-white;
+      @apply py-[1px] px-1;
+
       background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
       filter: progid:dximagetransform.microsoft.gradient(startColorstr="#f09433", endColorstr="#bc1888", GradientType=1);
     }
   }
 }
 
+#event-detail {
+  @apply flex-1 self-center;
+  @apply flex flex-col justify-center items-stretch gap-3;
+  @apply overflow-hidden;
+
+  max-height: 51vw;
+}
+
 #detail-card {
-  @apply w-[500px] h-[600px] mt-14;
+  @apply no-scrollbar overflow-y-scroll min-h-0;
+  @apply flex-1;
+  @apply p-1;
+  @apply flex flex-col items-stretch justify-center;
 
-  .event-image {
-    @include flex-center();
+  background-color: colors.$dark;
+  border-width: 0.25rem solid colors.$dark;
+  border-radius: 1%;
+}
 
-    @apply flex-col gap-6;
-    @apply h-full w-full;
-    @apply border-4 border-black;
-    @apply bg-cover;
+.event-info {
+  @apply p-1;
 
-    &-name {
-      @apply rounded-lg border-2 border-black;
-      @apply text-center text-3xl;
-      @apply p-4;
-      @apply bg-gray-100;
+  color: whitesmoke;
 
-      color: colors.$green;
-    }
-
-    &-date {
-      @apply text-center text-xl;
-      @apply p-2;
-      @apply border-black border-2 rounded-lg;
-
-      color: colors.$red;
-    }
-
-    &-description {
-      @include dark-scrollbar();
-
-      @apply w-2/3 p-2;
-      @apply overflow-y-scroll break-words text-left;
-      @apply border-2 border-black;
-      @apply bg-gray-100 bg-opacity-75;
-
-      iframe {
-        @apply h-full w-full;
-      }
-    }
+  &-name {
+    font-size: 2rem;
+    text-align: center;
+    color: colors.$green;
   }
+
+  &-date {
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+}
+
+#event-image {
+  @apply flex-shrink-0;
 }
 
 #highlights-section {
-  @apply flex items-center justify-between;
-  @apply w-full p-5;
+  @apply flex items-center justify-around gap-5;
+  @apply mt-5;
 
-  .container {
-    @include dark-scrollbar();
+  & > * {
+    @apply w-1/2;
+  }
+}
 
-    @apply whitespace-nowrap overflow-x-scroll;
-    @apply w-[40vw];
+.events-reel {
+  @apply relative;
+  @apply horizontal-scroll dark-scrollbar;
+  @apply h-full;
+  @apply p-2;
+  @apply rounded-md border-[0.25rem] border-dark;
 
-    .event {
-      @apply relative;
-      @apply inline-block;
-      @apply mr-2 p-2 h-60 w-40;
-      @apply cursor-pointer;
-      @apply bg-gray-600;
+  // border-color: colors.$darker;
 
-      &-image {
-        @apply h-full w-full;
-        @apply bg-cover;
-      }
+  &-blur {
+    @apply absolute inset-0 h-full w-full;
 
-      &-name {
-        @apply absolute top-5 right-5;
-        @apply w-2/5;
-        @apply rounded-lg;
-        @apply text-white text-center text-xs;
-        @apply bg-gray-500 bg-opacity-75;
-      }
+    background-color: rgba(255, 255, 255, 0.3);
+    filter: blur(10px);
+  }
+}
+
+.event-card-simple {
+  @apply relative;
+
+  @apply inline-block;
+  @apply mr-2 mt-1 w-[15vw];
+  @apply cursor-pointer;
+  @apply overflow-hidden;
+  @apply border-solid rounded-md border-2 border-dark;
+  @apply bg-cover bg-center bg-no-repeat;
+
+  aspect-ratio: 2 / 3;
+
+  // &-image {
+  //   @apply absolute inset-0;
+  //   @apply top-1/2 transform -translate-y-1/2;
+
+  //   aspect-ratio: attr(width) / attr(height);
+  // }
+
+  $card: &;
+
+  &-name {
+    @apply absolute top-0 w-full h-full;
+    @apply py-4 px-2;
+    @apply text-white;
+    @apply bg-dark bg-opacity-75;
+
+    white-space: pre-wrap;
+    text-align: center;
+    display: none;
+
+    #{$card}:hover & {
+      @include flex-center();
     }
   }
 }
 
-#events-main-section {
-  @apply flex items-start justify-between gap-10;
-  @apply pt-5;
+@media (max-width: 1024px) {
+  #events-main-section {
+    @apply flex-col;
+  }
+
+  #highlights-section {
+    @apply flex-col items-stretch;
+  }
+
+  .events-reel {
+    width: 85vw;
+  }
+
+  #event-detail {
+    @apply max-h-full;
+  }
+}
+
+@media (max-width: 640px) {
+  .single-day-event {
+    -webkit-line-clamp: 1;
+    position: static;
+    min-width: 0;
+  }
 }
