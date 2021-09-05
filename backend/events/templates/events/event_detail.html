@@ -1,25 +1,33 @@
 {% load wagtailimages_tags wagtailcore_tags static %}
 
+{% static 'img/background.jpg' as img_default %}
+
 {% if event %}
-{% image event.image width-400 as event_image %}
+
+{% image event.image width-400 as img %}
 
 {# Image with name and description #}
-<div class="event-image" style="background-image: url({% if event_image %}{{ event_image.url }}{% else %}{% static 'img/background.jpg' %}{% endif %})">
-  <div class="event-image-name">{{ event.name }}</div>
-  <div class="event-image-date">
-    <p>{{ event.start|date:"m/d/Y" }}</p>
-    <p>{{ event.start|date:"H:i" }} - {{ event.end|date:"H:i" }}</p>
+<img id="event-image" src="{% firstof img.url img_default %}" alt="{{ event.name }} poster" />
+<div class="event-info">
+  <div class="event-info-name">{{ event.name }}</div>
+  <div class="event-info-date">
+    <p>{{ event.start|date:"l, F jS" }} {% spaceless %}
+      {% now "Y" as now_year %}
+      {% if event.start.year < now_year|add:"0" %}
+        ({{ event.start.year }})
+      {% else %}
+        {{ event.start|date:"H:i" }}&nbsp;-&nbsp;{{ event.end|date:"H:i" }}
+      {% endif %}
+    {% endspaceless %}
+    </p>
   </div>
-  <div class="event-image-description">
+  <div class="event-info-description">
     {{ event.description|richtext }}
   </div>
 </div>
-{% else %}
 
+{% else %}
 {# Inline Tailwind styles for the default option (arranged differently) #}
-<div class="event-image" style="background-image: url({% static 'img/background.jpg' %})">
-  <div class="bg-gray-300 border-black h-2/3 w-2/3 border-2 bg-opacity-50">
-    <p class="h-full overflow-hidden text-center text-3xl">Please select an event in the calendar view to see more information.</p>
-  </div>
-</div>
+<p class="event-info-name">Please select an event in the calendar view to see more information.</p>
+
 {% endif %}
