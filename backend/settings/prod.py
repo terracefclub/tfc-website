@@ -25,3 +25,7 @@ DATABASES = {
     **database_dict,
   }
 }
+
+import os
+if not os.environ.get('LOCAL_CACHE'):
+  CACHES["default"]["LOCATION"] = os.environ.get('REDIS_URL')

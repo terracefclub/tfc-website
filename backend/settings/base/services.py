@@ -30,7 +30,3 @@ CACHE_MIDDLEWARE_KEY_PREFIX = ''   # DEFAULT (only one site using cache)
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 SESSION_CACHE_ALIAS = 'default'
 DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS = True
-
-import os
-if not os.environ.get('LOCAL_CACHE'):
-  CACHES["default"]["LOCATION"] = os.environ.get('REDIS_URL')

@@ -19,11 +19,11 @@ MIDDLEWARE +=  [
 ]
 
 
-CACHES = {
-  'default': {
-    'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
-  }
-}
+# CACHES = {
+#   'default': {
+#     'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+#   }
+# }
 RESULTS_CACHE_SIZE = 100
 
 WAGTAILSEARCH_BACKENDS = {
