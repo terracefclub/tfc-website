@@ -41,7 +41,20 @@ export function sidebar(): void {
   );
   sidebarTrigger.addEventListener(
     'click',
-    () => (sidebar.style.visibility = 'visible'),
+    (event: MouseEvent) => {
+      event.stopImmediatePropagation();
+
+      sidebar.style.visibility = 'visible';
+      
+      const clickOutsideListener = (event: MouseEvent) => {
+        if (!sidebar.contains(event.target as Node)) {
+          sidebar.style.visibility = 'hidden';
+          document.removeEventListener('click', clickOutsideListener);
+        }
+      };
+
+      document.addEventListener('click', clickOutsideListener);
+    }
   );
 }
 
