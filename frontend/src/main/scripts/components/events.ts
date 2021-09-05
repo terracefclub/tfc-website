@@ -10,7 +10,7 @@ export const eventLoader = async ({
   socialDomains?: string[];
 } = {}): Promise<void> => {
   const eventBlocks = document.querySelectorAll(
-    '.multi-day-event, .single-day-event, #highlights-section .event',
+    '.multi-day-event, .single-day-event, #highlights-section .event-card-simple',
   ) as NodeListOf<HTMLElement>;
 
   if (eventBlocks.length <= 0) return;
@@ -60,78 +60,126 @@ export const eventLoader = async ({
  */
 export const calendarLoader = (): void => {
   const calendar = queryElement(document, '#calendar', HTMLDivElement);
-  const calButtons = queryElementAll(
+  const eventsModal = queryElement(
     calendar,
-    '#calendar-form button',
-    HTMLButtonElement,
+    '#calendar-grid-loading-modal',
+    HTMLDivElement,
   );
-  const calYear = queryElement(document, '#calendar-year', HTMLInputElement);
 
-  /**
-   *
-   * @param button - a form button to trigger calendar form input adjustments
-   */
-  function updateInputs(button: HTMLButtonElement): void {
-    // the amount to increment the input value by (stored on element)
-    const shift = parseInt(button.getAttribute('data-shift') ?? '0');
+  const calYear = queryElement(calendar, '#calendar-year', HTMLInputElement);
+  const calMonth = queryElement(calendar, '#calendar-month', HTMLInputElement);
 
-    // map id of button element to hidden input element
-    const buttonIdToInputId = {
-      'month-up': 'calendar-month',
-      'month-down': 'calendar-month',
-      'year-up': 'calendar-year',
-      'year-down': 'calendar-year',
-    };
-    const isValidKey = (x: string): x is keyof typeof buttonIdToInputId =>
-      x in buttonIdToInputId;
-
-    // update hidden input element value by value of `shift`
-    const id = button.getAttribute('id') ?? '';
-    if (isValidKey(id)) {
-      const input = queryElement(
-        document,
-        `#${buttonIdToInputId[id]}`,
-        HTMLInputElement,
-      );
-      let newVal = parseInt(input.value) + shift;
-
-      // handle increments of `#calendar-year` input when `#calendar-month`
-      // is adjusted from January to December or December to January
-      if (['month-up', 'month-down'].includes(id)) {
-        if (newVal === 0) {
-          newVal = 12;
-          calYear.value = (parseInt(calYear.value) - 1).toString();
-        } else if (newVal === 13) {
-          newVal = 1;
-          calYear.value = (parseInt(calYear.value) + 1).toString();
-        }
-      }
-
-      input.value = newVal.toString();
-    }
-  }
+  calYear.value = calYear.defaultValue;
+  calMonth.value = calMonth.defaultValue;
 
   /**
    * Display the new calendar by serializing the calendar form and loading async
    * @param button - a form button to trigger calendar re-render
    */
-  async function renderCalendar(button: HTMLButtonElement): Promise<void> {
-    const form = button.closest('form') as HTMLFormElement;
-    const url = '/events/filter?' + form.serialize();
+  async function renderCalendar(): Promise<void> {
+    const form = queryElement(calendar, '#calendar-form', HTMLFormElement);
+    const searchQuery = new URLSearchParams([
+      ...new FormData(form).entries(),
+    ] as string[][]);
+    const url = '/events/filter/?' + searchQuery;
 
     const { loadHtml } = await import('../utilities/api');
+
+    const timer = setTimeout(() => {
+      eventsModal.style.display = 'flex';
+    }, 1500);
+
     try {
       await loadHtml(calendar, url);
       await eventLoader();
     } catch (error) {
       console.error(error);
+    } finally {
+      if (timer) clearTimeout(timer);
+      eventsModal.style.display = 'none';
+      calendarLoader();
     }
   }
 
-  calButtons.forEach((btn) =>
-    btn.addEventListener('click', () => {
-      updateInputs(btn);
-      renderCalendar(btn);
+  const changeYearBtn = queryElement(
+    calendar,
+    '#year-change',
+    HTMLButtonElement,
+  );
+  const changeYearDrop = queryElement(
+    calendar,
+    '#year-dropdown',
+    HTMLDivElement,
+  );
+  changeYearBtn.addEventListener('click', (event) => {
+    event.stopImmediatePropagation();
+
+    changeYearDrop.classList.toggle('visible');
+
+    if (changeYearDrop.classList.contains('visible')) {
+      const clickOutsideListener = () => {
+        changeYearDrop.classList.remove('visible');
+        document.removeEventListener('click', clickOutsideListener);
+      };
+
+      document.addEventListener('click', clickOutsideListener);
+    }
+  });
+
+  const changeMonthBtn = queryElement(
+    calendar,
+    '#month-change',
+    HTMLButtonElement,
+  );
+  const changeMonthDrop = queryElement(
+    calendar,
+    '#month-dropdown',
+    HTMLDivElement,
+  );
+  changeMonthBtn.addEventListener('click', (event) => {
+    event.stopImmediatePropagation();
+
+    changeMonthDrop.classList.toggle('visible');
+
+    if (changeMonthDrop.classList.contains('visible')) {
+      const clickOutsideListener = () => {
+        changeMonthDrop.classList.remove('visible');
+        document.removeEventListener('click', clickOutsideListener);
+      };
+
+      document.addEventListener('click', clickOutsideListener);
+    }
+  });
+
+  const changeYearOpts = queryElementAll(
+    changeYearDrop,
+    '.dropdown__content__item',
+    HTMLDivElement,
+  );
+  changeYearOpts.forEach((btn) =>
+    btn.addEventListener('click', async () => {
+      const value = btn.getAttribute('data-value');
+      if (value) {
+        calYear.value = value;
+        changeYearDrop.classList.toggle('visible');
+        await renderCalendar();
+      }
+    }),
+  );
+
+  const changeMonthOpts = queryElementAll(
+    changeMonthDrop,
+    '.dropdown__content__item',
+    HTMLDivElement,
+  );
+  changeMonthOpts.forEach((btn) =>
+    btn.addEventListener('click', async () => {
+      const value = btn.getAttribute('data-value');
+      if (value) {
+        calMonth.value = value;
+        changeMonthDrop.classList.toggle('visible');
+        await renderCalendar();
+      }
     }),
   );
 };
