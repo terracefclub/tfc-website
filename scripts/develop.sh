@@ -1,4 +1,6 @@
-# COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 
+#!/bin/zsh
+
+source config/env/local-ci.env
 
 wsl_build() {
   UUID=$(id -un) GUID=$(id -gn) BASEDIR=/usr/src/womb PIPARGS="" \
