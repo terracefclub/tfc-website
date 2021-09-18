@@ -14,39 +14,125 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('wagtailcore', '0060_fix_workflow_unique_constraint'),
-        ('wagtailimages', '0023_add_choose_permissions'),
+        ("wagtailcore", "0060_fix_workflow_unique_constraint"),
+        ("wagtailimages", "0023_add_choose_permissions"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='EventsPage',
+            name="EventsPage",
             fields=[
-                ('page_ptr', models.OneToOneField(auto_created=True, on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, serialize=False, to='wagtailcore.page')),
-                ('past_highlights', wagtail.core.fields.StreamField([('event', wagtail.snippets.blocks.SnippetChooserBlock('events.Event'))], verbose_name='Highlighted events from the archive')),
-                ('future_highlights', wagtail.core.fields.StreamField([('event', wagtail.snippets.blocks.SnippetChooserBlock('events.Event'))], verbose_name='Highlighted events in the near future')),
+                (
+                    "page_ptr",
+                    models.OneToOneField(
+                        auto_created=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        parent_link=True,
+                        primary_key=True,
+                        serialize=False,
+                        to="wagtailcore.page",
+                    ),
+                ),
+                (
+                    "past_highlights",
+                    wagtail.core.fields.StreamField(
+                        [
+                            (
+                                "event",
+                                wagtail.snippets.blocks.SnippetChooserBlock(
+                                    "events.Event"
+                                ),
+                            )
+                        ],
+                        verbose_name="Highlighted events from the archive",
+                    ),
+                ),
+                (
+                    "future_highlights",
+                    wagtail.core.fields.StreamField(
+                        [
+                            (
+                                "event",
+                                wagtail.snippets.blocks.SnippetChooserBlock(
+                                    "events.Event"
+                                ),
+                            )
+                        ],
+                        verbose_name="Highlighted events in the near future",
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
-            bases=('wagtailcore.page',),
+            bases=("wagtailcore.page",),
         ),
         migrations.CreateModel(
-            name='Event',
+            name="Event",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('sort_order', models.IntegerField(blank=True, editable=False, null=True)),
-                ('name', models.CharField(max_length=50)),
-                ('start', models.DateTimeField(verbose_name='starting date and time of event')),
-                ('end', models.DateTimeField(verbose_name='ending date and time of event')),
-                ('description', wagtail.core.fields.RichTextField(verbose_name='Paragraph advertisement for event')),
-                ('links', wagtail.core.fields.StreamField([('url', wagtail.core.blocks.URLBlock())], blank=True, null=True, verbose_name='External Links')),
-                ('featured_media', wagtail.core.fields.StreamField([('media', events.blocks.MediaBlock(icon='media'))], blank=True, null=True)),
-                ('image', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to='wagtailimages.image')),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "sort_order",
+                    models.IntegerField(blank=True, editable=False, null=True),
+                ),
+                ("name", models.CharField(max_length=50)),
+                (
+                    "start",
+                    models.DateTimeField(
+                        verbose_name="starting date and time of event"
+                    ),
+                ),
+                (
+                    "end",
+                    models.DateTimeField(
+                        verbose_name="ending date and time of event"
+                    ),
+                ),
+                (
+                    "description",
+                    wagtail.core.fields.RichTextField(
+                        verbose_name="Paragraph advertisement for event"
+                    ),
+                ),
+                (
+                    "links",
+                    wagtail.core.fields.StreamField(
+                        [("url", wagtail.core.blocks.URLBlock())],
+                        blank=True,
+                        null=True,
+                        verbose_name="External Links",
+                    ),
+                ),
+                (
+                    "featured_media",
+                    wagtail.core.fields.StreamField(
+                        [("media", events.blocks.MediaBlock(icon="media"))],
+                        blank=True,
+                        null=True,
+                    ),
+                ),
+                (
+                    "image",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="+",
+                        to="wagtailimages.image",
+                    ),
+                ),
             ],
             options={
-                'ordering': ['sort_order'],
-                'abstract': False,
+                "ordering": ["sort_order"],
+                "abstract": False,
             },
             bases=(models.Model, wagtail.search.index.Indexed),
         ),

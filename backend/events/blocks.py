@@ -3,36 +3,39 @@ from wagtailmedia.blocks import AbstractMediaChooserBlock
 from django.forms.utils import flatatt
 from django.utils.html import format_html, format_html_join
 
-class MediaBlock(AbstractMediaChooserBlock):
-  def render_basic(self, value, context=None):
-    """ 
-    Suggested basic code snippet for the admin display of HTML of video and 
-    audio elements registered as media through wagtailmedia.
-    """
-    if not value:
-        return ''
 
-    if value.type == 'video':
-      player_code = '''
+class MediaBlock(AbstractMediaChooserBlock):
+    def render_basic(self, value, context=None):
+        """
+        Suggested basic code snippet for the admin display of HTML of video and
+        audio elements registered as media through wagtailmedia.
+        """
+        if not value:
+            return ""
+
+        if value.type == "video":
+            player_code = """
       <div>
           <video width="320" height="240" controls>
               {0}
               Your browser does not support the video tag.
           </video>
       </div>
-      '''
-    else:
-      player_code = '''
+      """
+        else:
+            player_code = """
       <div>
           <audio controls>
               {0}
               Your browser does not support the audio element.
           </audio>
       </div>
-      '''
+      """
 
-    # combine display of media player with all sources
-    return format_html(player_code, format_html_join(
-      '\n', "<source{0}>",
-      [[flatatt(s)] for s in value.sources]
-    ))
+        # combine display of media player with all sources
+        return format_html(
+            player_code,
+            format_html_join(
+                "\n", "<source{0}>", [[flatatt(s)] for s in value.sources]
+            ),
+        )

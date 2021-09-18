@@ -12,6 +12,10 @@
 
   "userEnvProbe": "loginInteractiveShell",
 
+  "remoteEnv": {
+    "PATH": "${containerEnv:HOME}/.local/bin:${containerEnv:PATH}"
+  },
+
 	"settings": { 
     "editor.codeActionsOnSave": {
       "source.fixAll.eslint": true 
@@ -69,6 +73,7 @@
     "trond-snekvik.simple-rst",
     "mtxr.sqltools",
     "ms-azuretools.vscode-docker",
-    "run-at-scale.terraform-doc-snippets"
+    "run-at-scale.terraform-doc-snippets",
+    "emeraldwalk.runonsave"
   ],
 }

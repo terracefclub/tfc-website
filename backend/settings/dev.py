@@ -4,34 +4,27 @@ from .base import *
 DEBUG = True
 
 # SECURITY WARNING: define the correct hosts in production!
-ALLOWED_HOSTS += ['*']
+ALLOWED_HOSTS += ["*"]
 
 INSTALLED_APPS = [
-  'whitenoise.runserver_nostatic',
-  'debug_toolbar',
-  'clearcache',                  # Mgmt support for simple cache clearing
+    "whitenoise.runserver_nostatic",
+    "debug_toolbar",
+    "clearcache",  # Mgmt support for simple cache clearing
 ] + INSTALLED_APPS
 
 
-
-MIDDLEWARE +=  [
-  'debug_toolbar.middleware.DebugToolbarMiddleware',
+MIDDLEWARE += [
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
 ]
 
-
-# CACHES = {
-#   'default': {
-#     'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
-#   }
-# }
 RESULTS_CACHE_SIZE = 100
 
 WAGTAILSEARCH_BACKENDS = {
-  'default': {
-    'BACKEND': 'wagtail.contrib.postgres_search.backend',
-    'AUTO_UPDATE': True # optimize with False and update_index()
-  }
+    "default": {
+        "BACKEND": "wagtail.contrib.postgres_search.backend",
+        "AUTO_UPDATE": True,  # optimize with False and update_index()
+    }
 }
 
-if CLOUD_MEDIA := os.environ.get('CLOUD_MEDIA'):
-  from .production.media import *
+if CLOUD_MEDIA := os.environ.get("CLOUD_MEDIA"):
+    from .production.media import *

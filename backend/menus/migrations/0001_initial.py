@@ -13,173 +13,447 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('wagtailcore', '0060_fix_workflow_unique_constraint'),
-        ('wagtailimages', '0023_add_choose_permissions'),
-        ('taggit', '0003_taggeditem_add_unique_index'),
-        ('wagtaildocs', '0012_uploadeddocument'),
+        ("wagtailcore", "0060_fix_workflow_unique_constraint"),
+        ("wagtailimages", "0023_add_choose_permissions"),
+        ("taggit", "0003_taggeditem_add_unique_index"),
+        ("wagtaildocs", "0012_uploadeddocument"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='BeerStyle',
+            name="BeerStyle",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('style', models.CharField(max_length=25)),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("style", models.CharField(max_length=25)),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='Brewery',
+            name="Brewery",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=50)),
-                ('city', models.CharField(blank=True, max_length=25, null=True)),
-                ('state', models.CharField(blank=True, max_length=2, null=True)),
-                ('logo_url', models.URLField(blank=True, null=True)),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=50)),
+                (
+                    "city",
+                    models.CharField(blank=True, max_length=25, null=True),
+                ),
+                (
+                    "state",
+                    models.CharField(blank=True, max_length=2, null=True),
+                ),
+                ("logo_url", models.URLField(blank=True, null=True)),
             ],
             options={
-                'verbose_name_plural': 'Fine Beer Breweries',
+                "verbose_name_plural": "Fine Beer Breweries",
             },
             bases=(wagtail.search.index.Indexed, models.Model),
         ),
         migrations.CreateModel(
-            name='FoodCourse',
+            name="FoodCourse",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=15)),
-                ('order', models.PositiveSmallIntegerField(null=True, unique=True, verbose_name='Order of appearance in menu listing')),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=15)),
+                (
+                    "order",
+                    models.PositiveSmallIntegerField(
+                        null=True,
+                        unique=True,
+                        verbose_name="Order of appearance in menu listing",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='FoodItem',
+            name="FoodItem",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=100)),
-                ('description', models.TextField(blank=True, null=True)),
-                ('course', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='fooditems', to='menus.foodcourse')),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=100)),
+                ("description", models.TextField(blank=True, null=True)),
+                (
+                    "course",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="fooditems",
+                        to="menus.foodcourse",
+                    ),
+                ),
             ],
             options={
-                'verbose_name_plural': 'Meal Dishes',
+                "verbose_name_plural": "Meal Dishes",
             },
             bases=(wagtail.search.index.Indexed, models.Model),
         ),
         migrations.CreateModel(
-            name='MenuIndexPage',
+            name="MenuIndexPage",
             fields=[
-                ('page_ptr', models.OneToOneField(auto_created=True, on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, serialize=False, to='wagtailcore.page')),
+                (
+                    "page_ptr",
+                    models.OneToOneField(
+                        auto_created=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        parent_link=True,
+                        primary_key=True,
+                        serialize=False,
+                        to="wagtailcore.page",
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
-            bases=('wagtailcore.page',),
+            bases=("wagtailcore.page",),
         ),
         migrations.CreateModel(
-            name='MenuTheme',
+            name="MenuTheme",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('theme', models.CharField(max_length=200)),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("theme", models.CharField(max_length=200)),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='WeeklyMenuPage',
+            name="WeeklyMenuPage",
             fields=[
-                ('page_ptr', models.OneToOneField(auto_created=True, on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, serialize=False, to='wagtailcore.page')),
-                ('starting_day', models.DateField(verbose_name='First day of the week (Monday)')),
-                ('doc', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='wagtaildocs.document', verbose_name='Menu Document')),
+                (
+                    "page_ptr",
+                    models.OneToOneField(
+                        auto_created=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        parent_link=True,
+                        primary_key=True,
+                        serialize=False,
+                        to="wagtailcore.page",
+                    ),
+                ),
+                (
+                    "starting_day",
+                    models.DateField(
+                        verbose_name="First day of the week (Monday)"
+                    ),
+                ),
+                (
+                    "doc",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to="wagtaildocs.document",
+                        verbose_name="Menu Document",
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
-            bases=('wagtailcore.page',),
+            bases=("wagtailcore.page",),
         ),
         migrations.CreateModel(
-            name='Menu',
+            name="Menu",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('sort_order', models.IntegerField(blank=True, editable=False, null=True)),
-                ('date', models.DateField(unique=True, verbose_name='Date of Meal')),
-                ('theme', modelcluster.fields.ParentalKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='menus', to='menus.menutheme')),
-                ('week', modelcluster.fields.ParentalKey(on_delete=django.db.models.deletion.CASCADE, related_name='menus', to='menus.weeklymenupage')),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "sort_order",
+                    models.IntegerField(blank=True, editable=False, null=True),
+                ),
+                (
+                    "date",
+                    models.DateField(unique=True, verbose_name="Date of Meal"),
+                ),
+                (
+                    "theme",
+                    modelcluster.fields.ParentalKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="menus",
+                        to="menus.menutheme",
+                    ),
+                ),
+                (
+                    "week",
+                    modelcluster.fields.ParentalKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="menus",
+                        to="menus.weeklymenupage",
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
             bases=(models.Model, wagtail.search.index.Indexed),
         ),
         migrations.CreateModel(
-            name='FoodTag',
+            name="FoodTag",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('content_object', modelcluster.fields.ParentalKey(on_delete=django.db.models.deletion.CASCADE, related_name='tagged_items', to='menus.fooditem')),
-                ('tag', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='menus_foodtag_items', to='taggit.tag')),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "content_object",
+                    modelcluster.fields.ParentalKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="tagged_items",
+                        to="menus.fooditem",
+                    ),
+                ),
+                (
+                    "tag",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="menus_foodtag_items",
+                        to="taggit.tag",
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='FoodItemImage',
+            name="FoodItemImage",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('sort_order', models.IntegerField(blank=True, editable=False, null=True)),
-                ('caption', models.CharField(blank=True, max_length=250, null=True)),
-                ('food', modelcluster.fields.ParentalKey(on_delete=django.db.models.deletion.CASCADE, related_name='images', to='menus.fooditem')),
-                ('image', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='+', to='wagtailimages.image')),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "sort_order",
+                    models.IntegerField(blank=True, editable=False, null=True),
+                ),
+                (
+                    "caption",
+                    models.CharField(blank=True, max_length=250, null=True),
+                ),
+                (
+                    "food",
+                    modelcluster.fields.ParentalKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="images",
+                        to="menus.fooditem",
+                    ),
+                ),
+                (
+                    "image",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="+",
+                        to="wagtailimages.image",
+                    ),
+                ),
             ],
             options={
-                'ordering': ['sort_order'],
-                'abstract': False,
+                "ordering": ["sort_order"],
+                "abstract": False,
             },
         ),
         migrations.AddField(
-            model_name='fooditem',
-            name='tags',
-            field=modelcluster.contrib.taggit.ClusterTaggableManager(blank=True, help_text='A comma-separated list of tags.', through='menus.FoodTag', to='taggit.Tag', verbose_name='Tags'),
+            model_name="fooditem",
+            name="tags",
+            field=modelcluster.contrib.taggit.ClusterTaggableManager(
+                blank=True,
+                help_text="A comma-separated list of tags.",
+                through="menus.FoodTag",
+                to="taggit.Tag",
+                verbose_name="Tags",
+            ),
         ),
         migrations.CreateModel(
-            name='BeerItem',
+            name="BeerItem",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=25)),
-                ('abv', models.DecimalField(blank=True, decimal_places=1, max_digits=3, null=True)),
-                ('description', wagtail.core.fields.RichTextField(blank=True, null=True)),
-                ('brewery', modelcluster.fields.ParentalKey(on_delete=django.db.models.deletion.CASCADE, related_name='beers', to='menus.brewery')),
-                ('style', modelcluster.fields.ParentalKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='beers', to='menus.beerstyle')),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=25)),
+                (
+                    "abv",
+                    models.DecimalField(
+                        blank=True, decimal_places=1, max_digits=3, null=True
+                    ),
+                ),
+                (
+                    "description",
+                    wagtail.core.fields.RichTextField(blank=True, null=True),
+                ),
+                (
+                    "brewery",
+                    modelcluster.fields.ParentalKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="beers",
+                        to="menus.brewery",
+                    ),
+                ),
+                (
+                    "style",
+                    modelcluster.fields.ParentalKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="beers",
+                        to="menus.beerstyle",
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
             bases=(wagtail.search.index.Indexed, models.Model),
         ),
         migrations.CreateModel(
-            name='WeekBeerItem',
+            name="WeekBeerItem",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('sort_order', models.IntegerField(blank=True, editable=False, null=True)),
-                ('form', models.CharField(choices=[('can', 'Can'), ('bottle', 'Bottle'), ('keg', 'Keg')], default='keg', max_length=10)),
-                ('beer_item', modelcluster.fields.ParentalKey(on_delete=django.db.models.deletion.CASCADE, related_name='weeks', to='menus.beeritem')),
-                ('page', modelcluster.fields.ParentalKey(on_delete=django.db.models.deletion.CASCADE, related_name='beer_items', to='menus.weeklymenupage')),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "sort_order",
+                    models.IntegerField(blank=True, editable=False, null=True),
+                ),
+                (
+                    "form",
+                    models.CharField(
+                        choices=[
+                            ("can", "Can"),
+                            ("bottle", "Bottle"),
+                            ("keg", "Keg"),
+                        ],
+                        default="keg",
+                        max_length=10,
+                    ),
+                ),
+                (
+                    "beer_item",
+                    modelcluster.fields.ParentalKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="weeks",
+                        to="menus.beeritem",
+                    ),
+                ),
+                (
+                    "page",
+                    modelcluster.fields.ParentalKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="beer_items",
+                        to="menus.weeklymenupage",
+                    ),
+                ),
             ],
             options={
-                'unique_together': {('page', 'beer_item')},
+                "unique_together": {("page", "beer_item")},
             },
             bases=(models.Model, wagtail.search.index.Indexed),
         ),
         migrations.CreateModel(
-            name='MenuFoodItem',
+            name="MenuFoodItem",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('sort_order', models.IntegerField(blank=True, editable=False, null=True)),
-                ('food_item', modelcluster.fields.ParentalKey(on_delete=django.db.models.deletion.CASCADE, related_name='menus', to='menus.fooditem')),
-                ('menu', modelcluster.fields.ParentalKey(on_delete=django.db.models.deletion.CASCADE, related_name='food_items', to='menus.menu')),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "sort_order",
+                    models.IntegerField(blank=True, editable=False, null=True),
+                ),
+                (
+                    "food_item",
+                    modelcluster.fields.ParentalKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="menus",
+                        to="menus.fooditem",
+                    ),
+                ),
+                (
+                    "menu",
+                    modelcluster.fields.ParentalKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="food_items",
+                        to="menus.menu",
+                    ),
+                ),
             ],
             options={
-                'unique_together': {('menu', 'food_item')},
+                "unique_together": {("menu", "food_item")},
             },
         ),
     ]

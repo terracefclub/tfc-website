@@ -22,13 +22,15 @@ static/
 
 ### TESTING ###
 .coverage/
-.pytest_cache/
 
 ### DEBUG ###
 logs/
 
 ### BLOAT ###
 __pycache__/
+.dmypy.json
+.pytest_cache/
+.mypy_cache/
 node_modules/
 kubernetes/**/charts/
 docs/_build/

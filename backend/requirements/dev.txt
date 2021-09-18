@@ -4,3 +4,17 @@ django-clearcache==1.2.1
 django-debug-toolbar==3.2.2
 flake8==3.9.2
 flake8-django==1.1.2
+flake8-mypy==17.8.0
+mypy==0.910
+mypy-extensions<0.5.0,>=0.4.3
+typing-extensions>=3.7.4
+black==21.9b0
+click>=7.1.2
+pathspec<1,>=0.9.0
+platformdirs>=2
+regex==2021.8.28
+django-stubs==1.9.0
+django-stubs-ext>=0.3.0
+type-PyYAML==5.4.10
+types-pytz==2021.1.2
+types-requests==2.25.6
