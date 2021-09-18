@@ -6,10 +6,10 @@
  * @module
  */
 
-import { queryElement, queryElementAll } from './utilities/query';
+import { queryElement, queryElementAll } from '../../common/utilities/query';
 import { fromEvent } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
-import { loadHtml } from './utilities/api';
+import { loadHtml } from '../../common/utilities/api';
 
 /**
  * Main sidebar display logic as a component. Controls opening and closing, as

@@ -1,4 +1,4 @@
-import { queryElement } from '../utilities/query';
+import { queryElement } from '../../../common/utilities/query';
 
 /**
  * A component loader for the "other menus" area of the 'menus' page to allow
@@ -37,7 +37,7 @@ export default function otherMenusBoxLoader(): void {
 
     if (!startDate) return;
 
-    const { loadHtml } = await import('../utilities/api');
+    const { loadHtml } = await import('../../../common/utilities/api');
     const params = new URLSearchParams({ start_date: startDate[0], direction });
 
     try {

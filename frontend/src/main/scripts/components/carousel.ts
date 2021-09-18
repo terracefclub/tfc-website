@@ -1,4 +1,4 @@
-import { queryElementAll } from '../utilities/query';
+import { queryElementAll } from '../../../common/utilities/query';
 
 /**
  * Load a carousel with indexing and shifting capabilities for displaying items

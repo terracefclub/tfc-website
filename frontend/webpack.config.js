@@ -32,6 +32,7 @@ module.exports = {
   entry: {
     main: Path.resolve(__dirname, 'src/main/scripts/index.ts'),
     "pdf.worker": 'pdfjs-dist/build/pdf.worker.entry',
+    admin: Path.resolve(__dirname, 'src/admin/scripts/index.ts')
   },
   output: {
     path: Path.join(__dirname, 'static/'),

@@ -1,6 +1,6 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import type { PDFPageProxy } from 'pdfjs-dist/types/display/api';
-import { queryElement } from '../utilities/query';
+import { queryElement } from '../../../common/utilities/query';
 
 GlobalWorkerOptions.workerSrc = '/static/js/pdf.worker.js';
 

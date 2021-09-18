@@ -1,4 +1,4 @@
-import { queryElement, queryElementAll } from '../utilities/query';
+import { queryElement, queryElementAll } from '../../../common/utilities/query';
 
 /**
  * Component loader for a standard form container. Currently only needs to

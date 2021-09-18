@@ -1,6 +1,6 @@
 import '../styles/index.scss';
 import * as common from './common';
-import { queryElement } from './utilities/query';
+import { queryElement } from '../../common/utilities/query';
 
 const controller: {
   [key: string]: string[];

@@ -1,4 +1,4 @@
-import { queryElement, queryElementAll } from '../utilities/query';
+import { queryElement, queryElementAll } from '../../../common/utilities/query';
 
 /**
  *
@@ -18,7 +18,11 @@ export function shareLoader(): void {
   async function copyUrl(el: HTMLElement): Promise<string> {
     try {
       const permission = await navigator.permissions.query({
-        name: 'clipboard-write',
+        // TODO: resolve that the permission goes through with javascript
+        // These are the only available types: type PermissionName = "gamepad" 
+        // | "geolocation" | "notifications" | "persistent-storage" | "push" | 
+        // "screen-wake-lock"
+        name: 'clipboard-write' as PermissionName,
       });
       if (permission.state == 'granted' || permission.state == 'prompt') {
         // write the url stored on the share button to the clipboard
@@ -39,7 +43,7 @@ export function shareLoader(): void {
           ),
         };
       }
-    } catch (err) {
+    } catch (err: any) {
       if (!!err && err.constructor === Object && 'error' in err) {
         console.error(err.error);
         return `Copy failed! - ${err.message}`;

@@ -1,4 +1,4 @@
-import { queryElement, queryElementAll } from '../utilities/query';
+import { queryElement, queryElementAll } from '../../../common/utilities/query';
 
 /**
  * Load in an event detail card with social links when clicking a calendar block
@@ -37,7 +37,7 @@ export const eventLoader = async ({
     const detailUrl = '/events/event?' + new URLSearchParams({ pk });
     const socialsUrl = '/events/socials?' + socialParams;
 
-    const { loadHtml } = await import('../utilities/api');
+    const { loadHtml } = await import('../../../common/utilities/api');
 
     try {
       Promise.all([
@@ -83,7 +83,7 @@ export const calendarLoader = (): void => {
     ] as string[][]);
     const url = '/events/filter/?' + searchQuery;
 
-    const { loadHtml } = await import('../utilities/api');
+    const { loadHtml } = await import('../../../common/utilities/api');
 
     const timer = setTimeout(() => {
       eventsModal.style.display = 'flex';
