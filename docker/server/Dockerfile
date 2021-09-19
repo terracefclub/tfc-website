@@ -25,11 +25,11 @@ RUN \
     apk add $apknocache --virtual .build-deps \
       linux-headers gcc libc-dev musl-dev \
       postgresql-dev python3-dev jpeg-dev \
-      zlib-dev libffi-dev libxslt-dev libxml2-dev; \
+      zlib-dev libffi-dev libxml2-dev; \
     # Install system runtime dependencies
     apk add $apknocache \
       postgresql-libs \
-      libjpeg geos gdal;
+      libjpeg geos gdal libxslt-dev;
 COPY backend/requirements backend/requirements
 RUN \
     # Install python dependencies

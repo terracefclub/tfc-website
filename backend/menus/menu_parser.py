@@ -5,9 +5,9 @@
 import re
 import attr
 import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 from docx import Document
-
+from django.core.files.uploadedfile import UploadedFile
 
 WEEKDAYS = [
     "Monday",
@@ -59,7 +59,10 @@ def get_standardized_tags(tags: List[str]) -> List[str]:
     return list(map(simplify, tags))
 
 
-def count2type(idx):
+DishType = Literal["soup", "entree", "side", "dessert"]
+
+
+def count2course(idx: int) -> DishType:
     if idx == 1:
         return "soup"
     elif idx in range(2, 5):
@@ -69,7 +72,7 @@ def count2type(idx):
     return "dessert"
 
 
-def is_valid_dish(line):
+def is_valid_dish(line: str) -> bool:
     line = line.strip()
     if len(line) == 0:  # empty lines GENERALLY separate days
         return False
@@ -78,7 +81,7 @@ def is_valid_dish(line):
     return True
 
 
-def extract_name(line):
+def extract_name(line: str) -> str:
     line = (
         line.replace("w.", "with ")
         .replace("  ", " ")
@@ -88,7 +91,7 @@ def extract_name(line):
     return re.sub(TAG_MATCH, "", line).strip()
 
 
-def clean_theme(encoding):
+def clean_theme(encoding: bytes) -> str:
     theme = encoding.split(EMDASH)[-1].strip().decode("utf-8").strip()
     if "patrick" in theme:
         theme = "irish"
@@ -109,7 +112,7 @@ def clean_theme(encoding):
 
 @attr.s(auto_attribs=True)
 class Dish:
-    type: str
+    course: str
     tags: List[str]
     name: str
 
@@ -122,14 +125,16 @@ class MenuData:
     theme: Optional[str] = None
 
 
-def parse_data_from_menu_document(file):
-    with open(file, "rb") as f:
-        doc = Document(f)
+# TODO: figure out how to transfer django request.FILES object
+# into an IO buffer that can be piped (through this context manager)
+# into the python-docx parsing
+def parse_data_from_menu_document(file: UploadedFile, date: datetime.date):
+    doc = Document(file)
     text = list(map(lambda p: p.text, doc.paragraphs))
-    return _data_builder(text, file.date)
+    return _data_builder(text, date)
 
 
-def _data_builder(text: List[str], date_=str):
+def _data_builder(text: List[str], date_=str) -> List[MenuData]:
 
     date = datetime.datetime.strptime(date_, "%Y-%m-%d").date()
 
@@ -157,11 +162,11 @@ def _data_builder(text: List[str], date_=str):
             if not is_dish:
                 in_day = False
                 continue
-            dish_type = count2type(dish_idx)
+            dish_course = count2course(dish_idx)
             dish_idx += 1
             data[-1].dishes.append(
                 Dish(
-                    type=dish_type,
+                    course=dish_course,
                     tags=get_standardized_tags(re.findall(TAG_MATCH, line)),
                     name=extract_name(line),
                 )
