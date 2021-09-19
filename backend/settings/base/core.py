@@ -69,6 +69,7 @@ MIDDLEWARE = [
     "django.middleware.cache.UpdateCacheMiddleware",  # Expires, Cache-Control
     "django.contrib.sessions.middleware.SessionMiddleware",  # Vary - Cookie
     "django.middleware.common.CommonMiddleware",
+    "middleware.RenderErrorsAs404Middleware",
     "django.middleware.cache.FetchFromCacheMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
