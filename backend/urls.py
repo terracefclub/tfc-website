@@ -5,6 +5,8 @@ from django.contrib import admin
 from wagtail.core import urls as wagtail_urls
 from wagtail.contrib.sitemaps.views import sitemap
 
+from menus.views import handle_menu_upload
+
 urlpatterns = [
     path("django-admin/doc/", include("django.contrib.admindocs.urls")),
     path("django-admin/", admin.site.urls),
@@ -14,6 +16,7 @@ urlpatterns = [
     path("", include("base.urls")),
     path("events/", include("events.urls")),
     path("menus/", include("menus.urls")),
+    path("admin/menus/upload", handle_menu_upload, name="menu_upload"),
     path("sitemap.xml", sitemap),
 ]
 
