@@ -5,7 +5,9 @@ describe('Archive utilities', () => {
     test.todo(
       'should log an error if the page number specified is not valid/in document',
     );
-    test.todo('should render a canvas element to the item clicked if all is correct');
+    test.todo(
+      'should render a canvas element to the item clicked if all is correct',
+    );
   });
 
   describe('trackAudio', () => {

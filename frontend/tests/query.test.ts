@@ -1,4 +1,7 @@
-import { queryElement, queryElementAll } from '../src/main/scripts/utilities/query';
+import {
+  queryElement,
+  queryElementAll,
+} from '../src/common/utilities/query';
 
 describe('Query utilities', () => {
   describe('queryElement', () => {

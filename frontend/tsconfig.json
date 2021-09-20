@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
-    "outDir": "./dist/",
-    
+          
     /* avoids file extension caveats */
     "module": "ESNext",
     "target": "ES5",
@@ -37,13 +36,19 @@
     "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true,
 
+    "types": [
+        "reflect-metadata",
+        "jest"
+    ],
+
     "typeRoots": [
       "./common/types",
       "./main/scripts/types",
       "./node_modules/@types"
     ]
   },
-  "include": ["src"],
+  "include": ["src", "tests"],
+  "exclude": ["node_modules", "public"],
   "typedocOptions": {
     "entryPoints": ["src/main/scripts/index.ts"]
   }

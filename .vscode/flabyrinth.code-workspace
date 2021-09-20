@@ -1,0 +1,42 @@
+{
+	"folders": [
+        {
+            "path": ".."
+        },
+        {
+            "path": "../backend"
+        },
+        {
+            "path": "../frontend"
+        }
+    ],
+  "settings": {
+    "files.associations": {
+      "**/*.scss": "scss"
+    },
+    "emeraldwalk.runonsave": {
+        "commands": [
+            {
+                "match": "\\.py$",
+                "cmd": "/home/schra/.local/bin/black ${file}"
+            },
+            {
+                "match": "\\.tsx?$",
+                "cmd": "${workspaceFolder}/node_modules/.bin/prettier --write ${file}"
+            }
+        ]
+    },
+    "python.linting.flake8Enabled": true,
+    "python.linting.pylintEnabled": true,
+    "python.linting.mypyEnabled": true,
+    "python.linting.lintOnSave": true,
+    "json.schemas": [
+        {
+            "fileMatch": [
+                ".babelrc"
+            ],
+            "url": "https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/babelrc.json"
+        }
+    ],
+  }
+}

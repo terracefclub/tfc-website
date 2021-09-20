@@ -39,23 +39,20 @@ export function sidebar(): void {
     'click',
     () => (sidebar.style.visibility = 'hidden'),
   );
-  sidebarTrigger.addEventListener(
-    'click',
-    (event: MouseEvent) => {
-      event.stopImmediatePropagation();
+  sidebarTrigger.addEventListener('click', (event: MouseEvent) => {
+    event.stopImmediatePropagation();
 
-      sidebar.style.visibility = 'visible';
-      
-      const clickOutsideListener = (event: MouseEvent) => {
-        if (!sidebar.contains(event.target as Node)) {
-          sidebar.style.visibility = 'hidden';
-          document.removeEventListener('click', clickOutsideListener);
-        }
-      };
+    sidebar.style.visibility = 'visible';
 
-      document.addEventListener('click', clickOutsideListener);
-    }
-  );
+    const clickOutsideListener = (event: MouseEvent) => {
+      if (!sidebar.contains(event.target as Node)) {
+        sidebar.style.visibility = 'hidden';
+        document.removeEventListener('click', clickOutsideListener);
+      }
+    };
+
+    document.addEventListener('click', clickOutsideListener);
+  });
 }
 
 /**

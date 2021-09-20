@@ -1,17 +1,18 @@
 {
   "presets": [
     [
-      "@babel/preset-env",
-      {
-        "useBuiltIns": "usage",
-        "corejs": 3,
-        "targets": "defaults"
-      }
+      "@babel/preset-env"
+    //   {
+    //     "useBuiltIns": "usage",
+    //     "corejs": 3,
+    //     "targets": "defaults"
+    //   }
     ],
     "@babel/preset-typescript"
   ],
   "plugins": [
     "@babel/plugin-syntax-dynamic-import",
-    "@babel/plugin-proposal-class-properties"
+    "@babel/plugin-proposal-class-properties",
+    "@babel/plugin-transform-runtime"
   ]
 }

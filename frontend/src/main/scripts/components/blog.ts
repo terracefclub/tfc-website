@@ -19,8 +19,8 @@ export function shareLoader(): void {
     try {
       const permission = await navigator.permissions.query({
         // TODO: resolve that the permission goes through with javascript
-        // These are the only available types: type PermissionName = "gamepad" 
-        // | "geolocation" | "notifications" | "persistent-storage" | "push" | 
+        // These are the only available types: type PermissionName = "gamepad"
+        // | "geolocation" | "notifications" | "persistent-storage" | "push" |
         // "screen-wake-lock"
         name: 'clipboard-write' as PermissionName,
       });
@@ -72,7 +72,7 @@ export function shareLoader(): void {
 
   shareBtns.forEach((shareBtn) =>
     shareBtn.addEventListener('click', async () =>
-      displayAlert(shareBtn, await copyUrl(shareBtn))
+      displayAlert(shareBtn, await copyUrl(shareBtn)),
     ),
   );
 }

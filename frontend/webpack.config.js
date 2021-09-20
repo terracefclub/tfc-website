@@ -25,6 +25,7 @@ const rules = !prodMode ? [{
   },
 }] : [];
 
+/** @type {import('webpack').Configuration} */
 module.exports = {
   mode: prodMode ? 'production' : 'development',
   devtool: prodMode ? 'source-map' : 'inline-cheap-source-map',
