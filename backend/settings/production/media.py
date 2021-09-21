@@ -21,9 +21,7 @@ GS_PROJECT_ID = "terracefclub"
 GS_BUCKET_NAME = "tfc-media-bucket"
 # GS_DEFAULT_ACL = 'publicRead'  # returns public, non-expiring URL
 
-creds = base64.b64decode(os.environ.get("GOOGLE_CREDENTIALS", "")).decode(
-    "utf-8"
-)
+creds = base64.b64decode(os.environ.get("GOOGLE_CREDENTIALS", ""))
 GS_CREDENTIALS = service_account.Credentials.from_service_account_info(
     json.loads(creds)
 )
