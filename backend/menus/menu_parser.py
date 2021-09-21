@@ -9,6 +9,7 @@ from typing import Dict, List, Literal, Optional
 from docx import Document
 from django.core.files.uploadedfile import UploadedFile
 
+
 WEEKDAYS = [
     "Monday",
     "Tuesday",
@@ -110,18 +111,30 @@ def clean_theme(encoding: bytes) -> str:
     ).strip()
 
 
+class MetaIter(type):
+    def __iter__(self):
+        for attrib in dir(self):
+            if not attrib.startswith("__"):
+                yield attrib
+
+
 @attr.s(auto_attribs=True)
-class Dish:
+class Dish(metaclass=MetaIter):
     course: str
     tags: List[str]
     name: str
+
+    def __iter__(self):
+        return iter(
+            {attrib: getattr(self, attrib) for attrib in self.__class__}
+        )
 
 
 @attr.s(auto_attribs=True)
 class MenuData:
     weekday: str
     date: datetime.date
-    dishes: List[Dish] = []
+    dishes: List[Dish] = attr.Factory(list)
     theme: Optional[str] = None
 
 
@@ -134,9 +147,9 @@ def parse_data_from_menu_document(file: UploadedFile, date: datetime.date):
     return _data_builder(text, date)
 
 
-def _data_builder(text: List[str], date_=str) -> List[MenuData]:
+def _data_builder(text: List[str], date=datetime.date) -> List[MenuData]:
 
-    date = datetime.datetime.strptime(date_, "%Y-%m-%d").date()
+    MAX_DISHES_PER_DAY = 8
 
     in_day = False  # is line a dish or just random text (start/default)
     dish_idx = 0  # line number beneath the day of the week subtitle
@@ -171,7 +184,7 @@ def _data_builder(text: List[str], date_=str) -> List[MenuData]:
                     name=extract_name(line),
                 )
             )
-            if dish_idx == 9:
+            if dish_idx > MAX_DISHES_PER_DAY:
                 in_day = False
 
     return data
