@@ -15,7 +15,7 @@ def editor_js():
     when uploading the PDF document to the :model:`menus.WeeklyMenuPage`
     edit/create endpoints
     """
-    js_files = ["js/admin.js"]
+    js_files = ["js/admin.js", "js/default.js", "js/vendors.js"]
     return format_html_join(
         "\n",
         '<script src="{0}"></script>',
