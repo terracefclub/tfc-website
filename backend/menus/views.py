@@ -1,26 +1,24 @@
 import re
 from typing import Union
-from django.urls import reverse
 from django.http.request import HttpRequest
 from django.http.response import (
-    HttpResponse,
-    HttpResponseRedirect,
     JsonResponse,
 )
 from django.shortcuts import render
 from django.http import HttpResponseBadRequest
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime
 from menus.models import WeeklyMenuPage
 from .menu_parser import parse_data_from_menu_document
-from .forms import generate_upload_confirmation_form
 from storagers import temp_storage
 
 
-@require_http_methods(["GET", "POST"])
+@csrf_exempt
+@require_http_methods(["POST"])
 def handle_menu_upload(
     request: HttpRequest,
-) -> Union[HttpResponse, HttpResponseRedirect]:
+) -> Union[JsonResponse, HttpResponseBadRequest]:
     """
     Accept an incoming .docx file upload on the MenuPage creation menu.
     Parse the menu for menu data and return this as JSON for user to confirm.
@@ -28,10 +26,6 @@ def handle_menu_upload(
 
     :returns:
     """
-
-    if request.GET.get("step") == "confirm":
-        # TODO: generate menu page from form + redirect to new menu page
-        return HttpResponseRedirect("")
 
     # confirm that a file was uploaded
     if not (menu := request.FILES["menu"]):
@@ -47,7 +41,7 @@ def handle_menu_upload(
         )
 
     # confirm that file is in the MS word .docx format
-    date_str, extension = match.groups()
+    date_, extension = match.groups()
     if extension != "docx":
         return HttpResponseBadRequest(
             f"Uploaded file extension {extension} is not accepted .docx format."
@@ -56,23 +50,21 @@ def handle_menu_upload(
     # confirm name of file uses a Monday date
     # NOTE: this was included to enforce more consistency in Steve's file
     # naming conventions. this is accompanied by stricter menu templating too
-    if (date := datetime.strptime(date_str, "%m-%d-%Y").date()).weekday() != 0:
+    if (monday := datetime.strptime(date_, "%m-%d-%Y").date()).weekday() != 0:
         return HttpResponseBadRequest(
-            f"Date {date.strftime('%m-%d-%Y')} in the uploaded file name "
+            f"Date {monday.strftime('%m-%d-%Y')} in the uploaded file name "
             "is not a Monday. Please rename the file to the week's Monday."
         )
 
     # save a temporary file in anticipation of follow-up response (confirmation)
+    if temp_storage.exists(menu.name):
+        temp_storage.delete(menu.name)
     temp_storage.save(menu.name, menu)
 
     # actually parse the document data
-    menu_data = parse_data_from_menu_document(menu, date=date)
+    menu_data = parse_data_from_menu_document(menu, date=monday)
 
-    return render(
-        request,
-        "menus/upload_confirmation.html",
-        {"forms": generate_upload_confirmation_form(menu_data)},
-    )
+    return JsonResponse({"menus": menu_data, "monday": monday})
 
 
 def get_other_menus(request: HttpRequest):

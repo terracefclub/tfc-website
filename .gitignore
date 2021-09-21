@@ -8,16 +8,17 @@ terraform/terraform.tfstate.backup
 terraform/terraform.tfvars
 terraform/.terraform.lock.hcl
 
+### RUNTIME ###
+tmp/
+media/
+static/
+
 ### DEVELOPMENT ###
 backend/website/templates/sandbox.html
 sandbox/
 future/
 bin/
-
-### DATA & FRONTEND ###
 data/
-media/
-static/
 
 ### TESTING ###
 .coverage/

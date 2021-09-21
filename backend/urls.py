@@ -16,7 +16,7 @@ urlpatterns = [
     path("", include("base.urls")),
     path("events/", include("events.urls")),
     path("menus/", include("menus.urls")),
-    path("admin/menus/upload", handle_menu_upload, name="menu_upload"),
+    path("menus/upload/", handle_menu_upload, name="menu_upload"),
     path("sitemap.xml", sitemap),
 ]
 
