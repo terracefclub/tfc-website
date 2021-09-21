@@ -28,7 +28,7 @@ const rules = !prodMode ? [{
 /** @type {import('webpack').Configuration} */
 module.exports = {
   mode: prodMode ? 'production' : 'development',
-  devtool: prodMode ? 'source-map' : 'inline-cheap-source-map',
+  devtool: 'source-map',
   bail: prodMode ? true : false,
   entry: {
     main: Path.resolve(__dirname, 'src/main/scripts/index.ts'),
@@ -82,11 +82,6 @@ module.exports = {
   },
   module: {
     rules: [
-      // {
-      //   test: /\.mjs$/,
-      //   include: /node_modules/,
-      //   type: 'javascript/auto',
-      // },
       {
         test: /\.(t|j)s$/,
         exclude: /node_modules/,

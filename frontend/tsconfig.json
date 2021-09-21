@@ -2,18 +2,12 @@
   "compilerOptions": {
           
     /* avoids file extension caveats */
-    "module": "ESNext",
-    "target": "ES5",
+    "module": "esnext",
+    "target": "esnext",
     "lib": [
-      "ES2015",
-      "ES2016",
-      "ES2017",
-      "ES2018",
-      "ES2019",
-      "ES2020",
-      "ESNext",
       "dom",
-      "dom.iterable"
+      "dom.iterable",
+      "esnext"
     ],
 
     "downlevelIteration": true,
@@ -50,6 +44,9 @@
   "include": ["src", "tests"],
   "exclude": ["node_modules", "public"],
   "typedocOptions": {
-    "entryPoints": ["src/main/scripts/index.ts"]
+    "entryPoints": [
+        "src/main/scripts/index.ts",
+        "src/admin/scripts/index.ts"
+    ]
   }
 }

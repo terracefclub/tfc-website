@@ -1,18 +1,20 @@
 {
-  "presets": [
+"presets": [
     [
-      "@babel/preset-env"
-    //   {
-    //     "useBuiltIns": "usage",
-    //     "corejs": 3,
-    //     "targets": "defaults"
-    //   }
+        "@babel/preset-env",
+        {
+            "targets": "defaults",
+            "bugfixes": true,
+            "useBuiltIns": "usage",
+            // "debug": true,
+            "corejs": "3.8"
+        }
     ],
     "@babel/preset-typescript"
-  ],
-  "plugins": [
-    "@babel/plugin-syntax-dynamic-import",
-    "@babel/plugin-proposal-class-properties",
-    "@babel/plugin-transform-runtime"
-  ]
+],
+    "plugins": [
+        "@babel/plugin-syntax-dynamic-import",
+        "@babel/plugin-proposal-class-properties",
+        "@babel/plugin-transform-runtime"
+    ]
 }

@@ -43,6 +43,7 @@ export function shareLoader(): void {
           ),
         };
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!!err && err.constructor === Object && 'error' in err) {
         console.error(err.error);

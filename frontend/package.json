@@ -5,7 +5,7 @@
     "build": "TAILWIND_DISABLE_TOUCH=true NODE_ENV=production webpack --mode production --color",
     "dev:build": "TAILWIND_DISABLE_TOUCH=true webpack --watch",
     "dev:serve": "webpack serve --open --hot",
-    "lint": "stylelint './src/**/styles/**/*.scss' && eslint src --fix",
+    "lint": "stylelint './src/**/styles/**/*.scss' --fix && eslint src --fix",
     "pretty": "prettier --write ./{src,tests}/**/*.ts",
     "test": "jest --runInBand"
   },
@@ -70,7 +70,6 @@
     "webpack-merge": "^5.4.0"
   },
   "dependencies": {
-    "@babel/polyfill": "^7.12.1",
     "core-js": "^3.8.1",
     "events": "^3.3.0",
     "isomorphic-fetch": "^3.0.0",
@@ -87,10 +86,7 @@
       "eslint --fix"
     ]
   },
-  "browserslist": {
-    "production": [
-      "defaults",
-      "not IE < 11"
-    ]
-  }
+  "browserslist": [
+    "defaults"
+  ]
 }

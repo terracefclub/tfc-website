@@ -1,4 +1,4 @@
-import { queryElement } from '../src/main/scripts/utilities/query';
+import { queryElement } from '../src/common/utilities/query';
 import { shareLoader } from '../src/main/scripts/components/blog';
 
 function mockFunction<T extends common.func>(fn: T): jest.MockedFunction<T> {
