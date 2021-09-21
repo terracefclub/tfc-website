@@ -1,42 +1,42 @@
 @use '../abstracts/colors';
 
 #form-container {
-  @apply flex flex-col items-stretch justify-start gap-10;
-  @apply my-10 p-5;
-  @apply border-4 border-black;
-  @apply bg-gray bg-opacity-75;
+    @apply flex flex-col items-stretch justify-start gap-10;
+    @apply my-10 p-5;
+    @apply border-4 border-black;
+    @apply bg-gray bg-opacity-75;
 
-  h1 {
-    @apply font-bold text-xl text-center;
-  }
-
-  p > span {
-    @apply text-xs;
-  }
-
-  form {
-    @apply flex flex-col gap-2;
-
-    p > * {
-      @apply block;
+    h1 {
+        @apply font-bold text-xl text-center;
     }
-  }
 
-  label {
-    @apply font-bold;
-  }
+    p > span {
+        @apply text-xs;
+    }
 
-  input,
-  textarea {
-    @apply p-2;
+    form {
+        @apply flex flex-col gap-2;
 
-    background-color: colors.$dark;
-    color: colors.$gray;
-  }
+        p > * {
+            @apply block;
+        }
+    }
 
-  input[type=submit] {
-    @apply cursor-pointer;
+    label {
+        @apply font-bold;
+    }
 
-    background-color: colors.$green;
-  }
+    input,
+    textarea {
+        @apply p-2;
+
+        background-color: colors.$dark;
+        color: colors.$gray;
+    }
+
+    input[type=submit] {
+        @apply cursor-pointer;
+
+        background-color: colors.$green;
+    }
 }

@@ -1,63 +1,63 @@
 @use '../abstracts/colors';
 
 #home-carousel-container {
-  @apply relative;
-  @apply h-[435px] w-[810px];
+    @apply relative;
+    @apply h-[435px] w-[810px];
 }
 
 .carousel-item {
-  @apply absolute inset-0;
-  @apply h-full w-full;
-  @apply hidden;
+    @apply absolute inset-0;
+    @apply h-full w-full;
+    @apply hidden;
 
-  background-color: colors.$darker;
+    background-color: colors.$darker;
 
-  &.active {
-    @apply flex;
-  }
-
-  div {
-    @apply h-full w-1/2;
-
-    &:last-child {
-      @apply flex flex-col items-center justify-start gap-5;
-      @apply text-center text-white;
-      @apply p-3;
-
-      p:first-child {
-        @apply text-4xl;
-      }
-
-      p:last-child {
-        @apply text-left;
-      }
+    &.active {
+        @apply flex;
     }
-  }
+
+    div {
+        @apply h-full w-1/2;
+
+        &:last-child {
+            @apply flex flex-col items-center justify-start gap-5;
+            @apply text-center text-white;
+            @apply p-3;
+
+            p:first-child {
+                @apply text-4xl;
+            }
+
+            p:last-child {
+                @apply text-left;
+            }
+        }
+    }
 }
 
 .carousel-item-container {
-  @apply absolute top-1/4 left-1/2 transform -translate-x-1/2 -translate-y-1/2;
-  @apply flex items-center justify-between gap-x-10;
-  @apply text-2xl text-white;
+    @apply absolute top-1/4 left-1/2 transform -translate-x-1/2 -translate-y-1/2;
+    @apply flex items-center justify-between gap-x-10;
+    @apply text-2xl text-white;
 
-  a {
-    @apply cursor-pointer;
-    @apply hover:text-blue;
-  }
+    a {
+        @apply cursor-pointer;
+        @apply hover:text-blue;
+    }
 }
 
 .carousel-dot-container {
-  @apply absolute top-full left-1/2;
-  @apply flex items-center justify-between gap-x-5;
+    @apply absolute top-full left-1/2;
+    @apply flex items-center justify-between gap-x-5;
 
-  transform: translate(-50%, -150%);
+    transform: translate(-50%, -150%);
 
-  .carousel-dot {
-    @apply cursor-pointer;
-    @apply rounded-full border-8 border-white hover:border-blue;
+    .carousel-dot {
+        @apply cursor-pointer;
+        @apply rounded-full border-8 border-white hover:border-blue;
 
-    &.active {
-      @apply border-green;
+        &.active {
+            @apply border-green;
+        }
     }
-  }
 }

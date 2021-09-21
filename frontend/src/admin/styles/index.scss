@@ -1,0 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.upload-modal {
+    @apply inset-0 absolute h-full w-full block;
+}

@@ -1,61 +1,61 @@
 @use '../abstracts/colors';
 
 .side-column {
-  @apply flex flex-col items-stretch justify-start gap-4;
-  @apply w-1/3 p-4;
+    @apply flex flex-col items-stretch justify-start gap-4;
+    @apply w-1/3 p-4;
 }
 
 .sidebar-link-container {
-  @apply flex flex-col items-start gap-4;
-  @apply ml-7;
+    @apply flex flex-col items-start gap-4;
+    @apply ml-7;
 
-  .link-box {
-    @apply flex gap-4;
-    @apply max-w-[90%] mt-1;
+    .link-box {
+        @apply flex gap-4;
+        @apply max-w-[90%] mt-1;
 
-    &-title {
-      @apply overflow-clip text-5xl;
+        &-title {
+            @apply overflow-clip text-5xl;
 
-      color: colors.$gray;
+            color: colors.$gray;
+        }
     }
-  }
 
-  span.arrow-r.nav-drop {
-    @apply inline-block;
-    @apply h-0 w-0 ml-auto;
-    @apply border-[20px] border-transparent;
-  }
+    span.arrow-r.nav-drop {
+        @apply inline-block;
+        @apply h-0 w-0 ml-auto;
+        @apply border-[20px] border-transparent;
+    }
 
-  .line {
-    @apply h-0 w-[90%] mb-2;
-    @apply border-[3px];
+    .line {
+        @apply h-0 w-[90%] mb-2;
+        @apply border-[3px];
 
-    border-color: colors.$gray;
-  }
+        border-color: colors.$gray;
+    }
 }
 
 #sidebar {
-  @apply invisible fixed z-[20];
-  @apply h-[100vh] w-[480px];
-  @apply flex flex-col;
-
-  background-color: colors.$dark;
-
-  .header {
-    @apply flex justify-start gap-x-4;
-    @apply w-full px-4 py-2;
-
-    #sidebar-x {
-      @apply ml-auto;
-    }
-  }
-
-  .container {
+    @apply invisible fixed z-[20];
+    @apply h-[100vh] w-[480px];
     @apply flex flex-col;
-    @apply overflow-hidden;
 
-    &:hover {
-      @apply overflow-y-scroll;
+    background-color: colors.$dark;
+
+    .header {
+        @apply flex justify-start gap-x-4;
+        @apply w-full px-4 py-2;
+
+        #sidebar-x {
+            @apply ml-auto;
+        }
     }
-  }
+
+    .container {
+        @apply flex flex-col;
+        @apply overflow-hidden;
+
+        &:hover {
+            @apply overflow-y-scroll;
+        }
+    }
 }

@@ -3,414 +3,414 @@
 
 #calendar-year,
 #calendar-month {
-  display: none;
+    display: none;
 }
 
 #calendar {
-  @apply flex flex-col items-stretch justify-start gap-2;
+    @apply flex flex-col items-stretch justify-start gap-2;
 
-  color: colors.$dark;
-  flex: 2;
+    color: colors.$dark;
+    flex: 2;
 
-  &-grid {
-    @apply relative;
-    @apply grid grid-cols-7 gap-2;
+    &-grid {
+        @apply relative;
+        @apply grid grid-cols-7 gap-2;
 
-    &-loading-modal {
-      @apply hidden justify-center items-center;
-      @apply absolute inset-0 h-full w-full;
+        &-loading-modal {
+            @apply hidden justify-center items-center;
+            @apply absolute inset-0 h-full w-full;
 
-      background-color: rgba(colors.$dark, 0.5);
+            background-color: rgba(colors.$dark, 0.5);
 
-      .spinner {
-        @include flex-center();
-        @apply relative h-3/5;
+            .spinner {
+                @include flex-center();
+                @apply relative h-3/5;
 
-        aspect-ratio: 1 / 1;
-        background-color: colors.$gray;
-        border-radius: 50%;
-      }
+                aspect-ratio: 1 / 1;
+                background-color: colors.$gray;
+                border-radius: 50%;
+            }
+        }
     }
-  }
 }
 
 * {
-  box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 .spinner-text {
-  animation: loading-opacity 2s ease-out infinite;
-  font-size: 2rem;
+    animation: loading-opacity 2s ease-out infinite;
+    font-size: 2rem;
 }
 
 .spinner-sector {
-  border-radius: 100%;
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border: 1rem solid transparent;
-  mix-blend-mode: overlay;
+    border-radius: 100%;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border: 1rem solid transparent;
+    mix-blend-mode: overlay;
 }
 
 .spinner-sector-blue {
-  animation: rotate 2.5s ease-out infinite;
-  border-top: 1rem solid colors.$blue;
+    animation: rotate 2.5s ease-out infinite;
+    border-top: 1rem solid colors.$blue;
 }
 
 .spinner-sector-purple {
-  animation: rotate 3s ease-in infinite;
-  border-top: 1rem solid colors.$purple;
+    animation: rotate 3s ease-in infinite;
+    border-top: 1rem solid colors.$purple;
 }
 
 .spinner-sector-green {
-  animation: rotate 2s ease-in-out infinite;
-  border-top: 1rem solid colors.$green;
+    animation: rotate 2s ease-in-out infinite;
+    border-top: 1rem solid colors.$green;
 }
 
 .spinner-sector-yellow {
-  animation: rotate 1.5s ease-in-out infinite;
-  border-top: 1rem solid colors.$yellow;
+    animation: rotate 1.5s ease-in-out infinite;
+    border-top: 1rem solid colors.$yellow;
 }
 
 @keyframes rotate {
-  from {
-    transform: rotate(0);
-  }
+    from {
+        transform: rotate(0);
+    }
 
-  to {
-    transform: rotate(360deg);
-  }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 @keyframes loading-opacity {
-  0%,
-  100% {
-    opacity: 1;
-  }
+    0%,
+    100% {
+        opacity: 1;
+    }
 
-  25%,
-  75% {
-    opacity: 0.5;
-  }
+    25%,
+    75% {
+        opacity: 0.5;
+    }
 
-  50% {
-    opacity: 0.1;
-  }
+    50% {
+        opacity: 0.1;
+    }
 }
 
 #calendar-form-content,
 #calendar-header-container {
-  @apply flex items-stretch gap-2;
+    @apply flex items-stretch gap-2;
 }
 
 .calendar-header {
-  display: inline-block;
-  text-align: center;
-  background-color: colors.$dark;
-  color: whitesmoke;
-  // border: 0.25rem solid colors.$gray;
-  cursor: default;
-  padding: 0.5rem;
-  width: 100%;
+    display: inline-block;
+    text-align: center;
+    background-color: colors.$dark;
+    color: whitesmoke;
+    // border: 0.25rem solid colors.$gray;
+    cursor: default;
+    padding: 0.5rem;
+    width: 100%;
 }
 
 .dropdown {
-  position: relative;
-  display: inline-block;
-  flex: 1;
-
-  &__base {
-    background-color: colors.$gray;
-    border: 0.25rem solid colors.$dark;
-    cursor: default;
-    padding: 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  &:nth-child(1),
-  &:nth-child(2) {
+    position: relative;
+    display: inline-block;
     flex: 1;
-  }
 
-  &:nth-child(3) {
-    flex: 2;
-  }
-
-  &:nth-child(1) &__base,
-  &:nth-child(1) &__content__item {
-    background-color: colors.$yellow;
-  }
-
-  &:nth-child(2) &__base,
-  &:nth-child(2) &__content__item {
-    background-color: colors.$purple;
-    color: whitesmoke;
-  }
-
-  &:nth-child(3) &__base,
-  &:nth-child(3) &__content__item {
-    background-color: colors.$green;
-    color: whitesmoke;
-  }
-
-  $dropdown: &;
-
-  &__content {
-    position: absolute;
-    z-index: 1;
-    display: none;
-    width: 100%;
-    overflow-y: scroll;
-    height: 700%;
-
-    &.visible {
-      display: block;
+    &__base {
+        background-color: colors.$gray;
+        border: 0.25rem solid colors.$dark;
+        cursor: default;
+        padding: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
 
-    &__item {
-      border: solid colors.$dark;
-      border-width: 0.125rem 0.25rem;
-      padding: 0.5rem;
-      cursor: pointer;
+    &:nth-child(1),
+    &:nth-child(2) {
+        flex: 1;
+    }
 
-      // the "dropdown" grandparent selector is for cascade specificity
-      #{$dropdown} &:hover {
-        background-color: colors.$blue;
+    &:nth-child(3) {
+        flex: 2;
+    }
+
+    &:nth-child(1) &__base,
+    &:nth-child(1) &__content__item {
+        background-color: colors.$yellow;
+    }
+
+    &:nth-child(2) &__base,
+    &:nth-child(2) &__content__item {
+        background-color: colors.$purple;
         color: whitesmoke;
-      }
     }
-  }
 
-  &__button {
-    padding: 0.125rem;
-  }
+    &:nth-child(3) &__base,
+    &:nth-child(3) &__content__item {
+        background-color: colors.$green;
+        color: whitesmoke;
+    }
+
+    $dropdown: &;
+
+    &__content {
+        position: absolute;
+        z-index: 1;
+        display: none;
+        width: 100%;
+        overflow-y: scroll;
+        height: 700%;
+
+        &.visible {
+            display: block;
+        }
+
+        &__item {
+            border: solid colors.$dark;
+            border-width: 0.125rem 0.25rem;
+            padding: 0.5rem;
+            cursor: pointer;
+
+            // the "dropdown" grandparent selector is for cascade specificity
+            #{$dropdown} &:hover {
+                background-color: colors.$blue;
+                color: whitesmoke;
+            }
+        }
+    }
+
+    &__button {
+        padding: 0.125rem;
+    }
 }
 
 .single-day {
-  display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  align-items: stretch;
-  justify-content: flex-start;
-  border: 0.25rem solid colors.$dark;
-  background-color: colors.$gray;
-  padding: 0.125rem 0;
-  aspect-ratio: 1 / 1;
-
-  &-number {
-    padding-left: 0.25rem;
-  }
-
-  &-events-container {
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
+    flex-wrap: nowrap;
     align-items: stretch;
-    gap: 0.125rem;
-    overflow: hidden;
-  }
+    justify-content: flex-start;
+    border: 0.25rem solid colors.$dark;
+    background-color: colors.$gray;
+    padding: 0.125rem 0;
+    aspect-ratio: 1 / 1;
 
-  &-event {
-    cursor: pointer;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    text-align: center;
-    overflow: hidden;
-    font-size: 0.75rem;
-    padding: 0 0.25rem;
-    color: white;
-
-    &:nth-child(4n+1) {
-      @apply bg-green;
+    &-number {
+        padding-left: 0.25rem;
     }
 
-    &:nth-child(4n+2) {
-      @apply bg-blue;
+    &-events-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: stretch;
+        gap: 0.125rem;
+        overflow: hidden;
     }
 
-    &:nth-child(4n+3) {
-      @apply bg-red;
-    }
+    &-event {
+        cursor: pointer;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        text-align: center;
+        overflow: hidden;
+        font-size: 0.75rem;
+        padding: 0 0.25rem;
+        color: white;
 
-    &:nth-child(4n+4) {
-      @apply bg-yellow text-dark;
-    }
+        &:nth-child(4n+1) {
+            @apply bg-green;
+        }
 
-    &:hover {
-      position: absolute;
-      min-width: 8vw;
+        &:nth-child(4n+2) {
+            @apply bg-blue;
+        }
+
+        &:nth-child(4n+3) {
+            @apply bg-red;
+        }
+
+        &:nth-child(4n+4) {
+            @apply bg-yellow text-dark;
+        }
+
+        &:hover {
+            position: absolute;
+            min-width: 8vw;
+        }
     }
-  }
 }
 
 #events-main-section {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 1.25rem;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 1.25rem;
 }
 
 #detail-social-container {
-  @include flex-center();
+    @include flex-center();
 
-  @apply gap-5;
+    @apply gap-5;
 
-  flex: 0 0 auto;
+    flex: 0 0 auto;
 
-  .detail-social {
-    @apply rounded-lg;
-    @apply cursor-pointer;
+    .detail-social {
+        @apply rounded-lg;
+        @apply cursor-pointer;
 
-    &#facebook {
-      @apply bg-white text-facebook-blue;
-      @apply px-1;
+        &#facebook {
+            @apply bg-white text-facebook-blue;
+            @apply px-1;
+        }
+
+        &#zoom {
+            @apply bg-zoom-blue text-white;
+            @apply py-1 px-2;
+        }
+
+        &#instagram {
+            @apply text-white;
+            @apply py-[1px] px-1;
+
+            background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+            filter: progid:dximagetransform.microsoft.gradient(startColorstr="#f09433", endColorstr="#bc1888", GradientType=1);
+        }
     }
-
-    &#zoom {
-      @apply bg-zoom-blue text-white;
-      @apply py-1 px-2;
-    }
-
-    &#instagram {
-      @apply text-white;
-      @apply py-[1px] px-1;
-
-      background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
-      filter: progid:dximagetransform.microsoft.gradient(startColorstr="#f09433", endColorstr="#bc1888", GradientType=1);
-    }
-  }
 }
 
 #event-detail {
-  @apply flex-1 self-center;
-  @apply flex flex-col justify-center items-stretch gap-3;
-  @apply overflow-hidden;
+    @apply flex-1 self-center;
+    @apply flex flex-col justify-center items-stretch gap-3;
+    @apply overflow-hidden;
 
-  max-height: 51vw;
+    max-height: 51vw;
 }
 
 #detail-card {
-  @apply no-scrollbar overflow-y-scroll min-h-0;
-  @apply flex-1;
-  @apply p-1;
-  @apply flex flex-col items-stretch justify-center;
+    @apply no-scrollbar overflow-y-scroll min-h-0;
+    @apply flex-1;
+    @apply p-1;
+    @apply flex flex-col items-stretch justify-center;
 
-  background-color: colors.$dark;
-  border-width: 0.25rem solid colors.$dark;
-  border-radius: 1%;
+    background-color: colors.$dark;
+    border-width: 0.25rem solid colors.$dark;
+    border-radius: 1%;
 }
 
 .event-info {
-  @apply p-1;
+    @apply p-1;
 
-  color: whitesmoke;
+    color: whitesmoke;
 
-  &-name {
-    font-size: 2rem;
-    text-align: center;
-    color: colors.$green;
-  }
+    &-name {
+        font-size: 2rem;
+        text-align: center;
+        color: colors.$green;
+    }
 
-  &-date {
-    text-align: center;
-    margin-bottom: 1rem;
-  }
+    &-date {
+        text-align: center;
+        margin-bottom: 1rem;
+    }
 }
 
 #event-image {
-  @apply flex-shrink-0;
+    @apply flex-shrink-0;
 }
 
 #highlights-section {
-  @apply flex items-center justify-around gap-5;
-  @apply mt-5;
+    @apply flex items-center justify-around gap-5;
+    @apply mt-5;
 
-  & > * {
-    @apply w-1/2;
-  }
+    & > * {
+        @apply w-1/2;
+    }
 }
 
 .events-reel {
-  @apply relative;
-  @apply horizontal-scroll dark-scrollbar;
-  @apply h-full;
-  @apply p-2;
-  @apply rounded-md border-[0.25rem] border-dark;
+    @apply relative;
+    @apply horizontal-scroll dark-scrollbar;
+    @apply h-full;
+    @apply p-2;
+    @apply rounded-md border-[0.25rem] border-dark;
 
-  // border-color: colors.$darker;
+    // border-color: colors.$darker;
 
-  &-blur {
-    @apply absolute inset-0 h-full w-full;
+    &-blur {
+        @apply absolute inset-0 h-full w-full;
 
-    background-color: rgba(255, 255, 255, 0.3);
-    filter: blur(10px);
-  }
+        background-color: rgba(255, 255, 255, 0.3);
+        filter: blur(10px);
+    }
 }
 
 .event-card-simple {
-  @apply relative;
+    @apply relative;
 
-  @apply inline-block;
-  @apply mr-2 mt-1 w-[15vw];
-  @apply cursor-pointer;
-  @apply overflow-hidden;
-  @apply border-solid rounded-md border-2 border-dark;
-  @apply bg-cover bg-center bg-no-repeat;
+    @apply inline-block;
+    @apply mr-2 mt-1 w-[15vw];
+    @apply cursor-pointer;
+    @apply overflow-hidden;
+    @apply border-solid rounded-md border-2 border-dark;
+    @apply bg-cover bg-center bg-no-repeat;
 
-  aspect-ratio: 2 / 3;
+    aspect-ratio: 2 / 3;
 
-  // &-image {
-  //   @apply absolute inset-0;
-  //   @apply top-1/2 transform -translate-y-1/2;
+    // &-image {
+    //   @apply absolute inset-0;
+    //   @apply top-1/2 transform -translate-y-1/2;
 
-  //   aspect-ratio: attr(width) / attr(height);
-  // }
+    //   aspect-ratio: attr(width) / attr(height);
+    // }
 
-  $card: &;
+    $card: &;
 
-  &-name {
-    @apply absolute top-0 w-full h-full;
-    @apply py-4 px-2;
-    @apply text-white;
-    @apply bg-dark bg-opacity-75;
+    &-name {
+        @apply absolute top-0 w-full h-full;
+        @apply py-4 px-2;
+        @apply text-white;
+        @apply bg-dark bg-opacity-75;
 
-    white-space: pre-wrap;
-    text-align: center;
-    display: none;
+        white-space: pre-wrap;
+        text-align: center;
+        display: none;
 
-    #{$card}:hover & {
-      @include flex-center();
+        #{$card}:hover & {
+            @include flex-center();
+        }
     }
-  }
 }
 
 @media (max-width: 1024px) {
-  #events-main-section {
-    @apply flex-col;
-  }
+    #events-main-section {
+        @apply flex-col;
+    }
 
-  #highlights-section {
-    @apply flex-col items-stretch;
-  }
+    #highlights-section {
+        @apply flex-col items-stretch;
+    }
 
-  .events-reel {
-    width: 85vw;
-  }
+    .events-reel {
+        width: 85vw;
+    }
 
-  #event-detail {
-    @apply max-h-full;
-  }
+    #event-detail {
+        @apply max-h-full;
+    }
 }
 
 @media (max-width: 640px) {
-  .single-day-event {
-    -webkit-line-clamp: 1;
-    position: static;
-    min-width: 0;
-  }
+    .single-day-event {
+        -webkit-line-clamp: 1;
+        position: static;
+        min-width: 0;
+    }
 }

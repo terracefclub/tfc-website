@@ -1,23 +1,23 @@
 @use '../abstracts/colors';
 
 footer {
-  @apply h-[30vmin] w-full;
-  @apply flex justify-around items-center;
-  @apply place-self-end;
+    @apply h-[30vmin] w-full;
+    @apply flex justify-around items-center;
+    @apply place-self-end;
 
-  background-color: colors.$darker;
+    background-color: colors.$darker;
 
-  img {
-    @apply max-h-[75%];
-  }
+    img {
+        @apply max-h-[75%];
+    }
 
-  p {
-    @apply break-words text-xl;
+    p {
+        @apply break-words text-xl;
 
-    color: colors.$gray;
-  }
+        color: colors.$gray;
+    }
 }
 
 .spacer {
-  @apply flex-grow;
+    @apply flex-grow;
 }

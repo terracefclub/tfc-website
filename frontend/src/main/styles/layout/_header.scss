@@ -2,95 +2,95 @@
 @use '../abstracts/mixins' as *;
 
 header {
-  @apply fixed z-10 h-[10vh];
-  @apply flex justify-between items-center gap-8;
-  @apply w-full p-4;
-  @apply border-b-4;
+    @apply fixed z-10 h-[10vh];
+    @apply flex justify-between items-center gap-8;
+    @apply w-full p-4;
+    @apply border-b-4;
 
-  background-color: colors.$dark;
-  border-color: colors.$gray;
+    background-color: colors.$dark;
+    border-color: colors.$gray;
 
-  #sidebar-trigger {
-    @apply cursor-pointer;
-    @apply flex-shrink-0;
+    #sidebar-trigger {
+        @apply cursor-pointer;
+        @apply flex-shrink-0;
 
-    color: colors.$gray;
-  }
-
-  #logo {
-    @apply flex-grow-0 flex-shrink-0 h-[75px];
-    @apply bg-contain bg-no-repeat;
-
-    flex-basis: 420px;
-  }
-
-  div.search {
-    @apply h-16 px-2 min-w-[160px] flex-shrink;
-    @apply flex items-center gap-3;
-    @apply rounded-xl border-white hover:border-green border-4;
-
-    background-color: colors.$gray;
-    flex-basis: 500px;
-
-    i {
-      height: fit-content;
-      font-size: 3rem;
+        color: colors.$gray;
     }
 
-    input {
-      @apply text-5xl;
-      @apply bg-transparent;
-      @apply focus:outline-none;
-      @apply flex-grow overflow-x-auto no-scrollbar;
-    }
-  }
+    #logo {
+        @apply flex-grow-0 flex-shrink-0 h-[75px];
+        @apply bg-contain bg-no-repeat;
 
-  div.donate {
-    @apply h-16 w-40 flex-shrink-0;
-    @apply relative;
-    @apply cursor-pointer;
-
-    .button {
-      @include flex-center();
-
-      @apply h-full w-full;
-      @apply rounded-xl border-white border-4;
-      @apply text-xl text-white;
-
-      background-color: colors.$red;
+        flex-basis: 420px;
     }
 
-    .sparkle1 {
-      @apply absolute top-0.5 left-2;
+    div.search {
+        @apply h-16 px-2 min-w-[160px] flex-shrink;
+        @apply flex items-center gap-3;
+        @apply rounded-xl border-white hover:border-green border-4;
+
+        background-color: colors.$gray;
+        flex-basis: 500px;
+
+        i {
+            height: fit-content;
+            font-size: 3rem;
+        }
+
+        input {
+            @apply text-5xl;
+            @apply bg-transparent;
+            @apply focus:outline-none;
+            @apply flex-grow overflow-x-auto no-scrollbar;
+        }
     }
 
-    .sparkle2 {
-      @apply absolute top-8 right-2;
+    div.donate {
+        @apply h-16 w-40 flex-shrink-0;
+        @apply relative;
+        @apply cursor-pointer;
+
+        .button {
+            @include flex-center();
+
+            @apply h-full w-full;
+            @apply rounded-xl border-white border-4;
+            @apply text-xl text-white;
+
+            background-color: colors.$red;
+        }
+
+        .sparkle1 {
+            @apply absolute top-0.5 left-2;
+        }
+
+        .sparkle2 {
+            @apply absolute top-8 right-2;
+        }
     }
-  }
 
-  a.sign-up {
-    @include flex-center();
+    a.sign-up {
+        @include flex-center();
 
-    @apply text-xl text-white text-center;
-    @apply rounded-xl border-white border-4;
-    @apply h-16 w-40 flex-shrink-0 flex-grow-0;
+        @apply text-xl text-white text-center;
+        @apply rounded-xl border-white border-4;
+        @apply h-16 w-40 flex-shrink-0 flex-grow-0;
 
-    background-color: colors.$green;
-  }
-
-  div#user-header {
-    @include flex-center();
-
-    @apply gap-3;
-
-    p {
-      @apply text-lg text-white;
+        background-color: colors.$green;
     }
 
-    #avatar,
-    #avatar img {
-      @apply rounded-xl border-2 border-white;
+    div#user-header {
+        @include flex-center();
+
+        @apply gap-3;
+
+        p {
+            @apply text-lg text-white;
+        }
+
+        #avatar,
+        #avatar img {
+            @apply rounded-xl border-2 border-white;
+        }
     }
-  }
 }

@@ -1,20 +1,20 @@
 @use '../abstracts/colors';
 
 #modal {
-  @apply hidden;
-  @apply mt-[116px];
-  @apply fixed inset-20 z-[1000];
-  @apply bg-darkgray;
-  @apply border-offwhite border-[0.125em];
+    @apply hidden;
+    @apply mt-[116px];
+    @apply fixed inset-20 z-[1000];
+    @apply bg-darkgray;
+    @apply border-offwhite border-[0.125em];
 
-  box-shadow: 0 0 0 5em rgba(colors.$darkergray, 0.75);
+    box-shadow: 0 0 0 5em rgba(colors.$darkergray, 0.75);
 
-  & > * {
-    @apply inset-10;
-  }
+    & > * {
+        @apply inset-10;
+    }
 }
 
 #modal-x {
-  @apply absolute top-20 left-20 transform -translate-x-1/2 -translate-y-1/2;
-  @apply text-3xl text-greenish;
+    @apply absolute top-20 left-20 transform -translate-x-1/2 -translate-y-1/2;
+    @apply text-3xl text-greenish;
 }

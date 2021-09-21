@@ -1,40 +1,40 @@
 @mixin flex-center {
-  @apply flex items-center justify-center;
+    @apply flex items-center justify-center;
 }
 
 @mixin no-scrollbar() {
-  scrollbar-width: none;
+    scrollbar-width: none;
 
-  &::-webkit-scrollbar {
-    @apply hidden;
-  }
+    &::-webkit-scrollbar {
+        @apply hidden;
+    }
 }
 
 @mixin horizontal-scrollbar() {
-  @apply whitespace-nowrap overflow-x-scroll;
+    @apply whitespace-nowrap overflow-x-scroll;
 }
 
 @mixin dark-scrollbar() {
-  scrollbar-color: #888 #f1f1f1;
-  scrollbar-width: 10px;
-
-  &:hover {
-    scrollbar-color: #555 #f1f1f1;
-  }
-
-  &::-webkit-scrollbar {
-    width: 10px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: #f1f1f1;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: #888;
+    scrollbar-color: #888 #f1f1f1;
+    scrollbar-width: 10px;
 
     &:hover {
-      background: #555;
+        scrollbar-color: #555 #f1f1f1;
     }
-  }
+
+    &::-webkit-scrollbar {
+        width: 10px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: #888;
+
+        &:hover {
+            background: #555;
+        }
+    }
 }
