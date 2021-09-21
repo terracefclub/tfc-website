@@ -36,6 +36,12 @@
                 ".babelrc"
             ],
             "url": "https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/babelrc.json"
+        },
+        {
+            "fileMatch": [
+                ".eslintrc"
+            ],
+            "url": "https://json.schemastore.org/eslintrc.json"
         }
     ],
   }

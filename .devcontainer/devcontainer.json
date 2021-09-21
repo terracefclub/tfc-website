@@ -13,7 +13,8 @@
   "userEnvProbe": "loginInteractiveShell",
 
   "remoteEnv": {
-    "PATH": "${containerEnv:HOME}/.local/bin:${containerEnv:PATH}"
+    "PATH": "${containerEnv:HOME}/.local/bin:${containerEnv:PATH}",
+    "GOOGLE_CREDENTIALS": "${localEnv:GOOGLE_CREDENTIALS}"
   },
 
 	"settings": { 

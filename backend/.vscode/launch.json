@@ -13,6 +13,19 @@
                 "WaitOnNormalExit",
                 "RedirectOutput"
             ]
+        },
+        {
+            "name": "Django",
+            "type": "python",
+            "request": "launch",
+            "program": "manage.py",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "runserver"
+            ],
+            "env": {
+                "CLOUD_MEDIA": "1"
+            }
         }
     ]
 }
