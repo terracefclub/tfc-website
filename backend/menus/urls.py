@@ -1,5 +1,26 @@
-from django.urls import path
+from django.urls import path, register_converter
+from datetime import datetime
+from .views import get_other_menus, handle_menu_upload, confirm_menu_creation
 
-from .views import get_other_menus
 
-urlpatterns = [path("others/", get_other_menus, name="other_menus")]
+class DateConverter:
+    regex = r"\d{2}-\d{2}-\d{4}"
+
+    def to_python(self, value):
+        return datetime.strptime(value, "%m-%d-%Y")
+
+    def to_url(self, value):
+        return value
+
+
+register_converter(DateConverter, "mmddyyyy")
+
+urlpatterns = [
+    path("others/", get_other_menus, name="other_menus"),
+    path("upload/<mmddyyyy:monday>", handle_menu_upload, name="menu_upload"),
+    path(
+        "upload/<mmddyyyy:monday>/confirm",
+        confirm_menu_creation,
+        name="menu_upload",
+    ),
+]
