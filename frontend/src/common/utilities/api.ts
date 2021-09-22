@@ -16,22 +16,22 @@ import 'isomorphic-fetch';
  * error message display
  */
 export async function loadHtml(
-  container: HTMLElement,
-  fullUrl: string,
+    container: HTMLElement,
+    fullUrl: string,
 ): Promise<Response> {
-  const init = {
-    method: 'get',
-    headers: {
-      Accept: 'text/html',
-      'Content-Type': 'text/html',
-    },
-  };
+    const init = {
+        method: 'get',
+        headers: {
+            Accept: 'text/html',
+            'Content-Type': 'text/html',
+        },
+    };
 
-  const response = await fetch(fullUrl, init);
-  if (response.ok) {
-    container.innerHTML = await response.text();
-    return response;
-  } else {
-    return Promise.reject(response);
-  }
+    const response = await fetch(fullUrl, init);
+    if (response.ok) {
+        container.innerHTML = await response.text();
+        return response;
+    } else {
+        return Promise.reject(response);
+    }
 }

@@ -27,20 +27,22 @@
  * @returns the element queried from the DOM as the specified type
  */
 export function queryElement<T extends typeof Element>(
-  parent: Document | Element,
-  selector: string,
-  type: T,
+    parent: Document | Element,
+    selector: string,
+    type: T,
 ): InstanceType<T> {
-  const el = parent.querySelector(selector);
-  if (!el) {
-    throw new ReferenceError(`Selector '${selector}' has no matching element.`);
-  } else if (!(el instanceof type)) {
-    throw new TypeError(
-      `Selector '${selector}' matched element '${el}', which is not of the ` +
-        `specified type '${typeof type}'`,
-    );
-  }
-  return el as InstanceType<T>;
+    const el = parent.querySelector(selector);
+    if (!el) {
+        throw new ReferenceError(
+            `Selector '${selector}' has no matching element.`,
+        );
+    } else if (!(el instanceof type)) {
+        throw new TypeError(
+            `Selector '${selector}' matched element '${el}', which is not of the ` +
+                `specified type '${typeof type}'`,
+        );
+    }
+    return el as InstanceType<T>;
 }
 
 /**
@@ -56,22 +58,24 @@ export function queryElement<T extends typeof Element>(
  * @returns all elements queried as an array of the specified type
  */
 export function queryElementAll<T extends typeof Element>(
-  parent: Document | Element,
-  selector: string,
-  type: T,
+    parent: Document | Element,
+    selector: string,
+    type: T,
 ): InstanceType<T>[] {
-  const els = parent.querySelectorAll(selector);
-  if (els.length <= 0) {
-    throw new ReferenceError(`Selector '${selector}' matched zero elements.`);
-  }
-
-  els.forEach((el) => {
-    if (!(el instanceof type)) {
-      throw new TypeError(
-        `Selector '${selector}' matched element '${el}', which is not of the ` +
-          `specified type '${typeof type}'`,
-      );
+    const els = parent.querySelectorAll(selector);
+    if (els.length <= 0) {
+        throw new ReferenceError(
+            `Selector '${selector}' matched zero elements.`,
+        );
     }
-  });
-  return Array.from(els) as InstanceType<T>[];
+
+    els.forEach((el) => {
+        if (!(el instanceof type)) {
+            throw new TypeError(
+                `Selector '${selector}' matched element '${el}', which is not of the ` +
+                    `specified type '${typeof type}'`,
+            );
+        }
+    });
+    return Array.from(els) as InstanceType<T>[];
 }

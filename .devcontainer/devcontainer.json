@@ -13,7 +13,7 @@
   "userEnvProbe": "loginInteractiveShell",
 
   "remoteEnv": {
-    "PATH": "${containerEnv:HOME}/.local/bin:${containerEnv:PATH}",
+    "PATH": "${localEnv:HOME}/.local/bin:${containerEnv:PATH}",
     "GOOGLE_CREDENTIALS": "${localEnv:GOOGLE_CREDENTIALS}"
   },
 
@@ -73,6 +73,7 @@
     "lextudio.restructuredtext",
     "trond-snekvik.simple-rst",
     "mtxr.sqltools",
+    "mtxr.sqltools-driver-pg",
     "ms-azuretools.vscode-docker",
     "run-at-scale.terraform-doc-snippets",
     "emeraldwalk.runonsave"

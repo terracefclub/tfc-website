@@ -42,6 +42,24 @@
                 ".eslintrc"
             ],
             "url": "https://json.schemastore.org/eslintrc.json"
+        },
+        {
+            "fileMatch": [
+                ".prettierrc.json"
+            ],
+            "url": "https://json.schemastore.org/prettierrc.json"
+        }
+    ],
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "server": "postgres",
+            "port": 5432,
+            "askForPassword": true,
+            "driver": "PostgreSQL",
+            "name": "postgres (local)",
+            "database": "web",
+            "username": "user"
         }
     ],
   }

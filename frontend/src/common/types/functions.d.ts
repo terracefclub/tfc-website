@@ -1,3 +1,3 @@
 declare namespace common {
-  type func = (...args: unknown[]) => unknown;
+    type func = (...args: unknown[]) => unknown;
 }

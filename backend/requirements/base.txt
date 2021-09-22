@@ -17,7 +17,7 @@ Pillow==8.3.1
 psycopg2==2.9.1
 python-docx==0.8.11
 
-wagtail<2.14
+wagtail<=2.14
 wagtailmedia==0.7.1
 wagtail-nav-menus==3.6
 wagtailstreamforms==3.15
