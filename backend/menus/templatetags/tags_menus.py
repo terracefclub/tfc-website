@@ -14,3 +14,8 @@ def values(queryset, key):
     if isinstance(queryset, dict):
         return queryset[key]
     return queryset.values_list(key, flat=True)
+
+
+@register.filter(name="zip")
+def zip_lists(list1, list2):
+    return zip(list1, list2)

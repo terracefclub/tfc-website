@@ -1,0 +1,11 @@
+{% load tags_menus %}
+<form action="/menus/upload/{{ monday|date:"%m-%d-%Y" }}" 
+    method="post" enctype="multipart/form-data">
+    {{ menu_formset.management_form}}
+    {% for menu_form in menu_formset %}
+    {% for menu_form, menufooditem_formset in menu_formset|zip:menufooditem_formsets %}
+    {{ menu_form }}
+    {{ menufooditem_formset }}
+    {% endfor %}
+    {{ fooditem_formset }}
+</form>
