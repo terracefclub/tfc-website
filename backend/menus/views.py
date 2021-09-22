@@ -1,24 +1,93 @@
-import re
-from typing import Union
+from typing import List, Optional, Type
 from django.http.request import HttpRequest
-from django.http.response import (
-    JsonResponse,
-)
-from django.shortcuts import render
+from django.http.response import HttpResponse, HttpResponseServerError
+from django.shortcuts import redirect, render
 from django.http import HttpResponseBadRequest
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
-from datetime import datetime
-from menus.models import WeeklyMenuPage
-from .menu_parser import parse_data_from_menu_document
+from datetime import datetime, date
+from menus.models import WeeklyMenuPage, Menu, MenuFoodItem, FoodItem
+from django.forms.models import (
+    BaseInlineFormSet,
+    inlineformset_factory,
+    modelform_factory,
+    modelformset_factory,
+)
+from menus.menu_parser import Dish, parse_data_from_menu_document
 from storagers import temp_storage
+
+
+menu_fields = ("date", "theme")
+menufooditem_fields = ("food_item",)
+fooditem_fields = ("name", "description", "tags", "course")
+menupage_fields = ("starting_day",)
+
+MenuPageModelForm = modelform_factory(WeeklyMenuPage, fields=menupage_fields)
+MenuFormSet = inlineformset_factory(WeeklyMenuPage, Menu, fields=menu_fields)
+MenuFoodItemFormSet = inlineformset_factory(
+    Menu, MenuFoodItem, fields=menufooditem_fields
+)
+FoodItemFormSet = modelformset_factory(FoodItem, fields=fooditem_fields)
+
+
+def get_fooditem(dish: Dish) -> Optional[int]:
+    try:
+        pk = FoodItem.objects.get(name=dish.name).pk
+    except FoodItem.DoesNotExist:
+        return None
+    return pk
+
+
+@require_http_methods(["POST"])
+def confirm_menu_creation(request: HttpRequest, monday: date) -> HttpResponse:
+    """
+    Validate all forms submitted in confirmation and then create everything!
+    """
+
+    menupage = WeeklyMenuPage(starting_day=monday)
+    menupage_form = MenuPageModelForm(request.POST)
+
+    if menupage_form.is_valid():
+        menupage_created: WeeklyMenuPage = menupage_form.save(commit=False)
+
+        fooditem_formset = FoodItemFormSet(request.POST, prefix="fooditems")
+        if fooditem_formset.is_valid():
+            fooditems_created: List[FoodItem] = fooditem_formset.save(
+                commit=False
+            )
+
+        menu_formset = MenuFormSet(
+            request.POST, instance=menupage_created, prefix="menus"
+        )
+        if menu_formset.is_valid():
+            menus_created: List[Menu] = menu_formset.save(commit=False)
+
+        if fooditems_created and menus_created:
+            menufooditem_formsets: List[BaseInlineFormSet] = []
+            for i, menu in enumerate(menus_created):
+                # TODO: if the fooditem is new, assign the `fooditems_created`
+                # instances created above to the correct one, replacing
+                # the request.POST dependency (most likely)
+                menufooditem_formsets.append(
+                    MenuFoodItemFormSet(
+                        request.POST, instance=menu, prefix=f"fooditems_{i}"
+                    )
+                )
+            if all([formset.is_valid() for formset in menufooditem_formsets]):
+                menupage_created.save()
+                for fooditem in fooditems_created:
+                    fooditem.save()
+                for menu in menus_created:
+                    menu.save()
+                for formset in menufooditem_formsets:
+                    formset.save()
+                return redirect(menupage.get_full_url(request))
+    return HttpResponseServerError("Forms not valid! What to do, smdh")
 
 
 @csrf_exempt
 @require_http_methods(["POST"])
-def handle_menu_upload(
-    request: HttpRequest,
-) -> Union[JsonResponse, HttpResponseBadRequest]:
+def handle_menu_upload(request: HttpRequest, monday: date) -> HttpResponse:
     """
     Accept an incoming .docx file upload on the MenuPage creation menu.
     Parse the menu for menu data and return this as JSON for user to confirm.
@@ -27,47 +96,58 @@ def handle_menu_upload(
     :returns:
     """
 
-    # confirm that a file was uploaded
-    if not (menu := request.FILES["menu"]):
-        return HttpResponseBadRequest("No menu provided.")
-
-    # confirm proper naming scheme
-    parser = re.compile(r"^menu_(?P<DATE>\d{2}-\d{2}-\d{4})\.(?P<EXT>\w+)$")
-    if not (match := parser.match(menu.name)):
-        return HttpResponseBadRequest(
-            f'File "{menu.name}" does not have the correct name format for '
-            'parsing: "menu_MM-DD-YYYY.docx". Remember to pad single-digit '
-            "dates with a leading zero, as in 09-01-2021."
-        )
-
-    # confirm that file is in the MS word .docx format
-    date_, extension = match.groups()
-    if extension != "docx":
-        return HttpResponseBadRequest(
-            f"Uploaded file extension {extension} is not accepted .docx format."
-        )
-
-    # confirm name of file uses a Monday date
-    # NOTE: this was included to enforce more consistency in Steve's file
-    # naming conventions. this is accompanied by stricter menu templating too
-    if (monday := datetime.strptime(date_, "%m-%d-%Y").date()).weekday() != 0:
-        return HttpResponseBadRequest(
-            f"Date {monday.strftime('%m-%d-%Y')} in the uploaded file name "
-            "is not a Monday. Please rename the file to the week's Monday."
-        )
-
-    # save a temporary file in anticipation of follow-up response (confirmation)
+    menu = request.FILES["menu"]
+    # save a temporary file in anticipation of confirmation
     if temp_storage.exists(menu.name):
         temp_storage.delete(menu.name)
     temp_storage.save(menu.name, menu)
 
     # actually parse the document data
-    menu_data = parse_data_from_menu_document(menu, date=monday)
+    data = parse_data_from_menu_document(menu, date=monday)
 
-    return JsonResponse({"menus": menu_data, "monday": monday})
+    menupage = WeeklyMenuPage(starting_day=monday)
+    menupage_form = MenuPageModelForm(instance=menupage)
+
+    menu_formset = MenuFormSet(prefix="menus", instance=menupage)
+    for form, menu_data in zip(menu_formset.forms, data):
+        form.initial = {
+            field: getattr(menu_data, field) for field in menu_fields
+        }
+
+    menufooditem_formsets = [
+        MenuFoodItemFormSet(prefix=f"fooditems-{i}")
+        for i, _ in enumerate(menu_formset.forms)
+    ]
+
+    new_fooditems = []
+    for formset, menu_data in zip(menufooditem_formsets, data):
+        for form, dish in zip(formset.forms, menu_data.dishes):
+            if fooditem := get_fooditem(dish):
+                form.initial = {"food_item": fooditem}
+            else:
+                new_fooditems.append(dish)
+
+    fooditem_formset = FoodItemFormSet(prefix="fooditems")
+    for form, fooditem_data in zip(fooditem_formset.forms, new_fooditems):
+        form.initial = {
+            field: getattr(fooditem_data, field) for field in fooditem_fields
+        }
+
+    return render(
+        request,
+        "menus/upload_confirmation.html",
+        {
+            "menupage_form": menupage_form,
+            "menu_formset": menu_formset,
+            "menufooditem_formsets": menufooditem_formsets,
+            "fooditem_formset": fooditem_formset,
+            "monday": monday,
+        },
+    )
 
 
-def get_other_menus(request: HttpRequest):
+@require_http_methods(["GET"])
+def get_other_menus(request: HttpRequest) -> HttpResponse:
     """
     Get the neighboring menus or wherever the query parameter 'start_date'
     is currently positioned while seeking through other menus
