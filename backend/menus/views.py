@@ -96,6 +96,8 @@ def handle_menu_upload(request: HttpRequest, monday: date) -> HttpResponse:
     :returns:
     """
 
+    # TODO: put `extra`, `min_num`, `max_num` limits on formsets
+
     menu = request.FILES["menu"]
     # save a temporary file in anticipation of confirmation
     if temp_storage.exists(menu.name):
@@ -114,6 +116,7 @@ def handle_menu_upload(request: HttpRequest, monday: date) -> HttpResponse:
             field: getattr(menu_data, field) for field in menu_fields
         }
 
+    # TODO: create autocomplete widgets for all of these formsets
     menufooditem_formsets = [
         MenuFoodItemFormSet(prefix=f"fooditems-{i}")
         for i, _ in enumerate(menu_formset.forms)
