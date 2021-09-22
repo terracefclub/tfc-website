@@ -7,8 +7,8 @@ from django.utils.html import format_html_join
 from wagtail.core import hooks
 
 
-@hooks.register("insert_editor_js")
-def editor_js():
+@hooks.register("insert_global_admin_js")
+def admin_js():
     """
     Add script tags for any new JS to put in Wagtail admin.
     NOTE: the current, unimplemented intention was to support field population
@@ -20,4 +20,14 @@ def editor_js():
         "\n",
         '<script src="{0}"></script>',
         ((static(filename),) for filename in js_files),
+    )
+
+
+@hooks.register("insert_global_admin_css")
+def admin_css():
+    css_files = ["css/admin.css"]
+    return format_html_join(
+        "\n",
+        '<link rel="stylesheet" href="{0}">',
+        ((static(filename),) for filename in css_files),
     )
