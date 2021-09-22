@@ -1,139 +1,153 @@
-import { queryElement, queryElementAll } from '../../common/utilities/query';
+import '../styles/index.scss';
+import { queryElement } from '../../common/utilities/query';
+import 'isomorphic-fetch';
 
-const acceptedDocTypes = [
-  '.doc',
-  '.docx',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-];
+class UploadForm {
+    static acceptedDocTypes = [
+        '.doc',
+        '.docx',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+    parent = document.body;
+    form: HTMLFormElement;
+    input: HTMLInputElement;
 
-document.addEventListener('DOMContentLoaded', addDocumentUploader);
+    constructor(parent?: HTMLElement) {
+        if (parent) this.parent = parent;
+        this.form = document.createElement('form');
+        this.form.enctype = 'multipart/form-data';
 
-function addDocumentUploader(): void {
-  // guaranteed to exist because of the Wagtail "insert_editor_js"
-  const editorForm = queryElement(document, '#page-edit-form', HTMLFormElement);
+        this.input = document.createElement('input');
+        this.input.type = 'file';
+        this.input.name = 'menu';
+        this.input.accept = UploadForm.acceptedDocTypes.join(',');
+    }
 
-  // only proceed if on the Weekly Menu Page creation page
-  if (
-    !!editorForm
-      ?.getAttribute('action')
-      ?.match(new RegExp('/admin/pages/add/menus/weeklymenupage.*', 'g'))
-  ) {
-    const header = queryElement(document, 'header .header-title', HTMLElement);
-    const fileHTML = `
-        <form enctype="multipart/form-data">
-            <input type="file" name="menu"
-                accept="${acceptedDocTypes.join(',')}" />
-        </form>
-    `;
-    header.innerHTML += fileHTML;
-    const uploadInput = queryElement(header, 'input', HTMLInputElement);
-    const uploadForm = queryElement(header, 'form', HTMLFormElement);
+    async submit(): Promise<Response> {
+        if (!this.input.files) {
+            return Promise.reject('No valid FileList on input');
+        }
 
-    const uploadModal = document.createElement('div');
-    uploadModal.className = 'upload-modal';
-    uploadModal.innerHTML = `
-        <div class="upload-modal">
-            <div class="upload-modal-header">
+        const regex = /^menu_(?<date>\d{2}-\d{2}-\d{4})\.\w+$/.compile();
+        const filename = this.input.files[0].name;
+        if (!regex.test(filename)) {
+            return Promise.reject(
+                [
+                    `File "${filename}" does not have the correct name format`,
+                    'for parsing: "menu_MM-DD-YYYY.docx". Remember to pad',
+                    'single-digit dates with a leading zero, as in 09-01-2021.',
+                ].join(''),
+            );
+        }
+
+        const date = regex.exec(filename)?.groups?.date;
+        if (!date || new Date(date).getDay() !== 0) {
+            // is NOT a monday!
+            return Promise.reject(
+                [
+                    `Date ${date} in the uploaded file name is not a Monday.`,
+                    "Plase rename the file to the week's Monday.",
+                ].join(''),
+            );
+        }
+        const response = await fetch(`/menus/upload/${date}`, {
+            method: 'POST',
+            credentials: 'include',
+            body: new FormData(this.form),
+        });
+
+        if (response.ok) return response;
+        return Promise.reject(response);
+    }
+
+    load(): void {
+        this.form.append(this.input); // assemble
+        this.parent.append(this.form); // inject
+    }
+}
+
+type ModalOptions = {
+    prefix?: string;
+    parent?: HTMLElement;
+};
+class Modal {
+    prefix = 'modal';
+    parent = document.body;
+    container: HTMLDivElement;
+    body: HTMLDivElement;
+
+    constructor({ prefix, parent }: ModalOptions) {
+        this.container = document.createElement('div');
+        if (prefix) this.prefix = prefix;
+        if (parent) this.parent = parent;
+        this.container.innerHTML = `
+            <div class="${this.prefix}-header">
                 <h1 class="title">Confirm Menu</h1>
-                <button class="upload-modal-close">
+                <button class="${this.prefix}-close">
                     <svg class="icon icon-cross">
                         <use href="#icon-cross"></use>
                     </svg>
                 </button>
             </div>
-            <div class="upload-modal-body"></div>
-        </div>
-    `;
-    document.body.append(uploadModal);
-
-    const modalBody = queryElement(
-      uploadModal,
-      'div.upload-modal-body',
-      HTMLElement,
-    );
-
-    uploadInput.addEventListener('change', handleDocumentUpload);
-    async function handleDocumentUpload(): Promise<Response> {
-      if (!uploadInput.files) {
-        return Promise.reject('No valid FileList on input');
-      }
-
-      const response = await fetch('/menus/upload/', {
-        method: 'POST',
-        credentials: 'include',
-        body: new FormData(uploadForm),
-      });
-      if (response.ok) {
-        const data: {
-          menus: {
-            weekday: string;
-            date: Date;
-            dishes: {
-              course: string;
-              tags: string[];
-              name: string;
-            }[];
-            theme?: string;
-          }[];
-          monday: Date;
-        } = await response.json();
-
-        // set the First Day of the Week (Monday) field
-        queryElement(
-          editorForm,
-          '#id_starting_day',
-          HTMLInputElement,
-        ).value = formatWagtailDate(data.monday);
-
-        // add new widgets for all the menus in data by clicking button
-        const menuWidgetAddBtn = queryElement(
-          editorForm,
-          '#id_menus-ADD',
-          HTMLLinkElement,
+            <div class="${this.prefix}-body"></div>
+        `;
+        this.body = queryElement(
+            this.container,
+            `.${this.prefix}-body`,
+            HTMLDivElement,
         );
-        [...Array(data.menus.length)].forEach(() => menuWidgetAddBtn.click());
-        const menuWidgets = queryElementAll(
-          editorForm,
-          '#id_menus-FORMS > *',
-          HTMLElement,
-        );
-
-        menuWidgets.forEach((widget, i) => {
-          // set Date of Meal attribute in FoodItem widget
-          queryElement(
-            widget,
-            `#id_menus-${i}-date`,
-            HTMLInputElement,
-          ).value = formatWagtailDate(data.menus[i].date);
-
-          // add new FoodItem widgets to the full menu widget by clicking +ADD
-          const addFoodItemBtn = queryElement(
-            widget,
-            `#id_menus-${i}-food_items-ADD`,
-            HTMLLinkElement,
-          );
-          [...Array(data.menus[i].dishes.length)].forEach(() =>
-            addFoodItemBtn.click(),
-          );
-        });
-
-        modalBody.innerHTML = '<h1>Loading ... </h1>';
-        uploadModal.style.display = 'block';
-        return response;
-      }
-      return Promise.reject(response);
     }
-  }
+
+    load(): void {
+        this.parent.append(this.container);
+    }
+
+    show(child: HTMLElement | string): void {
+        this.container.style.display = 'block';
+        this.body.replaceChildren(child);
+    }
+
+    unshow(): void {
+        this.body.innerHTML = '';
+        this.container.style.display = 'hidden';
+    }
 }
 
-function formatWagtailDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  const day = date.getDate();
-  return [
-    year,
-    (month < 10 ? '0' : '') + month,
-    (day < 10 ? '0' : '') + day,
-  ].join('-');
+class Loading {
+    container: HTMLDivElement;
+
+    constructor() {
+        this.container = document.createElement('div');
+        this.container.className = 'spinner';
+        this.container.innerHTML = `
+            <div class="spinner-text">Chilling ... </div>
+            <div class="spinner-sector spinner-sector-green"></div>
+            <div class="spinner-sector spinner-sector-blue"></div>
+            <div class="spinner-sector spinner-sector-purple"></div>
+            <div class="spinner-sector spinner-sector-yellow"></div>
+        `;
+    }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    const uploadForm = new UploadForm(
+        queryElement(document, 'aside .inner', HTMLElement),
+    );
+    const modal = new Modal({ prefix: 'upload-modal' });
+    uploadForm.load();
+    modal.load();
+
+    uploadForm.input.addEventListener('change', async () => {
+        modal.show(new Loading().container);
+        try {
+            const response = await uploadForm.submit();
+            modal.show(await response.text());
+        } catch (error) {
+            modal.unshow();
+            console.error(error);
+            alert('Form submission failed! Check console.');
+            return Promise.reject();
+        }
+    });
+});
