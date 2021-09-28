@@ -5,6 +5,7 @@ Hooks to customize Wagtail admin interface
 from django.templatetags.static import static
 from django.utils.html import format_html_join
 from wagtail.core import hooks
+from wagtail.admin.menu import MenuItem
 
 
 @hooks.register("insert_global_admin_js")
@@ -30,4 +31,15 @@ def admin_css():
         "\n",
         '<link rel="stylesheet" href="{0}">',
         ((static(filename),) for filename in css_files),
+    )
+
+
+@hooks.register("register_admin_menu_item")
+def register_add_weeklymenupage_item():
+    return MenuItem(
+        "Add Menu",
+        "#",
+        icon_name="plus-inverse",
+        order=1000,
+        attrs={"data-modal": "menu-upload"},
     )

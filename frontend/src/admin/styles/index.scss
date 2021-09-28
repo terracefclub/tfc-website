@@ -2,6 +2,41 @@
 @tailwind components;
 @tailwind utilities;
 
-.upload-modal {
-    @apply inset-0 absolute h-full w-full hidden;
+#flab-modal {
+    @apply inset-0 absolute h-[100%] max-h-[100vh] w-full z-[100] hidden;
+    @apply items-center justify-center;
+
+    background-color: rgba(0, 0, 0, 0.5);
+
+    &-body {
+        @apply flex flex-col;
+        @apply min-h-[40vmin];
+        @apply bg-white;
+
+        aspect-ratio: 1 / 1;
+    }
+
+    &-header {
+        @apply p-8;
+
+        background-color: var(--color-primary-darker);
+
+        h1 {
+            color: white;
+        }
+    }
+
+    form {
+        @apply flex-grow;
+        @apply p-8;
+        @apply flex flex-col items-center justify-center gap-[1em];
+
+        button {
+            background-color: var(--color-primary-darker);
+            color: white;
+            padding: 0.5em;
+            border-radius: 0.5em;
+            font-size: large;
+        }
+    }
 }

@@ -9,12 +9,11 @@ class UploadForm {
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     ];
-    parent = document.body;
     form: HTMLFormElement;
     input: HTMLInputElement;
+    button: HTMLButtonElement;
 
-    constructor(parent?: HTMLElement) {
-        if (parent) this.parent = parent;
+    constructor() {
         this.form = document.createElement('form');
         this.form.enctype = 'multipart/form-data';
 
@@ -22,6 +21,12 @@ class UploadForm {
         this.input.type = 'file';
         this.input.name = 'menu';
         this.input.accept = UploadForm.acceptedDocTypes.join(',');
+
+        this.button = document.createElement('button');
+        this.button.type = 'submit';
+        this.button.textContent = 'Submit';
+
+        this.form.append(this.input, this.button);
     }
 
     async submit(): Promise<Response> {
@@ -29,29 +34,34 @@ class UploadForm {
             return Promise.reject('No valid FileList on input');
         }
 
-        const regex = /^menu_(?<date>\d{2}-\d{2}-\d{4})\.\w+$/.compile();
+        const regex = /^menu_(\d{2})-(\d{2})-(\d{4})\.\w+$/;
         const filename = this.input.files[0].name;
-        if (!regex.test(filename)) {
+        const match = filename.match(regex);
+        if (!match) {
             return Promise.reject(
                 [
                     `File "${filename}" does not have the correct name format`,
                     'for parsing: "menu_MM-DD-YYYY.docx". Remember to pad',
                     'single-digit dates with a leading zero, as in 09-01-2021.',
-                ].join(''),
+                ].join(' '),
             );
         }
 
-        const date = regex.exec(filename)?.groups?.date;
-        if (!date || new Date(date).getDay() !== 0) {
+        const [month, day, year] = match.slice(1).map((a) => parseInt(a));
+        const date = new Date(year, month - 1, day);
+
+        if (date.getDay() !== 1) {
             // is NOT a monday!
             return Promise.reject(
                 [
-                    `Date ${date} in the uploaded file name is not a Monday.`,
-                    "Plase rename the file to the week's Monday.",
-                ].join(''),
+                    `Date "${date}" in the uploaded file name is not a Monday.`,
+                    "Please rename the file to the week's Monday.",
+                ].join(' '),
             );
         }
-        const response = await fetch(`/menus/upload/${date}`, {
+
+        const reformattedDate = [month, day, year].join('-');
+        const response = await fetch(`/menus/upload/${reformattedDate}`, {
             method: 'POST',
             credentials: 'include',
             body: new FormData(this.form),
@@ -60,11 +70,6 @@ class UploadForm {
         if (response.ok) return response;
         return Promise.reject(response);
     }
-
-    load(): void {
-        this.form.append(this.input); // assemble
-        this.parent.append(this.form); // inject
-    }
 }
 
 type ModalOptions = {
@@ -72,40 +77,36 @@ type ModalOptions = {
     parent?: HTMLElement;
 };
 class Modal {
-    prefix = 'modal';
+    prefix = 'flab-modal';
     parent = document.body;
     container: HTMLDivElement;
     body: HTMLDivElement;
 
-    constructor({ prefix, parent }: ModalOptions) {
+    constructor({ prefix, parent }: ModalOptions = {}) {
         this.container = document.createElement('div');
         if (prefix) this.prefix = prefix;
         if (parent) this.parent = parent;
+        this.container.id = this.prefix;
         this.container.innerHTML = `
-            <div class="${this.prefix}-header">
-                <h1 class="title">Confirm Menu</h1>
-                <button class="${this.prefix}-close">
-                    <svg class="icon icon-cross">
-                        <use href="#icon-cross"></use>
-                    </svg>
-                </button>
+            <div id="${this.prefix}-body">
+                <div id="${this.prefix}-header">
+                    <h1>Modal</h1>
+                </div>
             </div>
-            <div class="${this.prefix}-body"></div>
         `;
         this.body = queryElement(
             this.container,
-            `.${this.prefix}-body`,
+            `#${this.prefix}-body`,
             HTMLDivElement,
         );
-    }
 
-    load(): void {
+        // add to DOM
         this.parent.append(this.container);
     }
 
     show(child: HTMLElement | string): void {
-        this.container.style.display = 'block';
-        this.body.replaceChildren(child);
+        this.container.style.display = 'flex';
+        this.body.append(child);
     }
 
     unshow(): void {
@@ -131,23 +132,32 @@ class Loading {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const uploadForm = new UploadForm(
-        queryElement(document, 'aside .inner', HTMLElement),
-    );
-    const modal = new Modal({ prefix: 'upload-modal' });
-    uploadForm.load();
-    modal.load();
+    const modalTriggers = document.querySelectorAll('[data-modal]');
 
-    uploadForm.input.addEventListener('change', async () => {
-        modal.show(new Loading().container);
-        try {
-            const response = await uploadForm.submit();
-            modal.show(await response.text());
-        } catch (error) {
-            modal.unshow();
-            console.error(error);
-            alert('Form submission failed! Check console.');
-            return Promise.reject();
-        }
+    // silently exit if no modal triggers
+    if (modalTriggers.length === 0) return;
+
+    const modal = new Modal();
+    modalTriggers.forEach((modalTrigger) => {
+        modalTrigger.addEventListener('click', () => {
+            const modalId = modalTrigger.getAttribute('data-modal');
+            if (modalId === 'menu-upload') {
+                const uploadForm = new UploadForm();
+                modal.show(uploadForm.form);
+
+                uploadForm.form.addEventListener('submit', async () => {
+                    modal.show(new Loading().container);
+                    try {
+                        const response = await uploadForm.submit();
+                        modal.show(await response.text());
+                    } catch (error) {
+                        modal.unshow();
+                        console.error(error);
+                        alert('Form submission failed! Check console.');
+                        return Promise.reject();
+                    }
+                });
+            }
+        });
     });
 });
