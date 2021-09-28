@@ -28,6 +28,10 @@
                 {
                     "match": "\\.tsx?$",
                     "cmd": "${workspaceFolder}/node_modules/.bin/prettier --write ${file}"
+                },
+                {
+                    "match": "\\.s?css$",
+                    "cmd": "${workspaceFolder}/node_modules/.bin/stylelint --fix ${file}"
                 }
             ]
         },
