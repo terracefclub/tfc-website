@@ -10,57 +10,89 @@
             "path": "../frontend"
         }
     ],
-  "settings": {
-    "files.associations": {
-      "**/*.scss": "scss"
-    },
-    "emeraldwalk.runonsave": {
-        "commands": [
+    "settings": {
+        "files.associations": {
+            "**/*.html": "html",
+            "**/templates/**/*.html": "django-html",
+            "**/templates/**/*": "django-txt",
+            "**/requirements{/**,*}.{txt,in}": "pip-requirements",
+            "*.yaml": "yaml",
+            "**/*.scss": "scss"
+        },
+        "emeraldwalk.runonsave": {
+            "commands": [
+                {
+                    "match": "\\.py$",
+                    "cmd": "/home/schra/.local/bin/black ${file}"
+                },
+                {
+                    "match": "\\.tsx?$",
+                    "cmd": "${workspaceFolder}/node_modules/.bin/prettier --write ${file}"
+                }
+            ]
+        },
+        "python.linting.flake8Enabled": true,
+        "python.linting.pylintEnabled": true,
+        "python.linting.mypyEnabled": true,
+        "python.linting.lintOnSave": true,
+        "json.schemas": [
             {
-                "match": "\\.py$",
-                "cmd": "/home/schra/.local/bin/black ${file}"
+                "fileMatch": [
+                    ".babelrc"
+                ],
+                "url": "https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/babelrc.json"
             },
             {
-                "match": "\\.tsx?$",
-                "cmd": "${workspaceFolder}/node_modules/.bin/prettier --write ${file}"
+                "fileMatch": [
+                    ".eslintrc"
+                ],
+                "url": "https://json.schemastore.org/eslintrc.json"
+            },
+            {
+                "fileMatch": [
+                    ".prettierrc.json"
+                ],
+                "url": "https://json.schemastore.org/prettierrc.json"
             }
-        ]
-    },
-    "python.linting.flake8Enabled": true,
-    "python.linting.pylintEnabled": true,
-    "python.linting.mypyEnabled": true,
-    "python.linting.lintOnSave": true,
-    "json.schemas": [
-        {
-            "fileMatch": [
-                ".babelrc"
-            ],
-            "url": "https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/babelrc.json"
+        ],
+        "sqltools.connections": [
+            {
+                "previewLimit": 50,
+                "server": "postgres",
+                "port": 5432,
+                "askForPassword": true,
+                "driver": "PostgreSQL",
+                "name": "postgres (local)",
+                "database": "web",
+                "username": "user"
+            }
+        ],
+        "editor.bracketPairColorization.enabled": true,
+        "editor.codeActionsOnSave": {
+            "source.fixAll.eslint": true 
         },
-        {
-            "fileMatch": [
-                ".eslintrc"
-            ],
-            "url": "https://json.schemastore.org/eslintrc.json"
+    
+        "emmet.includeLanguages": {
+            "django-html": "html"
         },
-        {
-            "fileMatch": [
-                ".prettierrc.json"
-            ],
-            "url": "https://json.schemastore.org/prettierrc.json"
-        }
-    ],
-    "sqltools.connections": [
-        {
-            "previewLimit": 50,
-            "server": "postgres",
-            "port": 5432,
-            "askForPassword": true,
-            "driver": "PostgreSQL",
-            "name": "postgres (local)",
-            "database": "web",
-            "username": "user"
-        }
-    ],
-  }
+    
+        "python.languageServer": "Pylance",
+        "python.testing.pytestArgs": [
+            "."
+        ],
+        "python.testing.unittestEnabled": false,
+        "python.testing.pytestEnabled": true,
+    
+        "css.validate": false,
+        "scss.validate": false,
+        "stylelint.enable": true,
+        "stylelint.configFile": "frontend/.stylelintrc.json",
+        
+        "terminal.integrated.profiles.linux": {
+            "zsh -l": {
+                "path": "/bin/zsh",
+                "args": ["-l"],
+            },
+        },
+    }
 }

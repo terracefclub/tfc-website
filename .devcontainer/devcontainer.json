@@ -1,81 +1,43 @@
 {
 	"name": "TFC Website",
 
-  "dockerComposeFile": "docker-compose.yaml",
-  "service": "server",
-  "workspaceFolder": "/usr/src/womb",
-  "shutdownAction": "stopCompose",
-  "forwardPorts": [8888],
+    "dockerComposeFile": "docker-compose.yaml",
+    "service": "server",
+    "workspaceFolder": "/usr/src/womb",
+    "shutdownAction": "stopCompose",
+    "forwardPorts": [8888],
 
-  // add common development tools
-  "postCreateCommand": "bash .devcontainer/install-dev-tools.sh",
+    // add common development tools
+    "postCreateCommand": "bash .devcontainer/install-dev-tools.sh",
 
-  "userEnvProbe": "loginInteractiveShell",
+    "userEnvProbe": "loginInteractiveShell",
 
-  "remoteEnv": {
-    "PATH": "${localEnv:HOME}/.local/bin:${containerEnv:PATH}",
-    "GOOGLE_CREDENTIALS": "${localEnv:GOOGLE_CREDENTIALS}"
-  },
-
-	"settings": { 
-    "editor.codeActionsOnSave": {
-      "source.fixAll.eslint": true 
-    },
-    "editor.bracketPairColorization.enabled": true,
-
-    "emmet.includeLanguages": {
-      "django-html": "html"
+    "remoteEnv": {
+        "PATH": "${localEnv:HOME}/.local/bin:${containerEnv:PATH}",
+        "GOOGLE_CREDENTIALS": "${localEnv:GOOGLE_CREDENTIALS}"
     },
 
-    "files.associations": {
-      "**/*.html": "html",
-      "**/templates/**/*.html": "django-html",
-      "**/templates/**/*": "django-txt",
-      "**/requirements{/**,*}.{txt,in}": "pip-requirements",
-      "*.yaml": "yaml",
-      "*.scss": "scss"
+    "settings": {
+        "git.path": ["/usr/bin/git", "C:\\Program Files\\Git\\cmd\\git.exe"],
     },
 
-    "git.path": ["/usr/bin/git", "C:\\Program Files\\Git\\cmd\\git.exe"],
-
-    "python.languageServer": "Pylance",
-    "python.testing.pytestArgs": [
-      "."
+    // Extensions to be installed when container is created
+    "extensions": [
+        "batisteo.vscode-django",
+        "eamodio.gitlens",
+        "ms-python.python",
+        "bradlc.vscode-tailwindcss",
+        "ritwickdey.liveserver",
+        "tim-koehler.helm-intellisense",
+        "ipedrazas.kubernetes-snippets",
+        "stylelint.vscode-stylelint",
+        "tomoki1207.pdf",
+        "lextudio.restructuredtext",
+        "trond-snekvik.simple-rst",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg",
+        "ms-azuretools.vscode-docker",
+        "run-at-scale.terraform-doc-snippets",
+        "emeraldwalk.runonsave"
     ],
-    "python.testing.unittestEnabled": false,
-    "python.testing.nosetestsEnabled": false,
-    "python.testing.pytestEnabled": true,
-
-    "css.validate": false,
-    "scss.validate": false,
-    "stylelint.enable": true,
-    "stylelint.configFile": "frontend/.stylelintrc.json",
-    
-    "terminal.integrated.profiles.linux": {
-      "zsh -l": {
-        "path": "/bin/zsh",
-        "args": ["-l"],
-      },
-    },
-	},
-
-	// Extensions to be installed when container is created
-	"extensions": [
-    "batisteo.vscode-django",
-    "eamodio.gitlens",
-    "ms-python.python",
-    "bradlc.vscode-tailwindcss",
-    "ritwickdey.liveserver",
-    "tim-koehler.helm-intellisense",
-    "ipedrazas.kubernetes-snippets",
-    "stylelint.vscode-stylelint",
-    "tomoki1207.pdf",
-    "lextudio.restructuredtext",
-    "trond-snekvik.simple-rst",
-    "mtxr.sqltools",
-    "mtxr.sqltools-driver-pg",
-    "ms-azuretools.vscode-docker",
-    "run-at-scale.terraform-doc-snippets",
-    "emeraldwalk.runonsave"
-  ],
 }
