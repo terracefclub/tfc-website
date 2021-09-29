@@ -16,6 +16,7 @@ class UploadForm {
     constructor() {
         this.form = document.createElement('form');
         this.form.enctype = 'multipart/form-data';
+        this.form.method = 'POST';
 
         this.input = document.createElement('input');
         this.input.type = 'file';
@@ -23,7 +24,6 @@ class UploadForm {
         this.input.accept = UploadForm.acceptedDocTypes.join(',');
 
         this.button = document.createElement('button');
-        this.button.type = 'submit';
         this.button.textContent = 'Submit';
 
         this.form.append(this.input, this.button);
@@ -60,8 +60,12 @@ class UploadForm {
             );
         }
 
-        const reformattedDate = [month, day, year].join('-');
-        const response = await fetch(`/menus/upload/${reformattedDate}`, {
+        const reformattedDate = [
+            month < 10 ? `0${month}` : month,
+            day < 10 ? `0${day}` : day,
+            year,
+        ].join('-');
+        const response = await fetch(`/menus/upload/${reformattedDate}/`, {
             method: 'POST',
             credentials: 'include',
             body: new FormData(this.form),
@@ -145,11 +149,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const uploadForm = new UploadForm();
                 modal.show(uploadForm.form);
 
-                uploadForm.form.addEventListener('submit', async () => {
+                uploadForm.button.addEventListener('click', async () => {
                     modal.show(new Loading().container);
                     try {
-                        const response = await uploadForm.submit();
-                        modal.show(await response.text());
+                        await uploadForm.submit();
                     } catch (error) {
                         modal.unshow();
                         console.error(error);
