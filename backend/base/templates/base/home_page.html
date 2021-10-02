@@ -7,8 +7,9 @@
 {% block content %}
 <div id="home-container">
 
-  <div id="pinned-area">
+    {% comment %} <div id="pinned-area">
 
+    </div> {% endcomment %}
     {# The actual pinned posts #}
     <div class="title-wrapper">
       {% include 'base/rhombus_title.html' with title="Notable Posts" header="h2" %}
@@ -31,6 +32,5 @@
       </a>
       {% endwith %}
     </div>
-  </div>
 </div>
 {% endblock %}

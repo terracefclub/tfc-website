@@ -5,6 +5,14 @@
     @apply h-[435px] w-[810px];
 }
 
+#home-container {
+    @apply flex flex-col items-center gap-10;
+
+    a.archive-item.pdf {
+        @apply h-auto w-[810px] mr-0;
+    }
+}
+
 .carousel-item {
     @apply absolute inset-0;
     @apply h-full w-full;
