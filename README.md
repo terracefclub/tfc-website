@@ -1,3 +1,16 @@
+
+# Flabyrinth
+
+The boiler room of the FUTURE at Womb HQ, managed by Forkman, grower of sheets, stoker of peeps. This is a mongo monorepo magoo. May you find your way as you lose yourself in the flabyrinthian tunnels of metromomma. Main quest: TBA. Guidelines? Turn back or read further:
+
+## [Live Development Demo](https://tfc-website-staging-stable.herokuapp.com)
+
+## Environment Variables
+
+To run this project, you will need to add the following environment variables to your .env file
+
+`GOOGLE_CREDENTIALS`
+
 # TFC Website
 
 TFC Website Revamp Project
