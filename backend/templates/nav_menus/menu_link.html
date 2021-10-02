@@ -10,18 +10,18 @@
 >
   <div class="sidebar-link-container">
     <div class="link-box">
-      <p class="link-box-title">
-        {% if self.override_title %}
-          {{ self.override_title }}
-        {% elif self.page.title %}
-          {{ self.page.title }}
-        {% else %}
-          {{ self.title }}
-        {% endif %}
-      </p>
-      {% if arrow %}
+        <p class="link-box-title">
+            {% if self.override_title %}
+            {{ self.override_title }}
+            {% elif self.page.title %}
+            {{ self.page.title }}
+            {% else %}
+            {{ self.title }}
+            {% endif %}
+        </p>
+        {% if arrow %}
         <span class="arrow-r nav-drop"></span>
-      {% endif %}
+        {% endif %}
     </div>
     <div class="line"></div>
   </div>
