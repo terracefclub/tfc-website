@@ -8,6 +8,7 @@
 
   {# Render each media type group as a scrollable container #}
   {% for name, items in data.items %}
+    {# TODO: convert slider-block to a special type of title-wrapper #}
   <div class="slider-block">
     <div class="header">
       <p>{{ name|capfirst }}</p>
