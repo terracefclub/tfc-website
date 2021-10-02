@@ -37,6 +37,11 @@ body {
 }
 
 .title-wrapper {
+    background-color: rgba(38, 41, 42, 0.9);
+    padding: 1em;
+    border-radius: 1em;
+    color: whitesmoke;
+
     .box--tight {
         @apply my-0 mx-auto;
 
@@ -47,7 +52,16 @@ body {
         @apply bg-greenish text-darkergray;
         @apply px-4 py-2 mb-2;
 
-        box-shadow: 2px 2px 5px 1px rgba(44, 47, 46, 0.75);
+        // box-shadow: 2px 2px 5px 1px rgba(44, 47, 46, 0.75);
+    }
+
+    h2 {
+        font-size: 2rem;
+        text-align: center;
+    }
+
+    .subtitle {
+        text-align: center;
     }
 }
 
