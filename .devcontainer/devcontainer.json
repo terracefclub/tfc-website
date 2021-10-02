@@ -37,6 +37,8 @@
         "mtxr.sqltools",
         "mtxr.sqltools-driver-pg",
         "ms-azuretools.vscode-docker",
+        "4ops.terraform",
+        "hashicorp.terraform",
         "run-at-scale.terraform-doc-snippets",
         "emeraldwalk.runonsave"
     ],
