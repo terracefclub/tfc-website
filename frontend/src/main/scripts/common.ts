@@ -76,7 +76,7 @@ export function header(): void {
  * Main search bar logic as a component. Uses the main app modal to display
  * results whenever the contents of the search bar change.
  */
-export async function searchLoader(): Promise<void> {
+async function searchLoader(): Promise<void> {
     const search = queryElement(document, '#search', HTMLInputElement);
     const modal = queryElement(document, '#modal', HTMLDivElement);
     const modalClose = queryElement(document, '#modal-x', HTMLElement);

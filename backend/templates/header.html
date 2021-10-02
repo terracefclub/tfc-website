@@ -3,10 +3,10 @@
 <header>
   <button id="sidebar-trigger"><i class="fas fa-bars fa-5x"></i></button>
   <a id="logo" href="/" style="background-image: url({% static 'svg/logo.svg' %})"></a>
-  <div class="search">
+  {% comment %} <div class="search">
     <i class="fas fa-search"></i>
     <input type="text" id="search" />
-  </div>
+  </div> {% endcomment %}
   <div class="donate">
     <a class="button" href="{% slugurl 'donate' %}">DONATE</a>
     <img class="sparkle1" src="{% static 'svg/sparkle.svg' %}" alt="sparkle" />
