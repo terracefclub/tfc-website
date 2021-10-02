@@ -41,10 +41,11 @@
     @apply flex flex-col;
 
     background-color: colors.$dark;
+    top: var(--header-height);
 
     .header {
         @apply flex justify-start gap-x-4;
-        @apply w-full px-4 py-2;
+        @apply w-full p-4;
 
         #sidebar-x {
             @apply ml-auto;
