@@ -19,6 +19,7 @@ sandbox/
 future/
 bin/
 data/
+.vscode/settings.json
 
 ### TESTING ###
 .coverage/
