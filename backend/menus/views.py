@@ -1,16 +1,14 @@
-from typing import List, Optional, Type
+from typing import Optional
 from django.http.request import HttpRequest
 from django.http.response import (
     HttpResponse,
+    HttpResponseNotAllowed,
     HttpResponseRedirect,
-    HttpResponseServerError,
 )
-from django.shortcuts import redirect, render
+from django.shortcuts import render
 from django.http import HttpResponseBadRequest
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
-from datetime import datetime, date, timedelta
-from wagtail.documents import get_document_model
+from datetime import datetime, date
 
 from taggit.models import Tag
 from wagtail.documents.models import Document
@@ -25,13 +23,11 @@ from menus.models import (
     FoodItem,
 )
 from django.forms.models import (
-    BaseInlineFormSet,
     inlineformset_factory,
     modelform_factory,
     modelformset_factory,
 )
 from menus.menu_parser import Dish, parse_data_from_menu_document
-from storagers import temp_storage
 
 
 menu_fields = ("date", "theme")
@@ -55,7 +51,6 @@ def get_fooditem(dish: Dish) -> Optional[int]:
     return pk
 
 
-@csrf_exempt
 @require_http_methods(["POST"])
 def handle_menu_upload(request: HttpRequest, monday: date) -> HttpResponse:
     """
@@ -65,6 +60,12 @@ def handle_menu_upload(request: HttpRequest, monday: date) -> HttpResponse:
 
     :returns:
     """
+
+    if WeeklyMenuPage.objects.filter(starting_day=monday).first() is not None:
+        return HttpResponseNotAllowed(
+            "There already exists a weekly menu for the specified date: "
+            f"{monday}"
+        )
 
     menu = request.FILES["menu"]
 
