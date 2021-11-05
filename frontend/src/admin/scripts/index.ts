@@ -1,6 +1,7 @@
 import '../styles/index.scss';
 import { queryElement } from '../../common/utilities/query';
 import 'isomorphic-fetch';
+import Cookies from 'js-cookie';
 
 class UploadForm {
     static acceptedDocTypes = [
@@ -65,9 +66,15 @@ class UploadForm {
             day < 10 ? `0${day}` : day,
             year,
         ].join('-');
+        const csrftoken = Cookies.get('csrftoken');
+        if (!csrftoken)
+            return Promise.reject(new Response('csrftoken not defined!'));
         const response = await fetch(`/menus/upload/${reformattedDate}/`, {
             method: 'POST',
-            credentials: 'include',
+            headers: {
+                'X-CSRFToken': csrftoken,
+            },
+            credentials: 'same-origin',
             body: new FormData(this.form),
         });
 
@@ -149,14 +156,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const uploadForm = new UploadForm();
                 modal.show(uploadForm.form);
 
-                uploadForm.button.addEventListener('click', async () => {
+                uploadForm.button.addEventListener('click', async (event) => {
+                    event.preventDefault();
                     modal.show(new Loading().container);
                     try {
-                        await uploadForm.submit();
+                        const response = await uploadForm.submit();
+                        window.location.href = response.url;
                     } catch (error) {
                         modal.unshow();
                         console.error(error);
-                        alert('Form submission failed! Check console.');
+                        alert('Failed to upload resource: ' + error);
                         return Promise.reject();
                     }
                 });
