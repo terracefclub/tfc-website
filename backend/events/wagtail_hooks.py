@@ -3,7 +3,7 @@ from wagtail.admin.menu import (
     Menu,
     MenuItem,
     SubmenuMenuItem,
-    SubMenuItemComponent,
+    # SubMenuItemComponent,
 )
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
@@ -17,15 +17,15 @@ events_menu = Menu(
 class EventsMenuItem(SubmenuMenuItem):
     template = "events/menu_events_menu_item.html"
 
-    def render_component(self, request):
-        return SubMenuItemComponent(
-            self.name,
-            self.label,
-            self.menu.render_component(request),
-            icon_name=self.icon_name,
-            classnames=self.classnames,
-            footer_text="Events Calendar Action Items",
-        )
+    # def render_component(self, request):
+    #     return SubMenuItemComponent(
+    #         self.name,
+    #         self.label,
+    #         self.menu.render_component(request),
+    #         icon_name=self.icon_name,
+    #         classnames=self.classnames,
+    #         footer_text="Events Calendar Action Items",
+    #     )
 
 
 @hooks.register("register_admin_menu_item")
