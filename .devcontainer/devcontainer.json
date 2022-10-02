@@ -1,27 +1,16 @@
 {
-	"name": "TFC Website",
-
-    "dockerComposeFile": "docker-compose.yaml",
-    "service": "server",
-    "workspaceFolder": "/usr/src/womb",
-    "shutdownAction": "stopCompose",
-    "forwardPorts": [8888],
-
-    // add common development tools
+    "name": "TFC Website",
+    "context": "..",
+    "dockerFile": "../docker/Dockerfile.dev",
     "postCreateCommand": "bash .devcontainer/install-dev-tools.sh",
-
     "userEnvProbe": "loginInteractiveShell",
-
     "remoteEnv": {
         "PATH": "${localEnv:HOME}/.local/bin:${containerEnv:PATH}",
         "GOOGLE_CREDENTIALS": "${localEnv:GOOGLE_CREDENTIALS}"
     },
-
     "settings": {
-        "git.path": ["/usr/bin/git", "C:\\Program Files\\Git\\cmd\\git.exe"],
+        "git.path": ["/usr/bin/git", "C:\\Program Files\\Git\\cmd\\git.exe"]
     },
-
-    // Extensions to be installed when container is created
     "extensions": [
         "batisteo.vscode-django",
         "eamodio.gitlens",
@@ -41,5 +30,5 @@
         "hashicorp.terraform",
         "run-at-scale.terraform-doc-snippets",
         "emeraldwalk.runonsave"
-    ],
+    ]
 }
