@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+state="$PWD/.state"
+mkdir -p "$state" "$state/postgres-socket" "$state/media"
+chmod 700 "$state" "$state/postgres-socket"
+if [[ ! -f "$state/local.env" ]]; then
+  bun -e 'import { randomBytes } from "node:crypto"; import { writeFileSync } from "node:fs"; const secret=randomBytes(48).toString("hex"); const password=randomBytes(24).toString("hex"); writeFileSync(".state/local.env", `PAYLOAD_SECRET=${secret}\nCMS_BOOTSTRAP_EMAIL=local-admin@terrace.invalid\nCMS_BOOTSTRAP_PASSWORD=${password}\nCMS_LOCAL_BOOTSTRAP=1\nCMS_ORIGIN=http://127.0.0.1:3010\n`, {mode:0o600,flag:"wx"});'
+fi
+if [[ ! -f "$state/postgres/PG_VERSION" ]]; then
+  initdb -D "$state/postgres" --auth-local=trust --auth-host=reject >/dev/null
+  printf "listen_addresses = ''\nport = 55432\nunix_socket_directories = '%s'\n" "$state/postgres-socket" >> "$state/postgres/postgresql.conf"
+fi
+if ! pg_ctl -D "$state/postgres" status >/dev/null 2>&1; then
+  pg_ctl -D "$state/postgres" -l "$state/postgres.log" start >/dev/null
+fi
+if ! PGHOST="$state/postgres-socket" PGPORT=55432 psql -d postgres -Atqc "SELECT 1 FROM pg_database WHERE datname='terrace_cms'" | grep -qx 1; then
+  PGHOST="$state/postgres-socket" PGPORT=55432 createdb terrace_cms
+fi
+printf 'Local PostgreSQL ready. Run tools/with-local bun run migrate, then tools/with-local bun run bootstrap:local.\n'

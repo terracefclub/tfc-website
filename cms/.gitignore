@@ -1,0 +1,7 @@
+.devenv/
+.direnv/
+.next/
+.state/
+node_modules/
+*.tsbuildinfo
+payload-types.ts

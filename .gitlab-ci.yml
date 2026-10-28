@@ -19,3 +19,26 @@ web:
     expire_in: 7 days
     paths:
       - web/build/
+
+cms:
+  stage: verify
+  image: node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+  services:
+    - name: postgres:17.11-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+      alias: postgres
+  variables:
+    POSTGRES_DB: terrace_cms
+    POSTGRES_USER: postgres
+    POSTGRES_HOST_AUTH_METHOD: trust
+    NPM_CONFIG_CACHE: /tmp/terrace-npm-cache
+    BUN_INSTALL_CACHE_DIR: /tmp/terrace-bun-cache
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+    - if: '$CI_COMMIT_BRANCH == "prod"'
+  script:
+    - npm install --prefix /tmp/terrace-bun --no-save bun@1.4.4
+    - export PATH="/tmp/terrace-bun/node_modules/.bin:$PATH"
+    - cd cms
+    - bun install --frozen-lockfile
+    - bun tools/ci.ts
