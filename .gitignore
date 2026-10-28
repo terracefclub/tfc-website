@@ -12,6 +12,8 @@ terraform/.terraform.lock.hcl
 tmp/
 media/
 static/
+!web/static/
+!web/static/**
 
 ### DEVELOPMENT ###
 backend/website/templates/sandbox.html

@@ -1,0 +1,69 @@
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { stat } from 'node:fs/promises';
+import { parseHTML } from 'linkedom';
+import { createServer, type ViteDevServer } from 'vite';
+import type { AddressInfo } from 'node:net';
+
+let server: ViteDevServer;
+let origin: string;
+
+beforeAll(async () => {
+  server = await createServer({ server: { host: '127.0.0.1', port: 0, strictPort: false }, logLevel: 'silent' });
+  await server.listen();
+  origin = `http://127.0.0.1:${(server.httpServer?.address() as AddressInfo).port}`;
+});
+
+afterAll(async () => {
+  await server?.close();
+});
+
+describe('rendered pages', () => {
+  test.each(['/', '/events/', '/events/supper-at-the-table/', '/newsletter/', '/donate/'])('%s has landmarks, one heading, named images, and safe links', async (path) => {
+    const response = await fetch(`${origin}${path}`);
+    expect(response.status).toBe(200);
+    const html = await response.text();
+    const { document } = parseHTML(html);
+    expect(document.documentElement.getAttribute('lang')).toBe('en');
+    expect(document.querySelectorAll('main').length).toBe(1);
+    expect(document.querySelectorAll('h1').length).toBe(1);
+    expect(document.querySelector('nav[aria-label="Primary navigation"]')).not.toBeNull();
+    expect([...document.querySelectorAll('.header-inner > button, .header-inner > nav')].map((node) => node.tagName.toLowerCase())).toEqual(['button', 'nav']);
+    expect([...document.querySelectorAll('img')].every((img) => img.hasAttribute('alt'))).toBe(true);
+    for (const anchor of document.querySelectorAll('a')) {
+      const href = anchor.getAttribute('href');
+      expect(href).toBeTruthy();
+      expect(href).not.toBe('#');
+      if (anchor.getAttribute('target') === '_blank') {
+        expect(anchor.getAttribute('rel')).toContain('noopener');
+        expect(anchor.getAttribute('rel')).toContain('noreferrer');
+      }
+    }
+    expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    expect(response.headers.get('X-Frame-Options')).toBe('DENY');
+  });
+
+  test('the event preview is unmistakable and details never imply a live booking', async () => {
+    const events = await (await fetch(`${origin}/events/`)).text();
+    const detail = await (await fetch(`${origin}/events/supper-at-the-table/`)).text();
+    const { document } = parseHTML(events);
+    for (const date of document.querySelectorAll('.event-card time')) {
+      expect(date.getAttribute('datetime')).toMatch(/^\d{4}-\d\d-\d\dT/);
+      expect(date.querySelector('.sr-only')?.textContent).toMatch(/2026$/);
+    }
+    expect(events).toContain('sample content only');
+    expect(detail).toContain('not scheduled');
+    expect(detail).toContain('official calendar');
+  });
+
+  test('the home page stays light enough for a simple static visit', async () => {
+    const response = await fetch(origin);
+    const html = await response.text();
+    expect(Buffer.byteLength(html)).toBeLessThan(45_000);
+    for (const asset of ['clubhouse.jpg', 'clubhouse-snow.jpg', 'food-is-love.png']) {
+      const size = (await stat(new URL(`../static/images/${asset}`, import.meta.url))).size;
+      expect(size).toBeLessThan(900_000);
+    }
+    expect(html).not.toContain('fonts.googleapis.com');
+    expect(html).not.toContain('fonts.gstatic.com');
+  });
+});

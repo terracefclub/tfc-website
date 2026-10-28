@@ -1,0 +1,4 @@
+<script lang="ts">import { official } from '$lib/content';</script>
+<svelte:head><title>Merchandise · Terrace F. Club</title><meta name="description" content="Find Terrace Club merchandise through the official club website." /></svelte:head>
+<section class="page-hero coral"><div class="shell"><span class="eyebrow">TAKE A LITTLE TERRACE WITH YOU</span><h1>Wear the<br /><em>love.</em></h1><p>For Terrans who like to carry a bit of the Mother wherever they go.</p></div></section>
+<section class="shell content-section prose"><h2>Terrace merchandise</h2><p>See current merchandise details on Terrace’s official site. Availability and ordering information live there.</p><a class="button button-dark" href={official.merchandise} target="_blank" rel="noopener noreferrer">Visit official merchandise page <span aria-hidden="true">↗</span><span class="sr-only">(opens in a new tab)</span></a></section>
