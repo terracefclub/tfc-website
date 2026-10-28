@@ -2,6 +2,7 @@ import { afterAll, beforeAll, expect, test } from 'bun:test';
 import { parseHTML } from 'linkedom';
 
 let mode: 'published' | 'empty' | 'draft' | 'outage' = 'published';
+let eventStartsAt: string;
 const cms = Bun.serve({
   hostname: '127.0.0.1', port: 0,
   fetch(request) {
@@ -9,7 +10,7 @@ const cms = Bun.serve({
     const path = new URL(request.url).pathname;
     let docs: unknown[] = [];
     if (mode !== 'empty') {
-      if (path === '/api/events') docs = [{ _status: mode === 'draft' ? 'draft' : 'published', slug: 'club-dinner', title: 'Published dinner', summary: 'A gathering at Terrace.', startsAt: '2027-01-08T23:00:00.000Z', category: 'food', locationName: 'Clubhouse', body: '<script>window.unsafeContent=true</script>' }];
+      if (path === '/api/events') docs = [{ _status: mode === 'draft' ? 'draft' : 'published', slug: 'club-dinner', title: 'Published dinner', summary: 'A gathering at Terrace.', startsAt: eventStartsAt, category: 'food', locationName: 'Clubhouse', body: '<script>window.unsafeContent=true</script>' }];
       if (path === '/api/newsletters') docs = [{ _status: 'published', title: 'Winter 2027 News', issueDate: '2027-01-01T00:00:00.000Z', issuePdf: { public: true, mimeType: 'application/pdf', url: '/api/media/file/winter.pdf' } }];
       if (path === '/api/initiatives') docs = [{ _status: 'published', slug: 'care', title: 'Clubhouse care', summary: 'Keep the house welcoming.', body: 'A little care goes a long way.' }];
     }
@@ -20,6 +21,7 @@ const cms = Bun.serve({
 let web: ReturnType<typeof Bun.spawn>;
 let origin: string;
 beforeAll(async () => {
+  eventStartsAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
   web = Bun.spawn([process.execPath, './node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '0'], {
     env: { ...process.env, CONTENT_SOURCE: 'cms', CMS_ORIGIN: `http://127.0.0.1:${cms.port}`, CMS_PUBLIC_ORIGIN: 'https://files.example.org', NO_COLOR: '1' },
     stdout: 'pipe', stderr: 'ignore'

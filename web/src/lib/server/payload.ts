@@ -51,6 +51,7 @@ export function createPayloadClient(options: {
   publicOrigin?: string;
   fetch?: Fetch;
   timeoutMs?: number;
+  now?: () => Date;
 }) {
   const base = origin(options.origin);
   const publicBase = origin(options.publicOrigin ?? options.origin);
@@ -118,7 +119,19 @@ export function createPayloadClient(options: {
   }
 
   return {
-    async events() { return (await collection('events', { sort: 'startsAt' })).map(event); },
+    async events() {
+      const now = options.now?.() ?? new Date();
+      const nowIso = now.toISOString();
+      const nowMs = now.getTime();
+      const docs = await collection('events', {
+        sort: 'startsAt',
+        'where[or][0][startsAt][greater_than_equal]': nowIso,
+        'where[or][1][endsAt][greater_than_equal]': nowIso
+      });
+      return docs.map(event).filter(value =>
+        Date.parse(value.startsAt) >= nowMs || (value.endsAt !== undefined && Date.parse(value.endsAt) >= nowMs)
+      );
+    },
     async event(value: string) {
       const docs = await collection('events', { 'where[slug][equals]': slug(value) });
       if (docs.length > 1) throw new ContentUnavailable();
