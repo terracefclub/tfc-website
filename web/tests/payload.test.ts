@@ -3,7 +3,7 @@ import { ContentUnavailable, createPayloadClient } from '../src/lib/server/paylo
 
 const publishedEvent = { _status: 'published', slug: 'club-dinner', title: 'Club dinner', summary: 'Everyone is welcome.', startsAt: '2027-01-08T23:00:00.000Z', endsAt: '2027-01-09T01:00:00.000Z', category: 'food', locationName: 'The clubhouse' };
 const json = (docs: unknown[], hasNextPage = false) => Response.json({ docs, hasNextPage });
-const client = (request: (url: string | URL, init?: RequestInit) => Promise<Response>) => createPayloadClient({ origin: 'http://127.0.0.1:3000', fetch: request });
+const client = (request: (url: string | URL, init?: RequestInit) => Promise<Response>, now = () => new Date('2027-01-01T00:00:00.000Z')) => createPayloadClient({ origin: 'http://127.0.0.1:3000', fetch: request, now });
 
 describe('public Payload boundary', () => {
   test('requests published records anonymously and follows bounded pagination', async () => {
@@ -22,6 +22,29 @@ describe('public Payload boundary', () => {
     expect(events.map(event => event.slug)).toEqual(['club-dinner', 'another-dinner']);
     expect(events[0].preview).toBe(false);
     expect(calls.map(url => url.searchParams.get('page'))).toEqual(['1', '2']);
+  });
+
+  test('lists future and ongoing events, excludes ended and past undated events, but keeps past detail URLs', async () => {
+    const now = new Date('2027-01-09T00:00:00.000Z');
+    const ended = { ...publishedEvent, slug: 'ended', startsAt: '2027-01-08T20:00:00.000Z', endsAt: '2027-01-08T22:00:00.000Z' };
+    const ongoing = { ...publishedEvent, slug: 'ongoing', startsAt: '2027-01-08T23:00:00.000Z', endsAt: now.toISOString() };
+    const future = { ...publishedEvent, slug: 'future', startsAt: now.toISOString(), endsAt: '2027-01-09T01:00:00.000Z' };
+    const pastWithoutEnd = { ...publishedEvent, slug: 'past-without-end', startsAt: '2027-01-08T20:00:00.000Z', endsAt: undefined };
+    const futureWithoutEnd = { ...publishedEvent, slug: 'future-without-end', startsAt: '2027-01-10T20:00:00.000Z', endsAt: undefined };
+    const docs = [ended, ongoing, future, pastWithoutEnd, futureWithoutEnd];
+    const calls: URL[] = [];
+    const cms = client(async value => {
+      const url = new URL(value);
+      calls.push(url);
+      if (url.searchParams.has('where[slug][equals]')) return json([ended]);
+      expect(url.searchParams.get('where[or][0][startsAt][greater_than_equal]')).toBe(now.toISOString());
+      expect(url.searchParams.get('where[or][1][endsAt][greater_than_equal]')).toBe(now.toISOString());
+      return json(docs);
+    }, () => now);
+
+    expect((await cms.events()).map(event => event.slug)).toEqual(['ongoing', 'future', 'future-without-end']);
+    expect((await cms.event('ended'))?.slug).toBe('ended');
+    expect(calls[1].searchParams.has('where[or][0][startsAt][greater_than_equal]')).toBe(false);
   });
 
   test('a missing published event is distinct from a backend outage', async () => {
