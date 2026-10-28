@@ -5,12 +5,12 @@ export type TerraceEvent = {
   title: string;
   category: EventCategory;
   startsAt: string;
-  endsAt: string;
+  endsAt?: string;
   location: string;
   excerpt: string;
   description: string;
   image?: string;
-  preview: true;
+  preview: boolean;
 };
 
 export type Newsletter = {
@@ -23,6 +23,16 @@ export type Newsletter = {
 export type TerraceContent = {
   events: TerraceEvent[];
   newsletters: Newsletter[];
+  initiatives?: Initiative[];
+};
+
+export type Initiative = {
+  slug: string;
+  title: string;
+  summary: string;
+  description: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
 };
 
 export const official = {
