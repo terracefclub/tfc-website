@@ -1,7 +1,12 @@
 <script lang="ts">
   import EventCard from '$lib/components/EventCard.svelte';
-  import { fixtureContent, official } from '$lib/content';
+  import { official } from '$lib/content';
+  import type { PageData } from './$types';
+  export let data: PageData;
+  $: latestIssue = data.newsletters[0];
 </script>
+
+<svelte:head><title>Terrace F. Club — Food is love</title></svelte:head>
 
 <section class="hero">
   <div class="hero-content shell">
@@ -28,8 +33,8 @@
 <section class="happenings section-pad" id="happenings">
   <div class="shell">
     <div class="section-heading row-heading"><div><span class="eyebrow">THE GOOD STUFF, TOGETHER</span><h2>What’s happening<br /><em>around the table</em></h2></div><a class="button button-outline" href="/events/">Explore events <span aria-hidden="true">↗</span></a></div>
-    <div class="preview-banner"><strong>Calendar preview</strong><span>These are sample listings for the redesign, not scheduled events. <a href={official.events} target="_blank" rel="noopener noreferrer">Check Terrace’s official calendar <span class="sr-only">(opens in a new tab)</span> ↗</a></span></div>
-    <div class="event-grid">{#each fixtureContent.events as event}<EventCard {event} />{/each}</div>
+    {#if data.preview}<div class="preview-banner"><strong>Calendar preview</strong><span>These are sample listings for the redesign, not scheduled events. <a href={official.events} target="_blank" rel="noopener noreferrer">Check Terrace’s official calendar <span class="sr-only">(opens in a new tab)</span> ↗</a></span></div>{/if}
+    <div class="event-grid">{#each data.events as event (event.slug)}<EventCard {event} />{:else}<p>New gatherings will appear here when they are announced.</p>{/each}</div>
   </div>
 </section>
 
@@ -42,9 +47,11 @@
 
 <section class="newsletter-band section-pad">
   <div class="shell newsletter-grid">
-    <div><span class="eyebrow">NOTES FROM THE MOTHER</span><h2>Stories worth<br /><em>passing around.</em></h2><p>Catch up with club news, alumni voices, and what’s been happening at Terrace. The latest issue is ready to read.</p><a class="button button-cream" href="/newsletter/">Read the newsletter <span aria-hidden="true">↗</span></a></div>
-    <a class="newsletter-paper" href={fixtureContent.newsletters[0].url} target="_blank" rel="noopener noreferrer" aria-label="Read the Spring 2026 Alumni Newsletter PDF, opens in a new tab"><span class="paper-top">TERRACE F. CLUB <span>SPRING 2026</span></span><span class="paper-flower" aria-hidden="true">✳</span><strong>Mother’s<br /><em>Musings</em></strong><span class="paper-bottom">ALUMNI NEWSLETTER <span>READ ISSUE ↗</span></span></a>
+    <div><span class="eyebrow">NOTES FROM THE MOTHER</span><h2>Stories worth<br /><em>passing around.</em></h2><p>Catch up with club news, alumni voices, and what’s been happening at Terrace.{#if latestIssue} The latest issue is ready to read.{/if}</p><a class="button button-cream" href="/newsletter/">Read the newsletter <span aria-hidden="true">↗</span></a></div>
+    {#if latestIssue}<a class="newsletter-paper" href={latestIssue.url} target="_blank" rel="noopener noreferrer" aria-label={`Read ${latestIssue.title} PDF, opens in a new tab`}><span class="paper-top">TERRACE F. CLUB <span>{latestIssue.season.toUpperCase()} {latestIssue.year}</span></span><span class="paper-flower" aria-hidden="true">✳</span><strong>Mother’s<br /><em>Musings</em></strong><span class="paper-bottom">ALUMNI NEWSLETTER <span>READ ISSUE ↗</span></span></a>{/if}
   </div>
 </section>
+
+{#if data.initiatives.length}<section class="shell section-pad"><div class="section-heading row-heading"><div><span class="eyebrow">GOOD THINGS GROW HERE</span><h2>Care in<br /><em>action.</em></h2></div><a class="text-link" href="/initiatives/">Explore initiatives ↗</a></div><div class="event-grid">{#each data.initiatives.slice(0, 3) as initiative (initiative.slug)}<article><h3>{initiative.title}</h3><p>{initiative.summary}</p><a class="text-link" href={`/initiatives/#${initiative.slug}`}>Read more<span class="sr-only"> about {initiative.title}</span> ↗</a></article>{/each}</div></section>{/if}
 
 <section class="support-band section-pad"><div class="shell support-grid"><div><span class="eyebrow light">KEEP THE LOVE GOING</span><h2>Help make more<br /><em>room at the table.</em></h2></div><div><p>Terrace is sustained by people who care about the place and the people in it. Support the club in a way that works for you.</p><a class="button button-coral" href="/donate/">Support Terrace <span aria-hidden="true">↗</span></a></div><div class="support-doodle" aria-hidden="true">✳</div></div></section>

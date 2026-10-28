@@ -11,7 +11,7 @@
     <span class="sr-only">{date.full}</span>
   </time>
   <div class="event-card-body">
-    <span class="eyebrow">{event.category} <span aria-hidden="true">✦</span> sample event</span>
+    <span class="eyebrow">{event.category}{#if event.preview} <span aria-hidden="true">✦</span> sample event{/if}</span>
     {#if headingTag === 'h2'}
       <h2><a href={eventUrl(event)}>{event.title}<span aria-hidden="true"> ↗</span></a></h2>
     {:else}
