@@ -1,0 +1,7 @@
+.devenv/
+.direnv/
+.svelte-kit/
+.pre-commit-config.yaml
+node_modules/
+build/
+.test-artifacts/

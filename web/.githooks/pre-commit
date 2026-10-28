@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+cd "$root"
+exec prek run --config "$root/web/.pre-commit-config.yaml" --stage pre-commit

@@ -1,0 +1,75 @@
+
+variables:
+  APP_NAME: web_app_server
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
+  HEROKU_REGISTRY: registry.heroku.com
+  HEROKU_PREFIX: $HEROKU_REGISTRY/tfc-website-staging-stable
+  HEROKU_IMAGE: $HEROKU_PREFIX/$APP_NAME:$CI_COMMIT_BRANCH
+  GITLAB_IMAGE: $CI_REGISTRY/$CI_PROJECT_PATH/$APP_NAME:$CI_COMMIT_BRANCH
+  GITLAB_LOGIN_DOCKER: >-
+    echo $CI_WRITE_TOKEN | docker login $CI_REGISTRY
+    --username $CI_WRITE_USER --password-stdin
+
+build:
+  stage: build
+  image: docker:latest
+  services: [ "docker:dind" ]
+  only: [ dev, prod ]
+  script:
+    - $GITLAB_LOGIN_DOCKER
+    - docker build --pull -t $GITLAB_IMAGE --build-arg STAGE=prod -f docker/server/Dockerfile .
+    - docker build --pull -t $GITLAB_IMAGE-test --build-arg STAGE=test -f docker/server/Dockerfile .
+    - docker push $GITLAB_IMAGE
+    - docker push $GITLAB_IMAGE-test
+
+test:
+  stage: test
+  image: $GITLAB_IMAGE-test
+  services:
+    - name: postgres:13-alpine
+      alias: postgres
+    - name: redis:6.2-alpine
+      alias: redis
+  variables:
+    POSTGRES_DB: web
+    POSTGRES_USER: user
+    POSTGRES_PASSWORD: password
+    POSTGRES_HOST_AUTH_METHOD: trust
+  only: [ dev, prod ]
+  script:
+    - ./docker/server/entrypoint.sh
+
+heroku:
+  stage: deploy
+  image: docker:latest
+  services: [ "docker:dind" ]
+  only: [ dev ]
+  before_script:
+    - $GITLAB_LOGIN_DOCKER
+    - apk add nodejs npm
+    - npm i -g heroku
+    - heroku container:login
+  script:
+    - docker pull $GITLAB_IMAGE
+    - docker tag $GITLAB_IMAGE $HEROKU_IMAGE
+    - docker push $HEROKU_IMAGE
+
+terraform:
+  stage: deploy
+  only: [ dev ]
+  before_script:
+    - echo $GOOGLE_SERVICEACCT_CREDENTIALS > config/credentials.json
+  # variables:
+  #   GCLOUD_SDK: https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-354.0.0-linux-x86_64.tar.gz
+  # before_script:
+  #   - wget $GCLOUD_SDK -O - | tar -xzf -
+  #   - ./google-cloud-sdk/install.sh --quiet
+  #   - source google-cloud-sdk/path.bash.inc
+  #   - gcloud init
+  script:
+    - login <<< $'yes\n$TF_TOKEN'
+    - init
+    - plan -var-file=$TF_VARS
+    - apply -var-file=$TF_VARS <<< $'yes'
