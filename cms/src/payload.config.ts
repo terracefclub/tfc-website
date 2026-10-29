@@ -10,6 +10,7 @@ import { Newsletters } from './collections/Newsletters'
 import { Redirects } from './collections/Redirects'
 import { Users } from './collections/Users'
 import { Members } from './collections/Members'
+import { communityCollections } from './community/collections'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 const origin = process.env.CMS_ORIGIN || 'http://127.0.0.1:3010'
@@ -28,7 +29,7 @@ export default buildConfig({
   admin: { user: Users.slug, importMap: { baseDir: path.resolve(dirname) } },
   editor: lexicalEditor(),
   db: postgresAdapter({ pool: { connectionString: process.env.DATABASE_URI }, push: false }),
-  collections: [Users, Members, Media, Events, Newsletters, Initiatives, Redirects],
+  collections: [Users, Members, Media, Events, Newsletters, Initiatives, Redirects, ...communityCollections],
   typescript: { outputFile: path.resolve(dirname, '../payload-types.ts') },
   cors: [origin],
   csrf: [origin],
