@@ -1,5 +1,14 @@
 /** The presentation reads this shape; a future CMS adapter can replace the fixtures. */
 export type EventCategory = 'music' | 'food' | 'community';
+export type EventImage = {
+  url: string;
+  alt: string;
+  width: number;
+  height: number;
+  caption: string;
+  sourceUrl: string;
+};
+
 export type TerraceEvent = {
   slug: string;
   title: string;
@@ -9,9 +18,15 @@ export type TerraceEvent = {
   location: string;
   excerpt: string;
   description: string;
-  image?: string;
+  image?: EventImage;
   preview: boolean;
 };
+
+export type EventSummary = Omit<TerraceEvent, 'description' | 'endsAt'>;
+
+export function summarizeEvent({ description, endsAt, ...summary }: TerraceEvent): EventSummary {
+  return summary;
+}
 
 export type Newsletter = {
   title: string;
@@ -49,37 +64,38 @@ export const fixtureContent: TerraceContent = {
   events: [
     {
       slug: 'supper-at-the-table',
-      title: 'Supper at the table',
+      title: 'Midnight Soup Symposium',
       category: 'food',
-      startsAt: '2026-11-05T18:00:00-05:00',
-      endsAt: '2026-11-05T20:00:00-05:00',
-      location: 'The clubhouse',
-      excerpt: 'A preview of how a shared meal could appear on the Terrace calendar.',
-      description: 'This sample event demonstrates the detail page for a clubhouse meal. Details, attendance, and timing are illustrative for the redesign preview.',
-      image: '/images/clubhouse.jpg',
+      startsAt: '2026-11-05T23:00:00-05:00',
+      endsAt: '2026-11-06T01:00:00-05:00',
+      location: 'The kitchen, probably',
+      excerpt: 'One enormous pot. Seven strong opinions. An unreasonable defense of soup as a beverage.',
+      description: 'An imaginary night for the preview: bring a spoon, a question with no obvious answer, and your most unreasonable soup thesis. The floor is open until the pot is empty. Dessert may invalidate the entire discussion.\n\nIn the real version, this space will carry the menu, ingredients, accessibility details, and how to join. Nothing is booked or scheduled here yet.',
+      image: { url: '/culture/berry-pie.webp', alt: 'Berry and citrus pie with a dollop of cream', width: 563, height: 419, caption: 'Actual pie, imaginary event. Fall 2023 newsletter, page 29.', sourceUrl: '/newsletter/fall-2023/#page-29' },
       preview: true
     },
     {
       slug: 'music-in-the-living-room',
-      title: 'Music in the living room',
+      title: 'Feedback for Houseplants',
       category: 'music',
       startsAt: '2026-11-12T20:00:00-05:00',
       endsAt: '2026-11-12T22:00:00-05:00',
-      location: 'The clubhouse',
-      excerpt: 'An example of a night for listening, dancing, and being together.',
-      description: 'This sample listing shows how a music event would be presented. No performer, ticket, or attendance details have been confirmed.',
-      image: '/images/clubhouse-snow.jpg',
+      location: 'The solarium',
+      excerpt: 'Improvised noise for the ferns. Bring something that makes a sound. The plants are a tough crowd.',
+      description: 'A fictional bill for a room full of plants, friends, and improbable instruments. A saucepan counts. So does a cello. The fern has requested an encore and will not be taking questions.\n\nThis is a design sample, with no confirmed performers or tickets. A published listing will include the actual lineup, entry details, and accessibility information.',
+      image: { url: '/culture/performance.webp', alt: 'A guitarist plays in the solarium among plants and murals', width: 1440, height: 1080, caption: 'Solarium Sessions · Fall 2023, page 19.', sourceUrl: '/newsletter/fall-2023/#page-19' },
       preview: true
     },
     {
       slug: 'terrans-together',
-      title: 'Terrans together',
+      title: 'Pool Table Peace Talks',
       category: 'community',
       startsAt: '2026-11-18T19:00:00-05:00',
       endsAt: '2026-11-18T20:30:00-05:00',
-      location: 'Online',
-      excerpt: 'A sample listing for a conversation that connects Terrans near and far.',
-      description: 'This sample event shows the format for a community gathering. A real listing would include verified joining information from Terrace.',
+      location: 'Under the murals',
+      excerpt: 'Old friends. Questionable geometry. All disputes settled by the eight ball.',
+      description: 'Imagine an intergenerational gathering around the pool table: alumni teach allegedly reliable trick shots; current members explain why those shots have never worked. Stories are traded. A mysterious house rule is debated for forty minutes.\n\nThis gathering is invented for the preview. When a real one is arranged, this page can share who it is for, how to join, and how people farther away can take part.',
+      image: { url: '/culture/pool-room.webp', alt: 'People play pool beneath Terrace’s colorful murals and hanging plants', width: 1440, height: 1080, caption: 'Pool room · Fall 2023, page 9.', sourceUrl: '/newsletter/fall-2023/#page-9' },
       preview: true
     }
   ],
@@ -115,7 +131,7 @@ export function getEvent(slug: string, content: TerraceContent = fixtureContent)
   return content.events.find((event) => event.slug === slug);
 }
 
-export function filterEvents(events: TerraceEvent[], category: EventCategory | 'all'): TerraceEvent[] {
+export function filterEvents<T extends EventSummary>(events: T[], category: EventCategory | 'all'): T[] {
   return events
     .filter((event) => category === 'all' || event.category === category)
     .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
@@ -135,6 +151,6 @@ export function eventDateParts(startsAt: string): { month: string; day: string; 
   };
 }
 
-export function eventUrl(event: TerraceEvent): string {
+export function eventUrl(event: Pick<TerraceEvent, 'slug'>): string {
   return `/events/${encodeURIComponent(event.slug)}/`;
 }

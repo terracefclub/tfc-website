@@ -30,16 +30,19 @@ test('reused event card refreshes its date and heading after a filter changes th
     const { tick } = await import('svelte');
     const card = new EventCard({ target: browser.document.body, props: { event: fixtureContent.events[0], headingTag: 'h2' } });
     await tick();
-    expect(browser.document.body.textContent).toContain('Supper at the table');
+    expect(browser.document.body.textContent).toContain('Midnight Soup Symposium');
     expect(browser.document.body.textContent).toContain('Nov05');
     expect(browser.document.querySelector('h2')).not.toBeNull();
+    expect(browser.document.querySelector('img')?.getAttribute('src')).toBe('/culture/berry-pie.webp');
 
     card.$set({ event: fixtureContent.events[1] });
     await tick();
-    expect(browser.document.body.textContent).toContain('Music in the living room');
+    expect(browser.document.body.textContent).toContain('Feedback for Houseplants');
     expect(browser.document.body.textContent).toContain('Nov12');
+    expect(browser.document.querySelector('img')?.getAttribute('src')).toBe('/culture/performance.webp');
+    expect(browser.document.body.textContent).toContain('not scheduled');
     expect(browser.document.body.textContent).toContain('8:00 PM EST');
-    expect(browser.document.body.textContent).not.toContain('6:00 PM EST');
+    expect(browser.document.body.textContent).not.toContain('11:00 PM EST');
     card.$destroy();
   } finally {
     await rm(outDir, { recursive: true, force: true });

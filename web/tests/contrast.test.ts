@@ -2,7 +2,9 @@ import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
 const home = readFileSync(new URL('../src/routes/+page.svelte', import.meta.url), 'utf8').split('<style>')[1].split('</style>')[0];
-const css = (readFileSync(new URL('../src/app.css', import.meta.url), 'utf8') + home).replace(/\/\*[\s\S]*?\*\//g, '');
+const eventStyles = ['../src/lib/components/EventCard.svelte', '../src/routes/events/+page.svelte']
+  .map(path => readFileSync(new URL(path, import.meta.url), 'utf8').split('<style>')[1].split('</style>')[0]).join('\n');
+const css = (readFileSync(new URL('../src/app.css', import.meta.url), 'utf8') + home + eventStyles).replace(/\/\*[\s\S]*?\*\//g, '');
 
 function color(selector: string, property: string): string {
   for (const [, names, declarations] of css.matchAll(/([^{}]+)\{([^{}]+)\}/g)) {
@@ -66,4 +68,13 @@ test('dual focus ring remains visible on light, warm, and dark surfaces', () => 
   }
   expect(contrast(darkRing, '#fbf7eb')).toBeGreaterThanOrEqual(3);
   expect(contrast(lightRing, color('.page-hero', 'background'))).toBeGreaterThanOrEqual(3);
+});
+
+
+test('event posters and night-time header preserve readable body contrast', () => {
+  for (const category of ['.event-card', ".event-card[data-category='music']", ".event-card[data-category='community']"]) {
+    expect(contrast(color('.event-card', 'color'), color(category, '--poster'))).toBeGreaterThanOrEqual(4.5);
+  }
+  expect(contrast(color('.events-hero', 'color'), color('.events-hero', 'background'))).toBeGreaterThanOrEqual(4.5);
+  expect(contrast(color('.hero-copy > .overline', 'color'), color('.events-hero', 'background'))).toBeGreaterThanOrEqual(4.5);
 });
