@@ -12,9 +12,8 @@ if (!['dev', 'build', 'preview'].includes(command)) {
 // Vite still reads the root tsconfig.json, which extends this generated file.
 // Keep that type-check config at its default location while the dev server has
 // an isolated manifest. Build and preview share one stable output directory.
-const sync = spawnSync(process.execPath, [resolve(root, 'node_modules/@sveltejs/kit/svelte-kit.js'), 'sync'], {
+const sync = spawnSync(process.execPath, [resolve(root, 'tools/sveltekit-sync.mjs')], {
   cwd: root,
-  env: { ...process.env, TERRACE_KIT_OUT_DIR: '.svelte-kit' },
   stdio: 'inherit'
 });
 
