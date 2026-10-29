@@ -38,16 +38,21 @@ async function client() {
 
 function cookieOptions(path: string, maxAge: number) { return { path, maxAge, httpOnly: true, sameSite: 'lax' as const, secure: authSettings().secure }; }
 
-export async function beginMemberLogin(cookies: Cookies, returnTo: string | null): Promise<string> {
+export async function beginMemberLogin(cookies: Cookies, returnTo: string | null, switchAccount = false): Promise<string> {
   const config = await client();
   const settings = authSettings();
+  if (switchAccount) {
+    const previous = sessions.take(cookies.get(sessionCookie));
+    cookies.delete(sessionCookie, { path: '/' });
+    if (previous) await oidc.tokenRevocation(config, previous.refreshToken, { token_type_hint: 'refresh_token' }).catch(() => undefined);
+  }
   const verifier = oidc.randomPKCECodeVerifier();
   const state = oidc.randomState();
   const nonce = oidc.randomNonce();
   pending.delete(cookies.get(loginCookie));
   const id = pending.put({ verifier, state, nonce, returnTo: safeMemberReturn(returnTo, settings.origin) });
   cookies.set(loginCookie, id, cookieOptions('/auth', 300));
-  return oidc.buildAuthorizationUrl(config, { redirect_uri: `${settings.origin}/auth/callback`, scope: 'openid profile', code_challenge: await oidc.calculatePKCECodeChallenge(verifier), code_challenge_method: 'S256', state, nonce }).href;
+  return oidc.buildAuthorizationUrl(config, { redirect_uri: `${settings.origin}/auth/callback`, scope: 'openid profile', code_challenge: await oidc.calculatePKCECodeChallenge(verifier), code_challenge_method: 'S256', state, nonce, ...(switchAccount ? { prompt: 'login' } : {}) }).href;
 }
 
 async function currentMember(accessToken: string): Promise<NonNullable<App.Locals['member']>> {

@@ -67,8 +67,12 @@ This first single-node pilot intentionally keeps bounded sessions in memory: res
 
 Local identity setup and synthetic preview accounts are documented in `../identity/README.md`. POST `/auth/logout` must come from the configured website origin; GET never signs a user out.
 
+After an approval denial, the origin-checked POST form “Use a different account” starts a fresh authorization transaction with `prompt=login`, clears any prior local session and revokes its refresh token. Ordinary sign-in keeps normal SSO behavior. Authentication failures show fixed recovery copy without reflecting provider diagnostics or credentials. Recovery HTML uses `Referrer-Policy: strict-origin` so browsers send a usable origin for the protected POST while withholding callback paths and query parameters; other authentication responses keep `no-referrer`.
+
 ## Noticeboard preview
 
 The sample events are intentionally fictional: Midnight Soup Symposium, Feedback for Houseplants, and Pool Table Peace Talks. Their existing URLs remain stable. Every card and detail page identifies the samples; they are never inserted into the CMS and have no booking or payment action.
 
 Event photos are real archive material, captioned separately from the imagined events. `static/culture/event-media.json` records the pool-room and pie derivatives, their PDF/page sources, hashes, sizes, and original dimensions. Both are uncropped WebP conversions. The existing Solarium Sessions photo is documented with the other archive sources. Cards lazy-load photos; detail pages preserve their original proportions. Anton is bundled locally as a Latin-only display font, with its license at `/fonts/anton-OFL.txt`; body text remains DM Sans. Listing data includes card summaries rather than unused event descriptions, and the homepage sends only the latest newsletter and displayed initiatives to keep its HTML below the existing 45 KB budget.
+
+

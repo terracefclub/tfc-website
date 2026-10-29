@@ -27,8 +27,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     response.headers.set('Vary', 'Cookie');
   }
   response.headers.set('X-Content-Type-Options', 'nosniff');
-  if (authPath) response.headers.set('Referrer-Policy', 'no-referrer');
-  else if (!response.headers.has('Referrer-Policy')) response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  if (!response.headers.has('Referrer-Policy')) response.headers.set('Referrer-Policy', authPath ? 'no-referrer' : 'strict-origin-when-cross-origin');
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   return response;
