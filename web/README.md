@@ -17,6 +17,10 @@ The dev server hot reloads changes. To connect the separately running CMS:
 CONTENT_SOURCE=cms CMS_ORIGIN=http://127.0.0.1:3010 direnv exec . bun run dev
 ```
 
+For a populated design walkthrough, use `CONTENT_SOURCE=preview direnv exec . bun run dev --port 4176`. Keep the CMS preview on a different port, such as `--port 4174`: fixture event URLs are available only in preview mode, while CMS mode serves the records actually published there.
+
+The development watcher excludes `.devenv` and `.direnv` and does not follow symlinks. Nix profiles point outside the app into the Nix store; traversing them previously exhausted the preview server's memory. Source changes still hot reload.
+
 `CMS_ORIGIN` is the trusted server-to-server origin. If browsers reach media on a different origin, set `CMS_PUBLIC_ORIGIN` to that HTTPS origin. Neither may contain credentials or a subpath; plain HTTP is allowed only on loopback for development. No editor credential or visitor cookie is sent to the CMS. Production gateway routing must make public media available at `/api/media/file/` without exposing the private admin interface.
 
 `CONTENT_SOURCE=preview` explicitly selects fixtures. With a CMS origin configured, the source defaults to `cms`; missing configuration, upstream failure, invalid records, or draft responses produce a generic 503, never sample content disguised as live data. Empty collections have empty states; unpublished or missing event details return 404. Requests have one four-second deadline per collection, bounded pagination and response bytes. Public reads are not cached in this layer, so unpublishing takes effect on the next request. CDN rules remain a separate acceptance gate.
