@@ -129,6 +129,6 @@ test('private routes never cache or reveal content before authentication', async
   const callback = await fetch(`${origin}/auth/callback?code=replayed&state=untrusted`);
   expect(callback.status).toBe(400);
   expect(callback.headers.get('Cache-Control')).toBe('private, no-store');
-  expect(callback.headers.get('Referrer-Policy')).toBe('no-referrer');
+  expect(callback.headers.get('Referrer-Policy')).toBe('strict-origin');
   expect((await fetch(`${origin}/auth/logout`)).status).toBe(405);
 });

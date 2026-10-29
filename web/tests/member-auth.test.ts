@@ -153,3 +153,75 @@ test('CMS helper bounds responses, rejects redirects and sanitizes upstream fail
   largeBody = true; await expect(call()).rejects.toMatchObject({ status: 503 }); largeBody = false;
   redirected = true; await expect(call()).rejects.toMatchObject({ status: 503 }); redirected = false;
 });
+
+test('explicit account switching ends the prior local session and creates a fresh forced login', async () => {
+  const session = jar();
+  const callback = await begin(session.cookies);
+  await completeMemberLogin(session.cookies, callback);
+  const ordinary = new URL(await beginMemberLogin(session.cookies, '/members/'));
+  expect(ordinary.searchParams.has('prompt')).toBe(false);
+  const previousTransaction = session.values.get('terrace_login');
+  const before = revoked;
+  const switched = new URL(await beginMemberLogin(session.cookies, '/members/', true));
+  expect(switched.searchParams.get('prompt')).toBe('login');
+  for (const key of ['state', 'nonce', 'code_challenge']) expect(switched.searchParams.get(key)).not.toBe(ordinary.searchParams.get(key));
+  expect(session.values.get('terrace_login')).not.toBe(previousTransaction);
+  expect(session.values.has('terrace_member')).toBe(false);
+  expect(await resolveMemberSession(session.cookies)).toBeNull();
+  expect(revoked).toBe(before + 1);
+});
+
+test('denied HTTP callbacks show generic account recovery without exposing authentication material', async () => {
+  const { createServer } = await import('vite');
+  const server = await createServer({ server: { host: '127.0.0.1', port: 0, strictPort: false }, logLevel: 'silent' });
+  await server.listen();
+  const origin = `http://127.0.0.1:${(server.httpServer!.address() as { port: number }).port}`;
+  process.env.MEMBER_AUTH_ORIGIN = origin;
+  approved = false;
+  try {
+    const login = await fetch(`${origin}/auth/login`, { redirect: 'manual' });
+    expect(login.status).toBe(303);
+    expect(login.headers.get('Referrer-Policy')).toBe('no-referrer');
+    const authorization = new URL(login.headers.get('location')!);
+    expect(authorization.searchParams.has('prompt')).toBe(false);
+    nextNonce = authorization.searchParams.get('nonce')!;
+    nextChallenge = authorization.searchParams.get('code_challenge')!;
+    const cookie = login.headers.getSetCookie().find(value => value.startsWith('terrace_login='))!.split(';')[0];
+    const callback = await fetch(`${origin}/auth/callback?code=synthetic-code&state=${authorization.searchParams.get('state')}`, { headers: { Cookie: cookie, Accept: 'text/html' } });
+    const html = await callback.text();
+    expect(callback.status).toBe(403);
+    expect(callback.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(callback.headers.get('Referrer-Policy')).toBe('strict-origin');
+    expect(html).toContain('This account needs Terrace approval');
+    expect(html).toContain('method="POST" action="/auth/login"');
+    for (const sensitive of ['synthetic-code', authorization.searchParams.get('state')!, 'synthetic-access', 'synthetic-refresh', 'synthetic-test-secret', 'private upstream diagnostics']) expect(html).not.toContain(sensitive);
+    const retry = await fetch(`${origin}/auth/login`, { method: 'POST', headers: { Origin: origin }, redirect: 'manual' });
+    expect(new URL(retry.headers.get('location')!).searchParams.get('prompt')).toBe('login');
+    approved = true;
+    const authorization2 = new URL(retry.headers.get('location')!);
+    nextNonce = authorization2.searchParams.get('nonce')!;
+    nextChallenge = authorization2.searchParams.get('code_challenge')!;
+    const transactionCookie = retry.headers.getSetCookie().find(value => value.startsWith('terrace_login='))!.split(';')[0];
+    const accepted = await fetch(`${origin}/auth/callback?code=synthetic-code&state=${authorization2.searchParams.get('state')}`, { headers: { Cookie: transactionCookie }, redirect: 'manual' });
+    expect(accepted.status).toBe(303);
+    expect(accepted.headers.get('Referrer-Policy')).toBe('no-referrer');
+    const memberCookie = accepted.headers.getSetCookie().find(value => value.startsWith('terrace_member='))!.split(';')[0];
+    const before = revoked;
+    const getSwitch = await fetch(`${origin}/auth/login?switchAccount=1`, { headers: { Cookie: memberCookie }, redirect: 'manual' });
+    expect(getSwitch.status).toBe(303);
+    expect(new URL(getSwitch.headers.get('location')!).searchParams.has('prompt')).toBe(false);
+    expect(getSwitch.headers.getSetCookie().some(value => value.startsWith('terrace_member='))).toBe(false);
+    expect(revoked).toBe(before);
+    for (const attemptedOrigin of ['https://untrusted.invalid', '']) {
+      const rejected = await fetch(`${origin}/auth/login`, { method: 'POST', headers: { Cookie: memberCookie, ...(attemptedOrigin ? { Origin: attemptedOrigin } : {}) }, redirect: 'manual' });
+      expect(rejected.status).toBe(403);
+      expect(rejected.headers.getSetCookie().some(value => value.startsWith('terrace_member='))).toBe(false);
+      expect(revoked).toBe(before);
+    }
+    const validSwitch = await fetch(`${origin}/auth/login`, { method: 'POST', headers: { Cookie: memberCookie, Origin: origin }, redirect: 'manual' });
+    expect(validSwitch.status).toBe(303);
+    expect(new URL(validSwitch.headers.get('location')!).searchParams.get('prompt')).toBe('login');
+    expect(validSwitch.headers.getSetCookie().some(value => value.startsWith('terrace_member=;'))).toBe(true);
+    expect(revoked).toBe(before + 1);
+  } finally { approved = true; process.env.MEMBER_AUTH_ORIGIN = authOrigin; await server.close(); }
+});
