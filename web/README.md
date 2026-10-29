@@ -50,3 +50,10 @@ The official [events page](https://princetonterraceclub.org/events/) showed no u
 ## Assets
 
 Clubhouse imagery and the badge were copied from this repository's `frontend/public/img/`: `background.jpg` → `web/static/images/clubhouse.jpg`, `tfc_1.jpg` → `clubhouse-snow.jpg`, `tfc-circle.png` → `food-is-love.png`, and `favicon-32x32.png` → `web/static/favicon.png`. Fonts are bundled from the `@fontsource-variable` packages; the rendered site does not request a font CDN.
+
+
+## Full newsletter reader
+
+The four curated issues are readable cover to cover at `/newsletter/<issue>/`, with `#page-N` deep links. Every original page has an uncropped, lazy-loaded image, a smaller responsive source, and text extracted from the PDF behind a native disclosure. Text extraction may change column order or lose decorative lettering; the image and linked original remain authoritative. Page controls and zoom enhance the continuous document; the complete document and page index still work without JavaScript. Zoom stays inside the page pane rather than widening the whole site.
+
+`static/archive/pages/manifest.json` records page dimensions, source-PDF hashes, derivative hashes, and byte sizes. `src/lib/archive/pages.json` adds extracted text and is imported only by the server loader. The original PDF URLs are in `src/lib/archive/content.ts`; selected-story provenance remains in `static/archive/manifest.json`. The reading derivatives were rendered with Poppler at 1800px wide and encoded as WebP quality84; responsive derivatives are at most600px wide, quality82 or lower to stay below180KB. No crop is applied. Regeneration must retain the source-PDF hash and page count, review a contact sheet for each complete issue, and rerun the archive integrity tests. These assets are selected public issues, not an automated CMS import.

@@ -30,7 +30,7 @@
         <h1 id="archive-title">A club, <em>in the margins.</em></h1>
         <p class="archive-lede">Recipes passed around. Music in the solarium. Notes from the Mother. Wander through the pages that Terrans have shared across the years.</p>
         <a class="archive-action" href="#explore">Explore the stories <span aria-hidden="true">↘</span></a>
-        <p class="archive-provenance">Four selected public issues · 102 original pages · PDFs preserved</p>
+        <p class="archive-provenance">Four public issues · All 102 pages right here</p>
       </div>
       <div class="archive-cover-stack" aria-label="Four original Terrace newsletter covers">
         {#each archiveIssues as issue, index}
@@ -46,7 +46,7 @@
   <section class="archive-issues shell" aria-labelledby="issues-title">
     <div class="archive-section-heading">
       <div><p class="archive-overline">01 / THE ISSUES</p><h2 id="issues-title">Pick a <em>season.</em></h2></div>
-      <p>Each cover opens an issue guide. The complete PDF is always one click away.</p>
+      <p>Each cover opens the whole issue. Every page, every photograph, every glorious tangent.</p>
     </div>
     <div class="archive-timeline">
       {#each archiveIssues as issue}
