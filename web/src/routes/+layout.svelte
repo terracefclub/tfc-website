@@ -21,15 +21,15 @@
 
 <svelte:head>
   <title>Terrace F. Club — Food is love</title>
-  <meta name="description" content="Meet Terrace F. Club: a welcoming Princeton eating club with food, music, and a community that stays connected." />
+  <meta name="description" content="Terrace F. Club: food, live music, art, and a community of current members and alumni at 62 Washington Road." />
 </svelte:head>
 
 <a class="skip-link" href="#main">Skip to content</a>
-<div class="topline"><span>62 WASHINGTON ROAD · PRINCETON, NJ</span><span>FOOD = LOVE <span aria-hidden="true">✳</span> EVERY TERRAN IS A TERRAN</span></div>
+<div class="topline"><span>62 WASHINGTON ROAD · PRINCETON, NJ</span><span>EVERY TERRAN IS A TERRAN</span></div>
 <header class="site-header">
   <div class="header-inner shell">
     <a class="brand" href="/" aria-label="Terrace F. Club home" onclick={() => menuOpen = false}>
-      <span class="brand-mark" aria-hidden="true">✳</span>
+      <img class="brand-emblem" src="/culture/club-badge.png" alt="" width="44" height="44" />
       <span class="brand-name">TERRACE <small>F. CLUB</small></span>
     </a>
     <button bind:this={menuButton} class="menu-toggle" type="button" aria-controls="primary-nav" aria-expanded={menuOpen} onclick={() => menuOpen = !menuOpen}>
@@ -47,8 +47,8 @@
 <footer class="site-footer">
   <div class="shell footer-grid">
     <div>
-      <div class="footer-brand">TERRACE <span>F. CLUB</span><i aria-hidden="true">✳</i></div>
-      <p>Food, music, and a little bit of magic<br />at 62 Washington Road.</p>
+      <div class="footer-brand">TERRACE <span>F. CLUB</span></div>
+      <p>An eating club. A music venue. A place that stays with you.<br />62 Washington Road, Princeton.</p>
       <div class="footer-motto">FOOD = LOVE</div>
     </div>
     <div>
@@ -61,5 +61,5 @@
       <a href="mailto:info@princetonterraceclub.org">info@princetonterraceclub.org</a>
     </div>
   </div>
-  <div class="shell footer-bottom"><span>© {new Date().getFullYear()} Princeton Terrace Club</span><span>Made with love for Terrans everywhere <span aria-hidden="true">✳</span></span></div>
+  <div class="shell footer-bottom"><span>© {new Date().getFullYear()} Princeton Terrace Club</span><span>Every Terran is a Terran.</span></div>
 </footer>

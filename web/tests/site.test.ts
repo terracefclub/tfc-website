@@ -59,11 +59,28 @@ describe('rendered pages', () => {
     const response = await fetch(origin);
     const html = await response.text();
     expect(Buffer.byteLength(html)).toBeLessThan(45_000);
-    for (const asset of ['clubhouse.jpg', 'clubhouse-snow.jpg', 'food-is-love.png']) {
-      const size = (await stat(new URL(`../static/images/${asset}`, import.meta.url))).size;
+    const { document } = parseHTML(html);
+    const assets = new Set([...document.querySelectorAll('img')].map(image => image.getAttribute('src')!));
+    for (const asset of assets) {
+      expect(asset.startsWith('/')).toBe(true);
+      const response = await fetch(new URL(asset, origin));
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toMatch(/^image\//);
+      const size = (await stat(new URL(`../static${asset}`, import.meta.url))).size;
       expect(size).toBeLessThan(900_000);
     }
     expect(html).not.toContain('fonts.googleapis.com');
     expect(html).not.toContain('fonts.gstatic.com');
+  });
+
+  test('every homepage destination resolves, including archive issue and topic links', async () => {
+    const { document } = parseHTML(await (await fetch(origin)).text());
+    const links = new Set([...document.querySelectorAll('a[href]')]
+      .map(anchor => anchor.getAttribute('href')!)
+      .filter(href => href.startsWith('/')));
+    for (const href of links) {
+      const response = await fetch(new URL(href, origin));
+      expect(response.status, href).toBe(200);
+    }
   });
 });

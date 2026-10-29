@@ -1,0 +1,31 @@
+[
+  {
+    "file": "mural.jpg",
+    "sourceRepositoryPath": "frontend/public/img/tv_pollack.jpg",
+    "sha256": "8f829b31cfc90625bfdd5ff6e37d7c42623bb43236708a847c0eff8c2d7c1177",
+    "note": "Existing Terrace repository artwork; original creator and date not identified."
+  },
+  {
+    "file": "club-badge.png",
+    "sourceRepositoryPath": "frontend/public/img/tfc-badge.png",
+    "sha256": "08baf69b564686ec03dc2b569bf0cf477237b6168d679f849ff13148c5cdd238",
+    "note": "Existing Terrace repository artwork; original creator and date not identified."
+  },
+  {
+    "file": "performance.webp",
+    "width": 1440,
+    "height": 1080,
+    "bytes": 221426,
+    "sha256": "5f91dfb5bf17e29175cd46548076993ef1aa9cedbcf46e7403c6bcb3d679cc1b",
+    "caption": "Solarium Sessions, a monthly open mic described in the Fall 2023 newsletter.",
+    "alt": "A guitarist performs in the solarium among string lights, plants, and a painted winged figure.",
+    "sourceKind": "official-public-newsletter",
+    "issue": "Fall 2023",
+    "page": 19,
+    "sourceUrl": "https://princetonterraceclub.org/wp-content/uploads/2023-Newsletter-2.pdf#page=19",
+    "sourcePdfSha256": "871d1dab35cca5c9062cb2cb6d2da04c85d2c59a5256a736330c28b1ed13cf54",
+    "checked": "2026-10-28",
+    "transform": "Resize only; original framing preserved. WebP compression.",
+    "rightsNote": "Public club newsletter provided for incorporation by user; individual photo creator not identified."
+  }
+]

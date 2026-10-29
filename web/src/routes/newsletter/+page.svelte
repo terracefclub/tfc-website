@@ -72,7 +72,7 @@
         <div><p class="archive-overline">02 / FOLLOW A THREAD</p><h2 id="explore-title">Find your <em>way in.</em></h2></div>
         <p>Browse selected pages across issues. Every story points back to the original.</p>
       </div>
-      <form class="archive-search" action="/newsletter/" method="get" role="search">
+      <form class="archive-search" action="/newsletter/#explore" method="get" role="search">
         <label for="archive-query">Search the selected stories</label>
         <div class="archive-search-line">
           <input id="archive-query" name="q" type="search" value={data.query} placeholder="Try pie, Solarium, officers…" maxlength="100" />
