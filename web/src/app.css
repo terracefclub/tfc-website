@@ -126,12 +126,6 @@ p { line-height: 1.7; }
 @media (max-width: 900px) {
   .shell { width: min(100% - 42px, 1240px); }
   .site-header nav { gap: 16px; }
-  .event-grid { grid-template-columns: 1fr 1fr; }
-  .event-grid .event-card:last-child { grid-column: span 2; min-height: 180px; }
-}
-@media (max-width: 700px) {
-  .topline { padding-inline: 21px; justify-content: center; }
-  .topline span:first-child { display: none; }
   .header-inner { height: 70px; }
   .brand-name { font-size: 22px; }
   .menu-toggle { display: inline-flex; align-items: center; gap: 8px; border: 0; background: transparent; color: #173f32; cursor: pointer; font-size: 12px; font-weight: 800; }
@@ -140,6 +134,12 @@ p { line-height: 1.7; }
   .site-header nav.open { display: flex; flex-direction: column; align-items: stretch; gap: 0; }
   .site-header nav a { padding: 14px 4px; font-size: 16px; border-bottom: 1px solid #e8deca; }
   .site-header nav .nav-donate { margin-top: 15px; text-align: center; }
+  .event-grid { grid-template-columns: 1fr 1fr; }
+  .event-grid .event-card:last-child { grid-column: span 2; min-height: 180px; }
+}
+@media (max-width: 700px) {
+  .topline { padding-inline: 21px; justify-content: center; }
+  .topline span:first-child { display: none; }
   .photo-caption { left: 22px; bottom: 25px; }
   .row-heading { align-items: flex-start; flex-direction: column; }
   .preview-banner { flex-direction: column; align-items: flex-start; gap: 5px; }

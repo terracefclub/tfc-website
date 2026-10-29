@@ -13,7 +13,8 @@
     { href: '/newsletter/', label: 'Newsletter' },
     { href: '/initiatives/', label: 'Initiatives' },
     { href: '/about/', label: 'About' },
-    { href: '/contact/', label: 'Contact' }
+    { href: '/merchandise/', label: 'Shop' },
+    { href: '/members/', label: 'Members' }
   ];
 </script>
 
@@ -57,7 +58,7 @@
     </div>
     <div>
       <h2>Stay close</h2>
-      <a href="/donate/">Give to Terrace</a><a href="/merchandise/">Merchandise</a><a href="/contact/">Contact</a>
+      <a href="/members/">Member community</a><a href="/donate/">Give to Terrace</a><a href="/merchandise/">Merchandise</a><a href="/contact/">Contact</a>
       <a href="mailto:info@princetonterraceclub.org">info@princetonterraceclub.org</a>
     </div>
   </div>

@@ -109,8 +109,11 @@ describe('rendered pages', () => {
       .map(anchor => anchor.getAttribute('href')!)
       .filter(href => href.startsWith('/')));
     for (const href of links) {
-      const response = await fetch(new URL(href, origin));
-      expect(response.status, href).toBe(200);
+      const response = await fetch(new URL(href, origin), { redirect: 'manual' });
+      if (href === '/members/') {
+        expect(response.status).toBe(303);
+        expect(response.headers.get('Location')).toBe('/auth/login?returnTo=%2Fmembers%2F');
+      } else expect(response.status, href).toBe(200);
     }
   });
 });
