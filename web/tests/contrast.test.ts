@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
-const css = readFileSync(new URL('../src/app.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const home = readFileSync(new URL('../src/routes/+page.svelte', import.meta.url), 'utf8').split('<style>')[1].split('</style>')[0];
+const css = (readFileSync(new URL('../src/app.css', import.meta.url), 'utf8') + home).replace(/\/\*[\s\S]*?\*\//g, '');
 
 function color(selector: string, property: string): string {
   for (const [, names, declarations] of css.matchAll(/([^{}]+)\{([^{}]+)\}/g)) {
@@ -29,12 +30,15 @@ function contrast(foreground: string, background: string): number {
 test('small text meets 4.5:1 against its section background', () => {
   const coral = color('.page-hero.coral', 'background');
   const yellow = color('.page-hero.yellow', 'background');
-  const newsletter = color('.newsletter-band', 'background');
+  const archive = color('.time-machine', 'background');
   const cases = [
     [color('.page-hero.coral .eyebrow', 'color'), coral],
     [color('.page-hero.yellow .eyebrow', 'color'), yellow],
-    [color('.newsletter-band .eyebrow', 'color'), newsletter],
-    [color('.newsletter-band p', 'color'), newsletter],
+    [color('.time-machine', 'color'), archive],
+    [color('.world-copy p', 'color'), color('.house-world', 'background')],
+    [color('.world-kicker', 'color'), color('.house-world', 'background')],
+    [color('.acid-button', 'color'), color('.acid-button', 'background')],
+    [color('.acid-button', 'color'), color('.acid-button:hover', 'background')],
     [color('.button-coral', 'color'), color('.button-coral', 'background')],
     [color('.button-coral', 'color'), color('.button-coral:hover', 'background')]
   ];
@@ -47,7 +51,7 @@ test('large accent headings meet 3:1 against their section background', () => {
   const cases = [
     [color('.page-hero.coral h1 em', 'color'), color('.page-hero.coral', 'background')],
     [color('.page-hero.yellow h1 em', 'color'), color('.page-hero.yellow', 'background')],
-    [color('.newsletter-band h2 em', 'color'), color('.newsletter-band', 'background')]
+    [color('h1 em', 'color'), color('.house-world', 'background')]
   ];
   for (const [foreground, background] of cases) {
     expect(contrast(foreground, background)).toBeGreaterThanOrEqual(3);
@@ -57,7 +61,7 @@ test('large accent headings meet 3:1 against their section background', () => {
 test('dual focus ring remains visible on light, warm, and dark surfaces', () => {
   const darkRing = color(':focus-visible', 'outline');
   const lightRing = color(':focus-visible', 'box-shadow');
-  for (const surface of ['.page-hero.coral', '.page-hero.yellow', '.newsletter-band']) {
+  for (const surface of ['.page-hero.coral', '.page-hero.yellow', '.time-machine']) {
     expect(contrast(darkRing, color(surface, 'background'))).toBeGreaterThanOrEqual(3);
   }
   expect(contrast(darkRing, '#fbf7eb')).toBeGreaterThanOrEqual(3);
