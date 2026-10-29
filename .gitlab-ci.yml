@@ -42,3 +42,13 @@ cms:
     - cd cms
     - bun install --frozen-lockfile
     - bun tools/ci.ts
+
+identity-policy:
+  stage: verify
+  image: oven/bun:1.4.4-alpine@sha256:4cf82f5686b196504fe119db3fcd9185b191f82ece82c40680e597228ec6070a
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+    - if: '$CI_COMMIT_BRANCH == "prod"'
+  script:
+    - bun test identity/test

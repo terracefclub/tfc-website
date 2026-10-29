@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+identity_root="$(cd "$(dirname "$0")/.." && pwd)"
+if [[ ! -f "$identity_root/.state/app.env" ]]; then echo 'Run the identity local-up script first.' >&2; exit 1; fi
+set -a
+source "$identity_root/.state/app.env"
+set +a
+exec "$@"
