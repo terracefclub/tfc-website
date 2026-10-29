@@ -1,4 +1,7 @@
 import { describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import eventMedia from '../static/culture/event-media.json';
 import { eventDateParts, eventUrl, filterEvents, fixtureContent, getEvent, official } from '../src/lib/content';
 
 describe('content adapter', () => {
@@ -23,6 +26,18 @@ describe('content adapter', () => {
       expect(event.preview).toBe(true);
     }
     expect(getEvent('missing')).toBeUndefined();
+  });
+
+  test('archive photographs retain their proportions and recorded provenance', () => {
+    for (const photo of eventMedia) {
+      const bytes = readFileSync(new URL(`../static/culture/${photo.file}`, import.meta.url));
+      expect(bytes.length).toBe(photo.bytes);
+      expect(bytes.length).toBeLessThan(250_000);
+      expect(createHash('sha256').update(bytes).digest('hex')).toBe(photo.sha256);
+      expect(photo.width / photo.height).toBeCloseTo(photo.originalWidth / photo.originalHeight, 2);
+      expect(photo.cropped).toBe(false);
+      expect(photo.sourcePdf).toBe('https://princetonterraceclub.org/wp-content/uploads/2023-Newsletter-2.pdf');
+    }
   });
 
   test('external destinations use HTTPS and verified official host', () => {

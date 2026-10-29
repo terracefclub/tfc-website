@@ -1,0 +1,32 @@
+[
+  {
+    "file": "pool-room.webp",
+    "width": 1440,
+    "height": 1080,
+    "bytes": 193058,
+    "sha256": "ee524f5675276dc01e727f840c5488b11ee134ecec49c8c68b87f8521a40c797",
+    "sourcePdf": "https://princetonterraceclub.org/wp-content/uploads/2023-Newsletter-2.pdf",
+    "sourcePdfSha256": "871d1dab35cca5c9062cb2cb6d2da04c85d2c59a5256a736330c28b1ed13cf54",
+    "page": 9,
+    "extractedImage": "fall-2023-p09-image-1.png",
+    "extractedImageSha256": "c0cc3e0f7e08670bb7c3fd7d19193036f670547d29ba8864baa28dfe4c9fa0d0",
+    "originalWidth": 2048,
+    "originalHeight": 1536,
+    "cropped": false
+  },
+  {
+    "file": "berry-pie.webp",
+    "width": 563,
+    "height": 419,
+    "bytes": 28800,
+    "sha256": "dc29aa0cd98fc749210df5ad6ff917c5acd45a405b8c71c1edb93e77c9bb5706",
+    "sourcePdf": "https://princetonterraceclub.org/wp-content/uploads/2023-Newsletter-2.pdf",
+    "sourcePdfSha256": "871d1dab35cca5c9062cb2cb6d2da04c85d2c59a5256a736330c28b1ed13cf54",
+    "page": 29,
+    "extractedImage": "fall-2023-p29-image-1.png",
+    "extractedImageSha256": "d97d7de38305411ed255d2d12654bf6bd2ea83a66213d09a905f6de4eebd9274",
+    "originalWidth": 563,
+    "originalHeight": 419,
+    "cropped": false
+  }
+]

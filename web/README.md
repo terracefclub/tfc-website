@@ -66,3 +66,9 @@ Configure `MEMBER_AUTH_ISSUER`, `MEMBER_AUTH_CLIENT_ID`, `MEMBER_AUTH_CLIENT_SEC
 This first single-node pilot intentionally keeps bounded sessions in memory: restarting the web service signs everyone out, and multiple web instances are not supported yet. Sessions have an eight-hour absolute lifetime. Access tokens last at most sixty seconds and refresh before expiry. Disable a user or revoke their Keycloak sessions for immediate access removal; role changes alone take effect when the short-lived token refreshes. Keycloak or CMS failures deny private access without affecting public pages. Member API calls have a five-second deadline, reject redirects and limit response bodies to one MiB.
 
 Local identity setup and synthetic preview accounts are documented in `../identity/README.md`. POST `/auth/logout` must come from the configured website origin; GET never signs a user out.
+
+## Noticeboard preview
+
+The sample events are intentionally fictional: Midnight Soup Symposium, Feedback for Houseplants, and Pool Table Peace Talks. Their existing URLs remain stable. Every card and detail page identifies the samples; they are never inserted into the CMS and have no booking or payment action.
+
+Event photos are real archive material, captioned separately from the imagined events. `static/culture/event-media.json` records the pool-room and pie derivatives, their PDF/page sources, hashes, sizes, and original dimensions. Both are uncropped WebP conversions. The existing Solarium Sessions photo is documented with the other archive sources. Cards lazy-load photos; detail pages preserve their original proportions. Anton is bundled locally as a Latin-only display font, with its license at `/fonts/anton-OFL.txt`; body text remains DM Sans. Listing data includes card summaries rather than unused event descriptions, and the homepage sends only the latest newsletter and displayed initiatives to keep its HTML below the existing 45 KB budget.

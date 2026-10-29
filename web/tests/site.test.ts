@@ -72,6 +72,15 @@ describe('rendered pages', () => {
       expect(date.querySelector('.sr-only')?.textContent).toMatch(/2026$/);
     }
     expect(events).toContain('sample content only');
+    expect(document.querySelectorAll('.sample-label')).toHaveLength(3);
+    for (const image of document.querySelectorAll('.event-photo img')) {
+      expect(image.getAttribute('loading')).toBe('lazy');
+      expect(Number(image.getAttribute('width'))).toBeGreaterThan(0);
+      expect(Number(image.getAttribute('height'))).toBeGreaterThan(0);
+    }
+    for (const caption of document.querySelectorAll('.event-photo figcaption')) {
+      expect(caption.querySelector('a')?.getAttribute('href')).toMatch(/^\/newsletter\/fall-2023\/#page-/);
+    }
     expect(detail).toContain('not scheduled');
     expect(detail).toContain('official calendar');
   });
