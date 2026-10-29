@@ -1,7 +1,7 @@
 import type { Access, FieldAccess } from 'payload'
 
 function roleOf(user: unknown): unknown {
-  return user && typeof user === 'object' && 'role' in user ? user.role : undefined
+  return user && typeof user === 'object' && 'collection' in user && user.collection === 'users' && 'role' in user ? user.role : undefined
 }
 
 export const isMember = (user: unknown): boolean => roleOf(user) === 'admin' || roleOf(user) === 'editor'
