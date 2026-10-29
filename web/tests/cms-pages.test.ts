@@ -23,7 +23,14 @@ let origin: string;
 beforeAll(async () => {
   eventStartsAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
   web = Bun.spawn([process.execPath, './node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '0'], {
-    env: { ...process.env, CONTENT_SOURCE: 'cms', CMS_ORIGIN: `http://127.0.0.1:${cms.port}`, CMS_PUBLIC_ORIGIN: 'https://files.example.org', NO_COLOR: '1' },
+    env: {
+      ...process.env,
+      CONTENT_SOURCE: 'cms',
+      CMS_ORIGIN: `http://127.0.0.1:${cms.port}`,
+      CMS_PUBLIC_ORIGIN: 'https://files.example.org',
+      TERRACE_KIT_OUT_DIR: `.svelte-kit/test-cms-${process.pid}`,
+      NO_COLOR: '1'
+    },
     stdout: 'pipe', stderr: 'ignore'
   });
   const reader = (web.stdout as ReadableStream<Uint8Array>).getReader();

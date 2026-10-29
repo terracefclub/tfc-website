@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev --host 127.0.0.1",
+    "dev": "node tools/run-sveltekit.mjs dev",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "bun test",
-    "build": "vite build",
-    "preview": "vite preview --host 127.0.0.1"
+    "build": "node tools/run-sveltekit.mjs build",
+    "preview": "node tools/run-sveltekit.mjs preview"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "^5.5.7",
