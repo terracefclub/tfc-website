@@ -84,3 +84,18 @@ describe('rendered pages', () => {
     }
   });
 });
+
+test('private routes never cache or reveal content before authentication', async () => {
+  for (const path of ['/members/', '/members/stories/', '/members/people/']) {
+    const response = await fetch(`${origin}${path}`, { redirect: 'manual' });
+    expect(response.status).toBe(303);
+    expect(response.headers.get('Location')).toBe(`/auth/login?returnTo=${encodeURIComponent(path)}`);
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(response.headers.get('X-Robots-Tag')).toBe('noindex, nofollow');
+  }
+  const callback = await fetch(`${origin}/auth/callback?code=replayed&state=untrusted`);
+  expect(callback.status).toBe(400);
+  expect(callback.headers.get('Cache-Control')).toBe('private, no-store');
+  expect(callback.headers.get('Referrer-Policy')).toBe('no-referrer');
+  expect((await fetch(`${origin}/auth/logout`)).status).toBe(405);
+});
