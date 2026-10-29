@@ -1,0 +1,50 @@
+[
+  {
+    "id": "terrace-mushroom",
+    "source": "https://ih1.redbubble.net/image.2387167766.6398/ssrco,oversize_tee,flatlay,000000:44f0b734a5,front,product_square,x600.u1.jpg",
+    "productUrl": "https://www.redbubble.com/i/t-shirt/Terrace-Mushroom-by-terracefclub/76416398/rh5j",
+    "checkedOn": "2026-10-28",
+    "sha256": "9b8b6de51612210bf458a1312ef426c8f27873e7f443de69a8809d6de07b7ac9",
+    "bytes": 26597
+  },
+  {
+    "id": "terrace-fairies",
+    "source": "https://ih1.redbubble.net/image.2309840622.0311/ssrco,essential_tee,flatlay_01,fafafa:ca443f4786,front,product_square,x600.u1.jpg",
+    "productUrl": "https://www.redbubble.com/i/t-shirt/Terrace-Fairies-by-terracefclub/76450311/z5wf",
+    "checkedOn": "2026-10-28",
+    "sha256": "928445c610a812b2c7fac688670279c3885a0aaf5217d0306ca273af83d28c50",
+    "bytes": 26479
+  },
+  {
+    "id": "terrace-purple",
+    "source": "https://ih1.redbubble.net/image.5682800659.7502/icr,iphone_18_pro_soft,back,a,x600-pad,600x600,f8f8f8.u1.jpg",
+    "productUrl": "https://www.redbubble.com/i/iphone-case/Terrace-2024-Logo-Purple-by-terracefclub/165777502/2x65",
+    "checkedOn": "2026-10-28",
+    "sha256": "8b8f6cb5f9bad257aca592e7b268b6705a1e81dd00134f3d057ef2946813c8f0",
+    "bytes": 32165
+  },
+  {
+    "id": "pixel-terrace",
+    "source": "https://ih1.redbubble.net/image.1253844095.7415/st,small,507x507-pad,600x600,f8f8f8.u1.jpg",
+    "productUrl": "https://www.redbubble.com/i/sticker/Pixel-Terrace-by-terracefclub/49087415/r3lj",
+    "checkedOn": "2026-10-28",
+    "sha256": "790a3a2a3deafe4f8ceef96983e947b0b1f6b8ad28e2080155c2c83dcf5a2c06",
+    "bytes": 25659
+  },
+  {
+    "id": "food-equals-love",
+    "source": "https://ih1.redbubble.net/image.4804837923.4298/st,small,507x507-pad,600x600,f8f8f8.u1.jpg",
+    "productUrl": "https://www.redbubble.com/i/sticker/food-equals-love-by-terracefclub/140044298/7sgk",
+    "checkedOn": "2026-10-28",
+    "sha256": "c128ae17425414a0abb41087d07b7d1d015f48f741333e1a2a07c2be50736b36",
+    "bytes": 31247
+  },
+  {
+    "id": "reunions-tote",
+    "source": "https://ih1.redbubble.net/image.2363744281.1276/ssrco,tote,cotton,canvas_creme,flatlay,square,600x600-bg,f8f8f8.1u1.jpg",
+    "productUrl": "https://www.redbubble.com/i/tote-bag/TFC-Reunions-2021-Tote-by-terracefclub/78101276/7prg",
+    "checkedOn": "2026-10-28",
+    "sha256": "b08ffaaf17bb3f9548f15ebd09cdfe85e8e72d7f300b39478f61edaa0eeceaf2",
+    "bytes": 33399
+  }
+]

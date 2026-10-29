@@ -1,0 +1,7 @@
+# Redbubble storefront
+
+Verified in a live browser on 2026-10-28: [terracefclub](https://www.redbubble.com/people/terracefclub/shop) identifies itself as Terrace F. Club of Princeton University and links to the current club site. Six designs and their product images are curated on `/merchandise/`; filters work without JavaScript. `static/merch/manifest.json` records their exact source URLs, checksums and review date. The small local images avoid contacting Redbubble until a visitor chooses a product.
+
+Redbubble remains the merchant flow: options, price, cart, checkout, fulfillment, order support and returns. The website does not collect card/address data, create orders or quote prices. The actual Mushroom product handoff was checked without adding to cart or purchasing. All six links were captured from the live seller catalog; future availability must be checked periodically. Keep the existing club-merchandise link because local orders may be a separate workflow.
+
+This is a curated storefront, not an embedded Redbubble checkout or automatic catalog sync. No supported public seller checkout API was verified. Do not use undocumented endpoints or a third-party scraper as an ordering dependency. A later Payload collection can let editors maintain approved product links and images. An entirely onsite cart would require a provider with a supported fulfillment integration and a separate decision; do not silently move Terrace's existing shop.

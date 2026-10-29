@@ -18,7 +18,28 @@ afterAll(async () => {
 });
 
 describe('rendered pages', () => {
-  test.each(['/', '/events/', '/events/supper-at-the-table/', '/newsletter/', '/donate/'])('%s has landmarks, one heading, named images, and safe links', async (path) => {
+  test('merchandise filters render server-side and hand off only to Terrace products', async () => {
+    for (const [category, count] of [['all', 6], ['wear', 2], ['stick', 2], ['carry', 2], ['invalid', 6]] as const) {
+      const response = await fetch(`${origin}/merchandise/?category=${category}`);
+      expect(response.status).toBe(200);
+      const { document } = parseHTML(await response.text());
+      const cards = document.querySelectorAll('.shop-card');
+      expect(cards.length).toBe(count);
+      expect(document.querySelector('iframe')).toBeNull();
+      expect(document.querySelector('input')).toBeNull();
+      for (const card of cards) {
+        const destination = new URL(card.querySelector('.shop-product-link')!.getAttribute('href')!);
+        expect(destination.protocol).toBe('https:');
+        expect(destination.hostname).toBe('www.redbubble.com');
+        expect(destination.pathname).toMatch(/^\/i\/[^/]+\/[^/]+-by-terracefclub\/\d+\/[a-z0-9]+$/);
+        const image = await fetch(new URL(card.querySelector('img')!.getAttribute('src')!, origin));
+        expect(image.status).toBe(200);
+        expect(image.headers.get('content-type')).toMatch(/^image\//);
+      }
+    }
+  });
+
+  test.each(['/', '/events/', '/events/supper-at-the-table/', '/newsletter/', '/donate/', '/merchandise/'])('%s has landmarks, one heading, named images, and safe links', async (path) => {
     const response = await fetch(`${origin}${path}`);
     expect(response.status).toBe(200);
     const html = await response.text();
