@@ -147,7 +147,7 @@ export const archiveStories: ArchiveStory[] = [
     slug: 'pool-tournament', issueSlug: 'fall-2023', topic: 'place',
     title: 'A pool-table showdown', page: 9,
     image: '/archive/fall-2023-p09.webp',
-    imageAlt: 'Fall 2023 newsletter page 9 with a pool tournament photograph and caption',
+    imageAlt: 'Fall 2023 newsletter page 9 with a pool-table match photograph and caption',
     note: 'A Terrace pool-table match unfolds beneath the club’s colorful wall murals.',
     searchTerms: 'club life billiards'
   }
