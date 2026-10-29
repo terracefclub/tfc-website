@@ -20,6 +20,7 @@
     "@payloadcms/next": "3.91.0",
     "@payloadcms/richtext-lexical": "3.91.0",
     "graphql": "16.11.0",
+    "jose": "^6.2.13",
     "next": "16.4.3",
     "payload": "3.91.0",
     "pg": "8.16.3",
