@@ -1,12 +1,12 @@
 import type { CollectionConfig } from 'payload'
-import { publishedOrMember } from '@/access/rules'
+import { publishedOrMember, memberOnly } from '@/access/rules'
 import { editorialAccess, publicMediaOnPublish, slugField } from './shared'
 
 export const Initiatives: CollectionConfig = {
   slug: 'initiatives',
   admin: { useAsTitle: 'title' },
   versions: { drafts: true },
-  access: { ...editorialAccess, read: publishedOrMember, readVersions: ({ req }) => !!req.user },
+  access: { ...editorialAccess, read: publishedOrMember, readVersions: memberOnly },
   hooks: { beforeChange: [publicMediaOnPublish] },
   fields: [
     slugField,

@@ -19,9 +19,9 @@ beforeAll(async () => {
   if (process.env.CMS_LOCAL_BOOTSTRAP !== '1') throw new Error('Integration tests require the isolated local profile.')
   payload = await getPayload({ config })
   const login = await payload.login({ collection: 'users', data: { email: process.env.CMS_BOOTSTRAP_EMAIL!, password: process.env.CMS_BOOTSTRAP_PASSWORD! } })
-  admin = login.user
+  admin = { ...login.user, collection: 'users' }
   const created = await payload.create({ collection: 'users', data: { email: editorEmail, password: `local-${crypto.randomUUID()}`, displayName: 'Integration editor', role: 'editor' }, user: admin, overrideAccess: false })
-  editor = created
+  editor = { ...created, collection: 'users' }
   editorId = created.id
 })
 
@@ -62,6 +62,16 @@ test('editor cannot create users or grant admin role', async () => {
   await expect(payload.create({ collection: 'users', data: { email: `forbidden-${suffix}@terrace.invalid`, password: 'a-long-local-password', displayName: 'Forbidden', role: 'admin' }, user: editor, overrideAccess: false })).rejects.toThrow()
   const selfUpdate = await payload.update({ collection: 'users', id: editorId!, data: { role: 'admin' }, user: editor, overrideAccess: false })
   expect(selfUpdate.role).toBe('editor')
+})
+
+test('a member identity with a colliding ID cannot enter editorial accounts or versions', async () => {
+  const member: any = { id: editorId, collection: 'members', role: 'admin' }
+  await expect(payload.find({ collection: 'users', user: member, overrideAccess: false })).rejects.toThrow()
+  await expect(payload.update({ collection: 'users', id: editorId!, data: { displayName: 'Not an editor' }, user: member, overrideAccess: false })).rejects.toThrow()
+  await expect(payload.findVersions({ collection: 'events', user: member, overrideAccess: false })).rejects.toThrow()
+  await expect(payload.findVersions({ collection: 'newsletters', user: member, overrideAccess: false })).rejects.toThrow()
+  await expect(payload.findVersions({ collection: 'initiatives', user: member, overrideAccess: false })).rejects.toThrow()
+  await expect(payload.create({ collection: 'users', data: { email: 'member-escalation@terrace.invalid', password: 'synthetic-only-password', displayName: 'Denied', role: 'admin' }, user: member, overrideAccess: false })).rejects.toThrow()
 })
 
 test('private media is hidden, and a public item cannot reference it', async () => {
