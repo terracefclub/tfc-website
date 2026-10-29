@@ -42,3 +42,11 @@ direnv exec . tools/with-local bun test
 ```
 
 For the direct HTTP file ACL test, run the CMS locally and use `direnv exec . tools/with-local env CMS_HTTP_URL=http://127.0.0.1:3010 bun test`. CI starts isolated PostgreSQL, applies migrations, builds the app, starts the production server, and runs all tests; it has no deploy step.
+
+## Community identity boundary
+
+The separate `members` collection authenticates only Keycloak access tokens; it has no password login or public account-creation endpoint. Configure `MEMBER_AUTH_ISSUER`, `MEMBER_AUTH_AUDIENCE=terrace-community`, `MEMBER_AUTH_CLIENT_ID=terrace-web`, and the dedicated confidential introspection client's `MEMBER_AUTH_INTROSPECTION_CLIENT_ID` / `MEMBER_AUTH_INTROSPECTION_SECRET` through the environment. Missing or invalid configuration denies member access. Keep the existing CMS loopback gate until editorial SSO and deployment review are complete.
+
+Only explicitly approved `current-member` and `alumni` realm roles permit access. Tokens require the expected issuer, resource audience, authorized client, RS256 signature, expiry, token type, and an issuance age of at most 65 seconds. Every authenticated request also introspects the token; an inactive session or unreachable provider denies access. Configure Keycloak access-token lifetime to 60 seconds: role removal takes effect no later than token expiry, while session revocation is checked on every request. Identity uses a unique hash of issuer plus subject; email changes cannot take over an existing member.
+
+Member identities cannot use editorial accounts, draft versions, or private editorial media. Member collection reads are restricted to the signed-in identity; no member directory is exposed here. Identity keys are hidden from collection reads. The authenticated me endpoint returns only the current identity and approved roles, never a token. Profile/community authoring belongs to separate collections with their own access rules. Tests use an isolated signed-token provider and PostgreSQL to verify the boundary; these tests do not substitute for a real Keycloak browser-login check.
