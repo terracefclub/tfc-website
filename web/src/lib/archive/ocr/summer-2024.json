@@ -1,0 +1,210 @@
+{
+  "schemaVersion": 1,
+  "issueSlug": "summer-2024",
+  "sourcePdfSha256": "1a22f183c097b394d9d668b8b53195f0694850d25f691a5dfc68d0f8bdb793a5",
+  "tool": {
+    "name": "newsletter-ocr",
+    "version": "1.0.0",
+    "engine": "tesseract 5.5.3",
+    "language": "eng",
+    "psm": 3,
+    "oem": 1,
+    "thresholding": [
+      0,
+      1,
+      2
+    ]
+  },
+  "pages": [
+    {
+      "page": 1,
+      "file": "summer-2024-01.webp",
+      "sourceSha256": "64add4efe30b847926e38cff40e8f34adef4502faee160113e01dce3235558dc",
+      "thresholding": 2,
+      "confidence": 82.2,
+      "words": 37,
+      "solidWords": 29,
+      "text": "Letter fromthe Board (p.2) »\nWelcome to the TefFrace Farm (p.4)\nCongratulations to Alice Mc Guinness 24! (p.10)\nAlumni Events (p.12)\n\nDonate to Terrace! (p. 15)\n\nAlumni Notices (p. 17)\n\n\\\n\nHave Tun-reading and nave awondertul summer"
+    },
+    {
+      "page": 2,
+      "file": "summer-2024-02.webp",
+      "sourceSha256": "aa7fbd1e1d1e81fffe6681ff66a7b0a5627cf679e51ee3eaf23d905b414f43bb",
+      "thresholding": 0,
+      "confidence": 91.7,
+      "words": 246,
+      "solidWords": 229,
+      "text": "Dear Terrans,\n\nAs we trudge through the dog days of summer, I hope the Terrace connection\ncan help you stay cool. For my part, I was never all that cool, but Terrace helped\nme pretend I was during my days on campus - with our iconoclastic culture and\nthe best music around, I always held my head high knowing Terrace was there for\nweirdos like me. On the eve of my 15th Reunion, now with children of my own, I no\nlonger harbor any illusions about being cool. My ongoing involvement with Terrace\nisn't about reliving past glory days or prolonging youth - rather, I joined the Board\nbecause I know how important Terrace remains, empowering future generations pl :\nof Princetonians who might feel out of place on the other side of Washington Road. =: ~\nI'm happy to play a part in keeping our little island of misfit toys above the rising ¥\ntides of conformity - a little corner of campus where strangers and oddballs might\ncreatively express themselves and challenge assumptions about what a Princeton\neducation is for.\n\nWith the fall semester still a ways off, I've been reflecting on the past year’s\nsuccesses for our little community and looking for ways we can improve in the year\nahead. The current state of the club is strong - our undergraduate officers and\nstaff have done a fantastic job with recruiting and supporting our membership,\n\n=U\n\nTRY hy ao! WB say eur SP"
+    },
+    {
+      "page": 3,
+      "file": "summer-2024-03.webp",
+      "sourceSha256": "4847d7d4621bde4aa6d07870e47175e6d0ec118f3cad739d299719f69e2a6077",
+      "thresholding": 0,
+      "confidence": 89.6,
+      "words": 544,
+      "solidWords": 498,
+      "text": "Leases aval BE ml\n\n»\n\n— =D AR WLANYY SRE\nleading to a strong financial performance this past fiscal year. While many 2\ncontributed to this success, some special credit should go to Board Treasurer\nJasmine Jeffers ‘11 and Business Manager Ryan Krebs for their leadership. I look\nforward to working with them on improving our alumni development processes\nand establishing long term plans for our club's fiscal stability. For our physical\ninfrastructure, we've tackled necessary and proactive maintenance issues on the\nclubhouse and kitchen, including repairs to our historic slate roof and replacement\nof the stove, alongside the myriad minor summer projects to refresh and update 0\nour facilities before the students return. Our club spirit is also reinvigorated after 50)\nwelcoming back nearly 1200 alums for Reunions 2024, with several special events ~~ ¥%%\nfor classes on major Reunion years and a remarkable Sensemaya Afrobeat All-Stars AR\njam spanning nearly twenty years of Terran musicians. After this year's Reunions, “<i\nI can also confidently say alumni interest in our Board of Trustees is higher than I\n\ncan ever remember.\n\nLooking ahead to the fall, I know we can’t just be complacent with the results from\na single year. We must continue to sustain our community with collective effort.\nFor some (hopefully more each passing year), that means a financial donation.\nUnlike other eating clubs, Terrace does not charge any alumni dues - so any\ndonation at any amount can help secure our future. For others, that may mean\nvolunteering their time to join our Board or a Board committee. So many folks came\nup to me at Reunions interested in getting involved, curious about what we're\nworking on but uncertain of their ability to commit to Board membership full-time.\nWhile we're always on the lookout for more Board members, I know we as a Board\ncan do more to engage alumni and harness their interest. I took away from those\nconversations a need to create more entryways for alumni looking to get involved,\nso I'll be working with the Board, our undergraduate officers, and our staff to set\ngoals for this upcoming academic year, and I hope to publish our first Public Board\nRoadmap this fall. My hope is that transparency about Board priorities and details . .._ .-\non discrete Board projects can make it easier for alumni to get involved, and :\nexpand our Board's capacity and effectiveness to drive projects to completion.\n\nThe Terrace Grad Board is an all-volunteer operation, with members that have Kor\nreal lives and obligations outside of Terrace. But it's important to remember how x\nsmall our community actually is and the responsibility each individual Terranhasto ~*~\nkeep this thing going. I hope to hear more from alumni and students about YOUR\npriorities, and always welcome your feedback and engagement.\n\nWhat projects would you like to see? What talents can you bring to our mission? 22s\nRemember, as one of our many sayings goes, Terrace is the future - no matter how Ed\nempty the world may seem, a new world is just as likely as the old one. pros 2\n\nFood always,\nAndrew Kinaci ‘10 S158\nChair, Terrace Graduate Board of Trustees\n\nFULD 0d SO Sa $d -~ 4A ETE EEE TR amma AY"
+    },
+    {
+      "page": 4,
+      "file": "summer-2024-04.webp",
+      "sourceSha256": "d2ff1e211e33d80118a1633642c208572c12d2edfa8c7fef3b43c3c9428aec17",
+      "thresholding": 2,
+      "confidence": 51.1,
+      "words": 72,
+      "solidWords": 25,
+      "text": "Fe\n) ’\nB Me ’\nres 4\n» / / :\n», ra -\nTT alll HY; a alll\n\nWEeLcomE To THE\n\n, TERRACES Farm\n\n(actually it’s a Petting Zoo but kn that would get you attention)\nvy poor Eig {=\n(a |\nMiz Lw—- & IY: al\n[4 4 :\n14 sey LC 8e py i 1 ! 1 J | | /\n\nPe am—e—\n\n/7 9 Dp rapt [7]"
+    },
+    {
+      "page": 5,
+      "file": "summer-2024-05.webp",
+      "sourceSha256": "35de3efbedd11aa0944b167f2ccb56227965057152227b8b4e3e53d86a015579",
+      "thresholding": 0,
+      "confidence": 95,
+      "words": 86,
+      "solidWords": 85,
+      "text": "At the end of this past spring semester, between the madness of\nfinals, theses, and formals, Terrace F. Club was visited by a herd\nand flock of stress-relieving farm animals. One by one, they stepped\noff the Backyard Buddies truck to enter the Terrace yard. There was\na pretty dope donkey, a couple generations of goats, a loveable lamb\n(I’11 never make lamb chops again), fluffy snuggly bunny rabbits,\nfunny looking ducks (they really quacked me up), some frantic\nchickens, and of course, Ham-some, the pig."
+    },
+    {
+      "page": 6,
+      "file": "summer-2024-06.webp",
+      "sourceSha256": "20fba5cf259874d034b2eeebc5202efaa643593359b02dde2c71e1920fff5e54",
+      "thresholding": 0,
+      "confidence": 95.8,
+      "words": 65,
+      "solidWords": 65,
+      "text": "For hours, they lingered about the Terrace grounds as slews of members\ncame to mingle with our new hairy, feathery friends. As they dined on\nthe Terrace grass, I could see them gaze at each other as if to say\n\n“this is the best grass I’ve ever had”. And just like that, Terrace\nhad opened its magical doors to yet another worthy group of creatures."
+    },
+    {
+      "page": 7,
+      "file": "summer-2024-07.webp",
+      "sourceSha256": "8199ed2653a0561718efa48428e23cca9892e8d4966deaf64c75fee18203cc92",
+      "thresholding": 0,
+      "confidence": 95.6,
+      "words": 62,
+      "solidWords": 62,
+      "text": "The visit from our new friends was met with rousing approval by our\nmembers. The stress, if only for a couple hours, was replaced by the\ncomforting pet of a rabbit’s ears, feeding hungry chickens, hugging\na donkey, and scratching Ham-some under his chin. We look forward to\n\nmaking this an annual event and hope Backyard Buddies had a safe ride\nhome."
+    },
+    {
+      "page": 8,
+      "file": "summer-2024-08.webp",
+      "sourceSha256": "13797ac752627d257f5a95a077951cc4e07ace1b9d385c99bd5d572f9daaf8c6",
+      "thresholding": 0,
+      "confidence": 95.3,
+      "words": 31,
+      "solidWords": 31,
+      "text": "Until next year, we will have to make due with our regular (not\npettable) residents under the deck - muskrats, groundhogs, foxes, and\nour ageless feral cats.\n\nRyan Krebs\nBusiness Manager"
+    },
+    {
+      "page": 9,
+      "file": "summer-2024-09.webp",
+      "sourceSha256": "3196ce0477d19f7085b96ad6e8f2fd0f8734026beb192d61d4ab58cccdfee2ca",
+      "thresholding": 0,
+      "confidence": null,
+      "words": 0,
+      "solidWords": 0,
+      "text": ""
+    },
+    {
+      "page": 10,
+      "file": "summer-2024-10.webp",
+      "sourceSha256": "de60a826023b65a2e57e6c1dbef8a280993a363b63dd90248384188d76a80119",
+      "thresholding": 0,
+      "confidence": 93.5,
+      "words": 251,
+      "solidWords": 243,
+      "text": "Hey Terrans! We're super excited to share some amazing news about our very\n\nown Alice McGuinness. Alice, from Milwaukee, was awarded the prestigious Sachs\nScholarship and is heading to Oxford to earn dual master’s degrees in modern South\nAsian studies and forced migration and refugee studies. Her journey is incredible,\nfilled with experiences from studying in India to\nsupporting migrant and refugee families. Alice's\npassion for migrant and refugee rights, coupled with\nher impressive language skills in Hindi, Urdu, Bangla,\nand Spanish, has made a real impact.\n\nDuring her time at Princeton, Alice balanced being\nan RCA at Yeh College and a head fellow at the\nWriting Center. She's got some great memories from\nTerrace, especially since all of her best friends\n\nare Terrans! Alice is currently off on a month-long\ntrip with three other Terrans, visiting Indonesia\nand India with a stop in Singapore along the way!\nReflecting on her Princeton days, she’s grateful for\nthe spontaneous opportunities that came her way,\nlike an internship at a refugee resettlement agency —_\nor the support she received from the Lawrence ;\nStone and Shelby Cullom Davis Prize for her thesis\nresearch. Alice is pumped for Oxford, excited about\nthe academic program, and looking forward to\nconnecting with people who share her passion. She\nloves working with youth and is deeply interested\nin working in crimmigration and ultimately ending\nthe detention of migrants. We couldn't be prouder of\nAlice and can’t wait to see all the amazing things\na she’ll do next!"
+    },
+    {
+      "page": 11,
+      "file": "summer-2024-11.webp",
+      "sourceSha256": "3924b695f6ec531cb629d4a5a5b2df3f127ba2974b208147bf96bd3cbb78091d",
+      "thresholding": 2,
+      "confidence": 35.8,
+      "words": 73,
+      "solidWords": 14,
+      "text": "NPUORIUY HUN)\n32eu0)\n\na 7%\nnpFUoULAIINE aon hs\nPEW\n\nLET’S\nMAKE\nCooL\n\np\n5\nOo\nyc\n—- O\n2%\nCo\nLv Cc\nmn\nFa)\n\n0 of\nSE\nQers\nLe\noc\n= in\na x\n\nWe x\n\n‘i FL Xe PN Po\n27 i - C Ciedy\n» i ;\n\nnN.\nQ\n¥)\n18]\n—\n|\nQ\ndf\nfd\nge]\n2 |\n: §\nWw C\n=\noO\n>\n®)\nfa\nfd\na\n2"
+    },
+    {
+      "page": 12,
+      "file": "summer-2024-12.webp",
+      "sourceSha256": "80b30e967c0c89fc36d6de1f37f27376c041ef553ed30bbeba0cb4ebf327fca8",
+      "thresholding": 1,
+      "confidence": 74.6,
+      "words": 60,
+      "solidWords": 41,
+      "text": "R Best rare t-shirt sighting with :\nArielle Debira ‘04 and Steve Krebs &°\n\na\n\nThe Great (Terrace) Class of 2004 gathered to\ncelebrate their 20th Reunion. Where else but on the\n~~ Terrace? Thank you to everyone who came by and i\ncaught up! We food you! |\n\n-\nit ar\n\n, —\n2 = -\n\n.! o. NY"
+    },
+    {
+      "page": 13,
+      "file": "summer-2024-13.webp",
+      "sourceSha256": "5ccbadb70c9e96382d28cc4795a3869bda620711798898c0325346527d41a7fd",
+      "thresholding": 1,
+      "confidence": 85.3,
+      "words": 183,
+      "solidWords": 154,
+      "text": "James Holahan ‘o5 at our Alumni Day on\nFebruary 24 with a custom embroidered\nsweater!\n\nrowan oii?\n\nre -\n\nCheney (hve Pian pe Kalmbach\n\nI\n\nCrvissng Young 92. sheer. 1 Mike\n\nTerrace 30:\n\n30 minutes about Terrace's board\nTuesday, May 7, 2024, 8-8:30 pm Eastern\n\nPlease register at hitps:/cutty/Board30\nWe invite Terrans to join us online for a tight 30 minutes tc\n\n* Hear from board members about their experiences\n\n* Learn about board committees for which to volunteer\n* find co-hosts with whom to create in-person events locally |\n* Ask questions and hang out with Terrans for 30 minutes!\nPlease cONtact orn@ alum princeton edu with Questions and feedback\n\n5\n\np=\n\nOn Tuesday, May 7 8-8:30 pm\nEastern, our Terrace 30 online\nevent consisted of 30 minutes\non providing opportunities to get\ninvolved with the Terrace board\nof directors. The event drew 60\nregistrants and 30 attendees, of\n\n“whom two are on their way to joining\n\nour board and four have joined\nTerrace committees! Please contact\njkornealumni.princeton.edu if you\nwould like to learn more about the\nboard, committee, or volunteer\nopportunities."
+    },
+    {
+      "page": 14,
+      "file": "summer-2024-14.webp",
+      "sourceSha256": "2e5163967d2e8ac68714e13db5d71588de7d99695ed20bc29c9bac040a075a5f",
+      "thresholding": 1,
+      "confidence": 71,
+      "words": 31,
+      "solidWords": 21,
+      "text": "A. eh\n\nsy\n\nBE\nEs\n\nHave Terrace Ge\n\nar at home? Help us build\nBEE ee S— ye\nour Gear archi\n\n2 ve by sending photos of it\nto mamasnewsletter@egmail.com\n\nI"
+    },
+    {
+      "page": 15,
+      "file": "summer-2024-15.webp",
+      "sourceSha256": "60638704a81e1621949250808dd4060790ae13e79b9910bdfbc17d95eaccf47c",
+      "thresholding": 0,
+      "confidence": 88.2,
+      "words": 231,
+      "solidWords": 209,
+      "text": "Donate to Terrace!\n\nTerrace is accepting donations at:\nhttps 7, A ‘princetonterraceclub z org / donate 74 A\n\nEvery dollar helps to sustain the Terrace we love, so please\ngive generously and frequently!\n\nThank you to everyone who has donated since Fall\n\nAbigail Kalmbach David Holtzman Lawren Wu\nAndrea Wilson Jamie Niemasik Melissa Sacks\nAndrew Chong Jenny Korn Natieka Samuels\nAndrew Kinaci Jia Natalia Chen Rob Whitaker\nAndrew Manion Jonathan Strassfeld Robert B, Stock\nAvxrielle Debira Kenneth Stineman Scott A. Forsyth\nCarl Heimowitz Laurence Taylor Shelley Zhao\n\n...and thank you to everyone who donated during Reunions\n\nAana Bansal\nAaron Lichtblau\nAaron Skepasts\nAlec Day\n\nAlex Engstrom\nAlexander Fish\nAlexander Gendel\nAlice Maiden\nAliha Mughal\nAllie Spensley\nAlly Dalman\nAndrew Powis\nAngelica Vielma\nAnika Khakoo\nAnna Zabel\nAnnabel Barry\n\nAnnie Sullivan-Crowley\nAri Riggins\n\nAviadni Tegopoulou\nArianna Borromeo\nAriel Fonner\n\nAriel Gewirtz\nArmani Agui ar\nAshley Stracke\nAudrey Ou\n\nAutumn Rose\nAvigail Gilad\nBassam Alalawi\nBen Bollinger\n\nBen Clarke\n\nBen Lei\n\nBen Musoke-Lubega\n\nBenjamin Kimmel\nBenjamin Miller\nBetsy Pu\n\nBillie Runions\nBrandon Mintzer\nBrandt Beckerman\nBrendan Zelikman\nBrennan Oconnor\nCallum Gibson Dusrr\nCalvin ‘Wentling\nCamilla Strauss\nCarlotta Platt\nCarter F'1 aig\nCatherine Jennings\nCharles Kalvaria\nCharles S Argon\n\nCharlie Cohen\nChase Hommeyer\nChris Dasilva\nChristabel Mclain\nChristian Berry\nChristian Lawson\nChristina de Soto\nChristo Ritter\nClaire Thornton\nConnor Stages\nCooper Young\nCrystal Wu\nDanielle Almstead\nDanielle Hoffman\nDarcy Chang\nDavid Derbes\n\nDevin Sun"
+    },
+    {
+      "page": 16,
+      "file": "summer-2024-16.webp",
+      "sourceSha256": "3708b5461c9203cc9a695485e2d03f545e5d31ea718397cccb2b076d71d9279a",
+      "thresholding": 0,
+      "confidence": 89.9,
+      "words": 379,
+      "solidWords": 355,
+      "text": "Dylan Fox\nElliott Weil\nEric Blow\n\nEric Geunes\nEric Guerci\nErin Boateng\nEsin Yunusoglu\nEsther Julis\nEwan Chandran\nFhridah Laffan\nFiona Macintosh\nFrancesca Billington\nFranklin Aririguzoh\nGabriel Arcaro\nGabriella Chu\nGabrielle Jabre\nGalen Cadley\nGeorge Grealy\nGladys Teng\nGrace Kortum\nGregory Dorman\nHarry Saunders\nHenry Parkhurst\nImaan Khasru\nToana Teodorescu\nIsaac Wolfe\nIsabel Riggs\nIsabella Pu\nJackson Artis\nJackson Blitz\nJackson Hunter\nJackson Tkenberry\nJacob ‘Whitlow\nJad Bechara\n\nJake Caddeau\nJake Martin\nJamie Feder\n\nJan Domingo Alsina\nJare Bozinko\nJasmine Lu\n\nJason Polychronakos\nJenna Barancik\n\nJerry Wei\n\nJhor van der Horst\nJoe Collins\n\nJoe Durante\n\nJonah Herzog-Arbeitman\nJonathan Pollock\nJordan Antebi\nJoseph Goodglass\nJoseph Wood\nJoshua Mohney\nJoshua Wang\n\nJuan Salazar\n\nJuju Lane\n\nJulia Case-Levine\nKarthik Ramesh\nKate Semmens\nKatharine Matthias\nKatie Cavanaugh\nKatie Duggan\nKeith Smith\nKekoa Morris\nKenneth Michalec\nKeo Chan\n\nKérene Kabambi\nKevin Ward\nKevin Yeung\nKhaled Tinubu\nKierra Laube\nKonstantinos Koutras\nKyle Zelenitz\nLaura Makin\nLawrence Chiang\nLayla Varkey\nLejla Camdzic\nLena Sun\n\nLeonard de Guzman\nLiam Glass\n\nLiam Hunt\nLindsay Li\nLingdian Kong\nLouison Sall\n\nLuca Morante\nLydia Weintraub\nMaddie Deutsch\nMadhav Ghatpande\nMaia Hauschild\nMalcolm Blinder\n\nMarcelo Jaimes Takes\nMargaret Guo\nMarisa De Silva\nMarius Bocanu\nMark Abate\n\nMark Nowicki\nMary Alice Jouve\nMary Sauve\nMaryam Ibrahim\nMatt Silverman\nMatthew Merrigan\nMatthew Troiani\nMatthijs Dijkgraaf\nMaximilia Sporer\nMaya Lebowitz\nMaylis Avaro\nMeera Sastry\nMelina Huang\nMichael Fording\nMichael Hill-Oliva\nMichael Man\nMichael Stambler\nMichelle Lord Goldman\nMikaela Gerwin\nMikal Walcott\nMilo Hughes\nMiranda Christ\nMiranda Hasty\nMolly Banes\nMolly Chaney\nMolly Duggan\nMycroft Zimmerman\nNadeem Demian\nNatalie Wei\nNathan Poland\nNathan Shapiro\nNathaniel Edelson\nNathaniel Moses\nNicholas Veo\n\nNico Krell\nNicolas Toy\nNicolette D'Angelo\nNikhita Salgame\nNnenna Tbe\n\nNoah Bramlage\nNolan Liu\n\nOliver Effron\nOliver Nusbaum\nOlivia Grah\n\nOsita Ighodaro\nOswald Stocker\nPaddy Boroughs\nPateycja Pajdak\nPatrick Watt\nPaula Gradu\nPhilippa Marks\nPhillip Taylor\nRachel Edelson\nRachel Kennedy\nRachel Schwartz\nRamzie Fathy\nRaphael Sitbon-Taylor\nRasha Suleiman\nRebecca Yuste Golob\nRegan McCall\nReginald Quartey\nRichard Furchtgott\nRobert Scheerer\nRoger Chen\n\nRyan Wilson\nSabrina Reguyal\nSam Himmelfarb\nSam Lapkin\nSamantha Zalewska\nSara Miller\n\nShai Slav\n\nShea Copeland\nSherry Romanzi\nSophie Fans\nStefan Ivanisevic\nStephanie Ward\n\"Taisia Ivanova\nTalya Nevins\n\nTed Goldstein\n\nTim Frawley\nVicente Valenzuela\n‘Will Carson\n\n‘Will Smith\n‘Willca Villafana\nWilliam Griffith\nWilliam Keiser\n‘William Makinen\nZach Cohen\n\nZach Molino\nZachariya Yazdani\nZara Jayant"
+    },
+    {
+      "page": 17,
+      "file": "summer-2024-17.webp",
+      "sourceSha256": "678f488af0f2173ab9487e376ff139dbd08a19f842058a65b3131a496b82524f",
+      "thresholding": 0,
+      "confidence": 93.2,
+      "words": 299,
+      "solidWords": 289,
+      "text": "CREEN CLODESS\nFESTO SUICHE\n\nBY JEM MARLOWE Ya\n\nIt's summertime, babies — and what makes a nicer casual warm-weather meal than\nquiche? This one is light, fluffy, and green and goes fabulously with a nice big garden\nsalad :)\n\nINGREDIENTS\n\n1 pre-baked pie crust (see NOTE\n4 eggs\n\n2 egg whites\n\n3/4 cup milk\n\n1/4 cup plain Greek yogurt\n\n1/4 cup pesto\n\n1/4 tsp salt\n\n1/4 tsp black pepper\n\n2 cups baby spinach, roughly chopped\n1/2 cup grated parmesan cheese\n\nNOTES\n\nYou can use your favorite pie crust recipe — or alternatively, you can just use a store-bought crust; IT\nfor one am not judging you! If you go the store-bought route, follow the package directions to pre-bake\nyour crust. If you decide to use your own recipe... You all went to Princeton; T am sure you can figure\nout how to pre-bake a pie crust! Either way, you want your crust to be a lovely shade of golden-brown\n\nand left to cool before you proceed. Hot tip: This recipe goes especially well with a whole wheat crust.\nDIRECTIONS\n\n1. Pre-heat your oven to 375° F.\n\n2. In a large bowl, whisk together the eggs, egg whites, milk, yogurt, pesto, salt, and\npepper. Stir in the spinach and parmesan.\n\n3. Place your pre-baked pie crust on a baking sheet to avoid spills. Carefully pour your\nfilling into the crust. You may want to wrap the edges of your crust in tinfoil at this\nstage to prevent burning.\n\n4. Bake until the quiche is puffed up and the center is set but still jiggly, 40-50\nminutes.\n\n5. Remove from the oven and leave to cool fully before serving.\n\nAnd there you have it, luvvies — a lean green quiche machine perfect for your next\nsummer soirée!\n\nFOOD = LOVE,\n\nJenny"
+    },
+    {
+      "page": 18,
+      "file": "summer-2024-18.webp",
+      "sourceSha256": "f8ea6ccb2ae020c014ece5d4925f33ea5046b10a731ac7f841950b086c446d56",
+      "thresholding": 0,
+      "confidence": 91.8,
+      "words": 231,
+      "solidWords": 217,
+      "text": ": nB\n\nSFRING ON THE\n\nFENINSLLA\nBY ERY SHIN TE\n\nEry Shin ‘08 has released their debut novel, titled “Spring on the Peninsula”. Read the\ndescription below!\n\nVowel\n\nA desultory libertine mourns a failed relationship over the course of two harsh winters\nin this unprecedented portrait of millennials living in Seoul.\n\nThe time is roughly now and Kai, a white-collar worker, has just been abandoned by his\nlongtime lover. Follow him through a labyrinth of alleyways as he reels from this sud-\nden departure. Accompany him up snowy mountains where he contemplates ending his\nown life. That mourning can be both an art and ever-unfolding journey is epitomized in\nthe paths that Kai crosses and the lives he alters for better or worse.\n\nKai is not the only one feeling disoriented and aimless these days. Those in his inner\ncircle similarly experience personal crises as they go through their thirties in a na-\ntion simmering with class and generational tensions as well as the specter of new and\nold wars. Evocative of Dangerous Liaisons in its social appraisals, and in the tradition\nof Neruda’s erotic reveries, Ery Shin's striking debut captures contemporary Seoul in\nall of its glory and turmoil. Phantasmagorical and melancholic, and daringly irrever-\nent, Spring on the Peninsula is a poignant meditation on modern life in a city beset by\nNorth Korea's shadow.\n\nFind out more here:\nhttps://www.penguinrandomhouse.com/books/736369/spring-on-the-peninsula-by-ery-"
+    },
+    {
+      "page": 19,
+      "file": "summer-2024-19.webp",
+      "sourceSha256": "947c8bb4ce4ba5b61a795eed44efdc52c3d24382f33fc783801bd4cbdf80cb4a",
+      "thresholding": 0,
+      "confidence": 81,
+      "words": 105,
+      "solidWords": 84,
+      "text": "BOARD\n\nCHAIR Andrew Kinaci '10\n\nVICE CHAIR venny Korn '96\nTREASURER Jasmine Jeffers '11\nSSCRETARY Tristan Schrader '18\n\nMihalis Alisandratos '18 Abigail Kalmbach '00\n\nArielle Debira 'O Beverly Nwanna '09\nAkil Alleyne '08 Lucia Perasso '16\nJia Natalia Chen '16 Jon Strassfeld '09\nAndrew Chong '11 Ariana Vera 'I2\nSteve Feyer '03 Rob Whitaker '18\nJustin Gerald '07 Christine Young '92\nVROFSSSIONAL STAFF\n\nGENERA MANAGER Steve Krebs\nBUSINESS MANAGER Ryan Krebs\nHEAD CHEF Manuel Gonzales\n\nJARVSEZOZADUATS OFFICSRS\nPRESIDENT Natasha Greenstein '25\n\nVICE PRESIDENT Alan Gutiérrez '25\nTREASURER Malker Penfield '25\n\nSOCIAL CHAIR Savannah Woellert '25\nMASIC CHAIR Samara Samad '25\n\nHOUSES MANAGER Joey Nartker '25"
+    }
+  ]
+}

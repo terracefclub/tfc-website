@@ -1,0 +1,380 @@
+{
+  "schemaVersion": 1,
+  "issueSlug": "fall-2025",
+  "sourcePdfSha256": "06ebbe808cd53fdd032e353033ceb90df733a76e9c3357ee535ae7c654a65ce8",
+  "tool": {
+    "name": "newsletter-ocr",
+    "version": "1.0.0",
+    "engine": "tesseract 5.5.3",
+    "language": "eng",
+    "psm": 3,
+    "oem": 1,
+    "thresholding": [
+      0,
+      1,
+      2
+    ]
+  },
+  "pages": [
+    {
+      "page": 1,
+      "file": "fall-2025-01.webp",
+      "sourceSha256": "f5f8db5b9aa0b6dc0ba190426b14ef308b09a10ed431b00d4500575a249f8d02",
+      "thresholding": 2,
+      "confidence": 33.1,
+      "words": 47,
+      "solidWords": 4,
+      "text": "3 = .\ni Fite) A EY - 5\n\nRRND Vi (Ce ~.\nTN NN SON\n7 a sre Vi,\nVE Es N Ro\n\nEy\nNe f\n\nAY EN\n\nI 4 4\n\n\\\n, - 3\nSo (4\n= he\n- Lo J\n\nRE ”y ¥\n\nof"
+    },
+    {
+      "page": 2,
+      "file": "fall-2025-02.webp",
+      "sourceSha256": "36333004dbd5a14f5973d845857fc21b9b5fc417a18fe32749142abeed006d63",
+      "thresholding": 0,
+      "confidence": 93.9,
+      "words": 66,
+      "solidWords": 65,
+      "text": "We're so excited to share this\nnewsletter with you! Inside,\nyou'll meet some amazing people\njoining our leadership, plus we've\ngot a fun virtual event coming\nup on September 16th that you\nwon't want to miss!\n\nWe hope your summer was\n\nfilled with joy and sunshine,\n\nand we can't wait to kick off\nanother fantastic academic year\ntogether.\n\nFood = Love as always,\nNatalia Chen ‘18"
+    },
+    {
+      "page": 3,
+      "file": "fall-2025-03.webp",
+      "sourceSha256": "4741ea0929410c10a2a7e0a95b4a891529f1fa7e2827b6a2f58dbd47dc4462dc",
+      "thresholding": 0,
+      "confidence": 29.8,
+      "words": 1,
+      "solidWords": 0,
+      "text": "i"
+    },
+    {
+      "page": 4,
+      "file": "fall-2025-04.webp",
+      "sourceSha256": "cf09af98988aea27cbfd345f57a0ed0d1ab309f76ba46f48bf7f7ef55963e2a6",
+      "thresholding": 0,
+      "confidence": 95.5,
+      "words": 105,
+      "solidWords": 104,
+      "text": "I'm Nicole Gordon, and I'm deeply honored to step into\n\nthe role of Club Manager for Terrace Club. It's a significant\nmoment for me, as I'm proud to be the first woman to hold\nthis position in the club's history. My background in the service\nindustry has instilled a deep passion for serving and enriching\ncommunity experiences. At Terrace, my vision is to cultivate\nan even stronger sense of belonging, transforming the club\ninto a vibrant home where art, food, and music not only\nconverge but truly flourish. I'm excited to work alongside our\nmembers and alumni to enhance this incredible legacy for\nevery Terran."
+    },
+    {
+      "page": 5,
+      "file": "fall-2025-05.webp",
+      "sourceSha256": "5f1649df12631577f3fc043b396d1899e61ae93b70323a239791f44855239c10",
+      "thresholding": 0,
+      "confidence": 95.2,
+      "words": 99,
+      "solidWords": 98,
+      "text": "Ashley Blair brings strategy, sparkle, and spreadsheets\ntogether in perfect harmony. With a strong foundation in\noperations, HR, accounting, fundraising, and event planning,\nshe's helped organizations boost enrollment, secure hundreds\nof thousands in donations, and transition seamlessly into\nremote operations. Whether she’s coordinating fundraising\nevents, or planning closing out the fiscal year, Ashley brings\n\na detail oriented mindset and a warm, human touch. Her\nexperience spans schools, healthcare, and nonprofit sectors—\nalways with an eye for growth and meaningful impact. If you\nneed someone who can wear all the hats and still throw a great\nevent, she’s your person."
+    },
+    {
+      "page": 6,
+      "file": "fall-2025-06.webp",
+      "sourceSha256": "ee023e9a03bea0bd918afc4a92573417f70d21b3dd4a09ef1fd7535dbe59e600",
+      "thresholding": 0,
+      "confidence": 92.5,
+      "words": 78,
+      "solidWords": 74,
+      "text": "The place to be on Tuesday, September 16,\n2025, is with our Terrace staffin our first-\never DOUBLE TERRACE 30 event, at 7pm and\n8 pm Eastern! We invite Terrans to join us\nonline for 30 minutes per manager that will\ninclude time for questions from attendees.\nLet's welcome Nicole and Ashley to our\nTerrace Family!\n\nTerrace 30: 30 minutes with\n\nGeneral Manager Nicole Gordon\n\ng Tuesday, September 16, 2025, 7-7:30 pm Eastern\n17) Please register at\n\nhttps://cutt.ly/TerraceNicole"
+    },
+    {
+      "page": 7,
+      "file": "fall-2025-07.webp",
+      "sourceSha256": "44964ddb04ec246b79c8503d8b84dca12ed98e5349a18813217bc0494dfcaff8",
+      "thresholding": 1,
+      "confidence": 94.8,
+      "words": 12,
+      "solidWords": 12,
+      "text": "(it's been a while, we thought we\nwould introduce ourselves a little)"
+    },
+    {
+      "page": 8,
+      "file": "fall-2025-08.webp",
+      "sourceSha256": "e3a521f3d35ca39de1e85c6b58d63f0c6867db4e5a1e97ff0b90de5dbb449811",
+      "thresholding": 2,
+      "confidence": 65.7,
+      "words": 38,
+      "solidWords": 22,
+      "text": "» «a \\\nour west\n©) aed\n\n\\\n\non Feyer ‘09 as\nora ol\n\nour Terrace B\n\nLEE\n\n.\n\nwelcome J\n\ntor to\n\n\\\nt's\n\nJ\n\nLe\n&i\n\nTr] y, /4\n\nZ 7\n\n\\\n\\\n\\\n\n\\\n\\"
+    },
+    {
+      "page": 9,
+      "file": "fall-2025-09.webp",
+      "sourceSha256": "2bedbbce7a7a885a3ab7bf982c7b4606c45df2ae535aae7a4dcf46dd4bcfd705",
+      "thresholding": 0,
+      "confidence": 87.9,
+      "words": 147,
+      "solidWords": 132,
+      "text": "Hello friends! I'm Jon Feyer former\n\npres ‘09. I'm from SF, live in Seattle N\n(coastal elite), and starting a graduate ONY\nprogram in Clinical Mental Health\nCounseling after years working in\nelectronic medical records. I love\nnature, music, vidya, being weird, and\nhealth policy reform.\n\nNN What's a song that you've heen listening\nto a lot? Two Reverse by Adrianne Lenker\n\nWhat is your go-to comfort feed? Mission-\nstyle (correct) burrito\n\nWhat's the most Terrace memory you\ncan share publicly? Cirl Talk show\nwhere the house was so full people could\nphysically not move and were wedging\nhemselves into the house through the\ndows. He crowd surfed on so many\ndies that he could crawl on the ceiling\ne a creature from Ju-on (The Grudge)\n\nThe F in Terrace F Club stands for...\n\"“Fwhen you're Fhere, you're Family”\n\njo\n;\n\n=\n\neR\n\n\\ =f A ke"
+    },
+    {
+      "page": 10,
+      "file": "fall-2025-10.webp",
+      "sourceSha256": "e95f8252180780b416e19f41bfa81ee6debb88e2a37942a9799e3c76104a8090",
+      "thresholding": 2,
+      "confidence": 51.6,
+      "words": 41,
+      "solidWords": 13,
+      "text": "\\\n\n\\ Let's welcome Suneil iN ‘09 as @ »\n‘mewest director to our Terrace Board o\n(Trustees! - aR\n\n- ¢ \\ \\ Q ) \\\n\\ \\ A N\\ TN \\\nN Xx) \\ A hn TO Wr RETA"
+    },
+    {
+      "page": 11,
+      "file": "fall-2025-11.webp",
+      "sourceSha256": "ff944b93ead9ba7a745cabcf36f84e9bcc0a32e704f812ec6f42b30b6e0d9294",
+      "thresholding": 0,
+      "confidence": 89.7,
+      "words": 82,
+      "solidWords": 77,
+      "text": "What's a song that you've heen listening\nto alot? Song I've been listeningto alot ...\nthe wheels on the bus\n\nWhat is your go-to comfort food? Co-\nto comfort food is pizza - any style, any\n\ntoppings\n\nWhat's the most Terrace memory you\ncan share publicly? Would have to be\nthat time I went to Terrace, had a great\ntime, and then I left.\n\nThe F in Terrace F Club stands for... ...\n..whatever the F you want it to stand for."
+    },
+    {
+      "page": 12,
+      "file": "fall-2025-12.webp",
+      "sourceSha256": "d4300a45964867a4f6769dab696bdb4363e562c10b3886cfce3347d4cb55323e",
+      "thresholding": 0,
+      "confidence": 90.8,
+      "words": 10,
+      "solidWords": 9,
+      "text": "(and now, for some other faces of the hoard) ad"
+    },
+    {
+      "page": 13,
+      "file": "fall-2025-13.webp",
+      "sourceSha256": "357e902ec6068fd9aff96dd1ef6440f6273a44bad0b78d7cd09d5dc44d37747f",
+      "thresholding": 0,
+      "confidence": 92,
+      "words": 62,
+      "solidWords": 59,
+      "text": "Dr. Justin P. B. Gerald ‘07\n\nWhat's a song that you've heen listening to a lot? Chains and\nWhips, obviously\n\nWhat is your go-to comfort feed? Pizza, I'm boring\n\nWhat's the most Terrace memory you can share publicly?\nBecoming known for drinking hot melted butter at the first\ntwo Dare to Cares\n\nThe F in Terrace F Club stands for... Free\n\\\\"
+    },
+    {
+      "page": 14,
+      "file": "fall-2025-14.webp",
+      "sourceSha256": "2f949ecae93a2d48918f38aa00b9fcc85c33675e90bb9ac8c3018097ad118e5b",
+      "thresholding": 0,
+      "confidence": 90.9,
+      "words": 154,
+      "solidWords": 144,
+      "text": "r=9%y\n\nPeter L. Baltera ‘10 is an attorney in\nNew York City. He handles commercial\nand employment litigation for a large\ntech company of which you likely\nnever heard. He lives with his partner\nof seven years, Matt, and the queen of\ncalico kitties, Juna. In his spare time,\nhe can be found CrossFitting, reading\nbooks (more fiction than non-fiction\nbecause, “Hello, escapism!”), and going\nto trance/progressive house shows\nwith friends. He has been a board\nmember for almost a year.\n\n= PE\n\nPeter L. Baltera ‘10\n\nWhat's a song that you've heen listening to a lot? Bigger\nThan All of Us (Club Mix) by Above & Beyond & Justine Suissa\n\nWhat is your go-to comfort feed? Buffalo chicken sandwich/\nwrap\n\nWhat's the most Terrace memory you can share publicly?\nThrowing a Pandora-themed rave in the TFC dining room his\nsenior year\n\nThe F in Terrace F Club stands for... Flaming! & ™ &"
+    },
+    {
+      "page": 15,
+      "file": "fall-2025-15.webp",
+      "sourceSha256": "490e3948e5164b7dec3a5c3b68b66b14e9386020d21689702ef9b24dd691b434",
+      "thresholding": 0,
+      "confidence": 92.8,
+      "words": 154,
+      "solidWords": 148,
+      "text": "No NER ON\nArielle Dehira ‘04\n\nWhat's a song that you've heen listening to a lot? Same\nhippie sh*t I was listening to 20 years ago:) Blaze on - phish;\nDon’t think twice it's alright- Bob Dylan or indigo girls; Will the\ncircle be unbroken- Nitty gritty Dirt Band & Alison Krauss\n\nWhat is your go-to comfort feed? Kraft Mac and cheese -\nbest thing to come from a blue box since Dr. Who\n\nWhat's the most Terrace memory you can share publicly?\nFighting the sump pump monster in the taproom with Steph\nTatham ‘04. We poured some chemical down there one night\nwhile trying to clean up and it began to bubble and belch and\ngrew to an enormous size, spilling over onto the floor we just\ncleaned. Not many other terrace memories are fit for public\nconsumption\n\nThe F in Terrace F Club stands for... Fellowship, fire, found (as\nin not lost)"
+    },
+    {
+      "page": 16,
+      "file": "fall-2025-16.webp",
+      "sourceSha256": "64658ffc1d3ad3e3a48b7e37bb6a72ba3b58e998550bb003d5edbb5bb18d7af1",
+      "thresholding": 0,
+      "confidence": 88.1,
+      "words": 208,
+      "solidWords": 185,
+      "text": "\\\n\n\\\n\nN \\\n. \\\n\\\n\n\\W Mihalis is a born and raised New Yorker who spent his WL\n\ntime at T informing the masses as to who would be\n\nregaling us with tunes that weekend (I was the sign\n\nguy!). After spending loving years in the warm embrace\n\nof our mother, he returned home to do a year of service\n\nteaching middle school math. After entering the fiendish\n\nhellscape that is corporate America, Mihalis decided\n\n\\ to return to school to study ethnomusicology. Having\n\nN\n\n| played the bouzouki, or the Greek guitar, his whole life,\n\n“0 Mihalis wanted to go absurdly academically deep into\n\n%. questions around the instrument, its music, and the\n\npeople who love to play and hear it. He received his MA\n\nin ethnomusicology at Hunter College and is now\n\nbeginning his PhD at the CUNY Graduate Center.\n\nHe is also a cyclist, competing in local Central\n\nPark and Prospect Park races as part of\n\n: the Foundation Cycling NY Team. He lives\n\n* in Sunnyside, Queens with his wife Morgan\n\n\\ (although not a Terran you can still find her\n\n\\D in the 2018 class picture in the club!) and his\nbeloved Jack Russell mix Penny.\n\nEa o/\n\nqd |\n/"
+    },
+    {
+      "page": 17,
+      "file": "fall-2025-17.webp",
+      "sourceSha256": "36c88198b3a96095db92951054b830897a2639ab8d0d6d791a9606f6fefe36bd",
+      "thresholding": 0,
+      "confidence": 93.6,
+      "words": 197,
+      "solidWords": 192,
+      "text": "What's a song that you've heen listening to a lot? Recently\nI have been listening a lot to the music of Yiorgos Mitsakis, a\ncomposer that my band is highlighting in an upcoming concert\nat the Greek Cultural Center in Astoria. Otherwise, I have\nbeen listening to the bands Cheekface and Parquet Courts.\n\nWhat is your go-to comfort feed? PIZZA. NY PIZZA. I ateit\nlast night.\n\nWhat's the most Terrace memory you can share publicly? 1\noften think of how when Morgan would visit me and we would\ngo to shows at Terr, she would often get a bowl of cereal\n\nto enjoy while listening to the music. I remember people\n\nwho weren't Terrans being confused as to why this girl was\neating a bowl! of cereal while loud music was blasting and that\nalways sticks out in my mind as a signifier of how much of a\nhome Terrace felt like to us. OH ALSO I am one of the few\npeople I know who has seen a full rendition of The Nightman\nCometh from It's Always Sunny in Philadelphia, and that was at\nTerrace.\n\nThe F in Terrace F Club stands for... Terrace Fuhgettaboutit\nClub"
+    },
+    {
+      "page": 18,
+      "file": "fall-2025-18.webp",
+      "sourceSha256": "be3ea22353c48df6982468369eafe45a763afba57b3133440c888e8acda26e39",
+      "thresholding": 0,
+      "confidence": 92.7,
+      "words": 225,
+      "solidWords": 217,
+      "text": "\\\\\nNAN\n\n\\) \\ AN\nSteve Feyer ‘03\n\\\nAN\n\nHi Terrans,\n\nI'm looking forward to my 17th year on the\nTerrace board, and I keep serving each year\nbecause of all the things that have never\nchanged -- and all the things that have changed.\nI joined Terrace as a member because it was\n\nthe only place on campus to get a decent vegetarian entree\nat every meal. All these years later, I'm still a vegetarian,\nand Terrace still has the best options for everyone with a\nmeatless diet.\n\n¥ Iwanted to be in a community where everyone could be\nincluded no matter who they are. Today Terrace is still the\nbest place on or off the Princeton campus to come as you\nare, and be welcomed.\n\nI remember fondly -- though fuzzily -- Wednesday beer\n\nnights, Friday members’ nights, and quiet afternoons sitting >\non the lawn in May. Now every new class of Terrans has added gg\nits own traditions to the old.\n\nIn short Terrace balances the best of the past and the\nfuture, future, future. So it's no wonder that the Club has\nbeen more popular than any of those places on Prospect for\nthe last decade.\n\nIf you have memories of Terrace or ideas to share, please\nreach out anytime to me at steve.feyer@terracefclub.org.\n\nAll the food,\nSteve ‘03"
+    },
+    {
+      "page": 19,
+      "file": "fall-2025-19.webp",
+      "sourceSha256": "241926351a711011403aeccbeae33ea66df49019939560d182aa357de3359d4f",
+      "thresholding": 0,
+      "confidence": 93.5,
+      "words": 119,
+      "solidWords": 116,
+      "text": "Andrew is a former undergrad VP who\nstarted volunteering with the Alumni\nRelations Committee in 2014 before\njoining the full Grad Board in 2016. He\nlives in Chicago with his wife and 2.5\nyear old son, and is an unrepentant\nGemini and Boston sports fan. You\nmay have seen him at Reunions -\nwaiting to get a game of Balls in,\nlamenting the loss of the taproom\ncomputer, or generally telling the\nsame 3-4 stories to anyone within\nearshot.\n\nNy A headshot of Kinaci at Reunions 2022, a picture of\nKinaci carrying the Terrace flag in the P-Rade in 2010,\nand his Access All Areas pass for Phil Lesh night. Access\nAll Areas is both permission and imperative.\n\nN"
+    },
+    {
+      "page": 20,
+      "file": "fall-2025-20.webp",
+      "sourceSha256": "79ea0a68e3aa695dccdcc7f07022f0c2f8478a4a31050e616f30302bb3216f55",
+      "thresholding": 0,
+      "confidence": 93.5,
+      "words": 187,
+      "solidWords": 182,
+      "text": "What's a song that you've heen listening to a lot? Tough to\npick just one, but I am enjoying the trend of groups I loved in\nmy early 20s returning with strong efforts in 2025. Here's a\nthree-pack of such jams:\n\n“So Be It\" by Clipse\n\n“S.N.C.”\" by DARKSIDE - a real jam\n\n“Til You Drop” by araabMUZIK\n\nWhat is your go-to comfort feod? Mac § Cheese or Pasta\nBolognese\n\nWhat's the most Terrace memory you can share publicly?\nYou never want to see a groundhog INSIDE the house, as I\n\ndid in the summer of 2009. While our encounter with the king\nof the backyard was harrowing, we managed to get him back\nout of the house in a humane fashion by chasing him into the\nservery, closing the doors, and assembling a chute to the side\ndoor with our dining room tables, so he had only one path of\nescape. It went much better for him than certain unfortunate\nsalmon, goldfish, or crickets that attended Dare to Care over\nthe years.\n\nThe F in Terrace F Club stands for... ‘Fabu”. If you know, you\nknow."
+    },
+    {
+      "page": 21,
+      "file": "fall-2025-21.webp",
+      "sourceSha256": "76b6b5e246ff6e11d964362c12b50dcb6e330016f0ff1c175aebc305ea25749b",
+      "thresholding": 0,
+      "confidence": 94.4,
+      "words": 117,
+      "solidWords": 113,
+      "text": "Jasmine Jeffers ‘11,\nasmine Jeffers ‘11,\n\nI've been the Treasurer of the Terrace Board\nsince 2023, continuing a long and storied\nhistory of reminding Terrans to pay their bills\n(bills bills.) I work closely with our Business Manager and\nwith the board on all things finance, including setting our\nannual dues and budget, managing our financial assets and\nmaking plans for repairs and other capital improvements\n\nto the Clubhouse. I pay my own bills by working in nonprofit\ndevelopment - I've been in the field since I graduated in 2011,\nand currently lead foundation and government fundraising\nat StoryCorps, a Brooklyn-based media and oral history\norganization that many of you NPR fans know and hold dear.\n\n7"
+    },
+    {
+      "page": 22,
+      "file": "fall-2025-22.webp",
+      "sourceSha256": "893c2c0e72648e7f5f17674b2f09992c4be891daa9dc134e4f7372ddba71ba69",
+      "thresholding": 0,
+      "confidence": 92.9,
+      "words": 73,
+      "solidWords": 70,
+      "text": "What's a song that you've heen listening to a lot? I've been\nlistening to a ton of video game soundtracks recently to\n\nget myselfin the right dissociative state for meeting work\ndeadlines. The Rimworld soundtrack is an ongoing favorite of\nmine.\n\nWhat is your go-to comfort feed? Anything involving noodles.\n\nWhat's the most Terrace memory you can share publicly?\nThe Human Question Mark: photo below, presented without\n\nadditional comment.\nFIS FORFRIENDS WHO DO"
+    },
+    {
+      "page": 23,
+      "file": "fall-2025-23.webp",
+      "sourceSha256": "cbdf4967fc7d8ec7338d8914bd79d2bb4040aac18ea344d1d775677c83274e1f",
+      "thresholding": 0,
+      "confidence": 70.7,
+      "words": 31,
+      "solidWords": 20,
+      "text": "Thanks to our [|\n\n5\nTerrace Board Governan e Ch ;\nAri Vera 12 ]\n\ni\n\nfor actively working on our\nongoing Terrace SeCaLRY a\nto improve our Club's sal Sy"
+    },
+    {
+      "page": 24,
+      "file": "fall-2025-24.webp",
+      "sourceSha256": "2125ce6002cb308a98e5cf22501812a756374bfbb76a8d2995f9f410edd79b92",
+      "thresholding": 1,
+      "confidence": 56.6,
+      "words": 238,
+      "solidWords": 108,
+      "text": "Ls y © |\n© Alumni visitors are not ol\n“reds SRN. ed\n\nd \\ “hie should se sk permission fi from\n\n. Undergraduate Officers by. suf mi Ling’\n\no visit to vstors@terracefchiyor IF - 3 g!\n= Ad . A PUN ZF\n\nquests 8 =. bes frees atleast 72HBurE\nadvance of \"the prd osed visitation date The Cl Club\nManag er and/or CL Officersre ls “tx\n\na tN right to approve, nydlimit. or rescind Tor\n\n\\ pr leges for any egally RP RQgSssan bere\n4 hand during the visit, an dare not required t ie) .\n%, an explanation f for any de cision. All decisions s by t\n\nclub Manager and/or | Und ergraduate 0 Officers are final,\noe and here shall be nor rights of appeal t tot the Board of\n\nel! YI - =) hh.\n\na Governors or any hig gher Rgoricy, A Kk 8 )\nAl Biédh Gian\n~ ‘The Club Manager and/or | und engraduate O Officers also i\n\n: reserve thi right. to take any y legally permissible e action |\n\nAy neces saryto er enforce this policyfor ~ violations thereof,\nBy a enforcemeh t LEY os i.\n-y . A ih, HE\n\nFie p\n\nhE xceptions to this policy, including evelts such as. £7 3\nHomecoming, Pt Parties, Alumni ni Day, and F Reunions, al ghe\nN | NN re\ne commur prs BEES alumni in K a nce >"
+    },
+    {
+      "page": 25,
+      "file": "fall-2025-25.webp",
+      "sourceSha256": "c14f1bbab545af06f0f45ecea8a67aaf33322b712ffc55b69c2550568093e811",
+      "thresholding": 2,
+      "confidence": 72.6,
+      "words": 107,
+      "solidWords": 71,
+      "text": "\\\n\n\\\n\nhi\n\nN\n.\n\nTERRACE\nF\n\nCluk\nMiembros, y 3\n| dos :\nEmplea ¢\nA\nts\nAt Terrace, We donot tolerate 2\n\ndiscrimination, bullying oF\nsexual harassment.\n\nan\n\\ En Terrace, nose tolers\nel acoso, el acoso sexud\n\nni la discriminacion.\n\nR SAFE E\ni Para mes\n\nRTING :\non de densincia\n\nTIONS\n- Sequras:\n\ngraphic designer\nextraordinaire Imaan\nour Anti-Harassment\n\nposter! i\n\npW,\n\n\\ ITLL TERRACE\n)\n\nMiembros\n\nEmpleados\n\ndiscrimination, bu lying or\n\nsexual harassment.\nEn Terrace, no se toleran\nel acoso, el acoso sexual\nni la discriminacién.\n\nAt Terrace, we do not tolerate\n\nFOR SAFE\nPara ofei\nREPORTING 7°\nde denuncia\nOPTIONS\nSeguras:"
+    },
+    {
+      "page": 26,
+      "file": "fall-2025-26.webp",
+      "sourceSha256": "37c7d506e4a7ae64f087bf10a8a5f72e91d3b5763b285ee11a81383bd2c2b7e1",
+      "thresholding": 0,
+      "confidence": 81.4,
+      "words": 92,
+      "solidWords": 73,
+      "text": "Terrace is accepting donations a at\n\nprincetonterraceclub.org/donate/.\n\nEvery dollar helps to sustain the Terrace we love,\nso please give generously and frequently! A huge ”\nthank you to everyone who has donated since our on\nlast newsletter (in alphabetical order by surname): T\n\n5 - Mihalis Alisandratos ‘18 Jenny Korn ‘96 y\n\nWilliam Brady ‘73 Taylor Pearson ‘18 monthly donor) ©\nAndrew Chong ‘13 monthiydonor) Nevena Rakonjac ‘13 Eg\nArielle Debira ‘O4 monthly donor) ~~ Tristan Schrader ‘18\nSteve Feyer ‘03 Lou Tucciarone ‘79\nAndrew Kinaci ‘10 monthly donor) Lawren Wu ‘92."
+    },
+    {
+      "page": 27,
+      "file": "fall-2025-27.webp",
+      "sourceSha256": "7822275a07c7c33c80d7fbbd42f631788862c75c0fead5281d5a5591332e8b65",
+      "thresholding": 0,
+      "confidence": 73.1,
+      "words": 55,
+      "solidWords": 35,
+      "text": "Do yousmiss our dear club?\n\nAre you looking for ways to stay a\nW connected to Terrace?\n. Then, please join us as a volunteer\n/~ .on.a variety of projects led by-our\n“4 Terrace Board of Directors! ay\n\\ If you'reinterestedini@arning »\n\nmore, please email Vice Chair Jenny > as\nKorn ‘96 at\n\njkorn(@alumni.princeton.edu.\n\ni"
+    },
+    {
+      "page": 28,
+      "file": "fall-2025-28.webp",
+      "sourceSha256": "45d82f5907700e2c7c74077e2e6db32943e8d0b6252b9f501c3e00276dd9f927",
+      "thresholding": 0,
+      "confidence": 89.3,
+      "words": 202,
+      "solidWords": 186,
+      "text": "Since leaving Condé Nast, Maggie Hoffman ‘04 has been really enjoying hosting The\nDinner Plan podcast, which focuses on helping home cooks find inspiration and avoid\ncooking burnout, and features a different cookbook author every week. (There'sa {|\nrecig tter too—please sign up!) Upcoming guests include Ixta Belfrage (authors\nséo Mezcla), Melissa King (Top Chef), Hetty Lui McKinnon (NYT Cooking, author\nof Linger), and Michael Twitty (The Cooking Gene, Recipes from the American South.) ~ “=\nYou can callin a voice memo saying what's in your fridge and the guest will help you\nfigure out what to make for dinner.\n\n9\nIn August I had a testicular ultrasound. The nurse tech\nprovided a smart schtick with various theories on what he vid g\nwas documenting. At one point he said his job was “Acting like\n\nLassie for the doctor, trying to locate problems.” I replied\n“But Lassie, the well is on the other side of my body.”\n\n-\n\njames. edward . metzger ‘98\n\nPhoto from reunions\nMama looked good under\nthat rainbow\n\nLeft to right: Lianna\nKissinger Virizlay ‘10,\nAndrew Gross ‘10, Matt\nGleason ‘10, Alex Brady\n‘10, Jeremy Greenwald\nWolos ‘10, Alix Greenwald\nWolos ‘10, Dao Mi ‘12 Sarah\nSilvergleid ‘10"
+    },
+    {
+      "page": 29,
+      "file": "fall-2025-29.webp",
+      "sourceSha256": "cde861bdbbaa66dca845d78a8074fec739ce73283836ec0413cc2f0448a8686b",
+      "thresholding": 0,
+      "confidence": 93.6,
+      "words": 230,
+      "solidWords": 224,
+      "text": "In May of 2024 I ended a 20-year\nrelationship. A year later, I still feel\n“newly” single. It will take a while to\nprocess and grieve that relationship,\nand to see it and the ones before\n\nit more clearly. I was laid off earlier\nthis year and am job-hunting, thinking\nthrough what makes the most sense\nfor me. Maybe it’s time to leave NYC?\nI recently celebrated 2 years of\ncomplete abstinence from alcohol\nand other drugs. The country and\nworld are in major turmoil, and I have\nbeen through a lot of change in a\nshort space of time. My life is getting\nbetter, day by day, even ifit doesn't\nlook how I thought it would 30 years\nout of college.\n\n-Kamal Fizazi ‘95\n\nKristin Checchio Polman (‘04) has been living in London since\nfinishing med school at Columbia in 2008. After a career in digital\nhealth with pharma and biotechs, she has embarked on new\nadventures - getting a Masters of Music from Royal Holloway with\na choral scholarship and starting a music technology company to\nstreamline how vocal music is taught to singers. She also enjoys\nhanging out with Nili Safavi (‘O1) and loads of other Princeton\nalumni via PAUK and cooking for her family. Food=love\n\nI launched my company CalBot this month - it’s an affordable AT\nexecutive assistant that handles scheduling.\n\n- Sarah Hirschfield ‘20"
+    },
+    {
+      "page": 30,
+      "file": "fall-2025-30.webp",
+      "sourceSha256": "83aef9ab55a61dc63a085e48406ae1532ba1cc622453ec051f501062b6bf685f",
+      "thresholding": 0,
+      "confidence": 94,
+      "words": 58,
+      "solidWords": 58,
+      "text": "I'm Alison Hovancik Gioconda, Class of ‘96.\n\nI have had a lot of fun this summer with the trail cam I bought. I set up a water dish\non the hottest days and watched the cute animals drink from it. I highly recommend\ngetting a trail cam if you live in a place where you can use it."
+    },
+    {
+      "page": 31,
+      "file": "fall-2025-31.webp",
+      "sourceSha256": "43ecd126e1c30a1ae6921b91ad53a284da5a55dbbbac443c6b65ba59d0997a8f",
+      "thresholding": 0,
+      "confidence": 94.2,
+      "words": 150,
+      "solidWords": 145,
+      "text": "Family Visit to the Club\n\nThis past summer, a family with adult children stopped by the club while it\nwas closed for renovations. One of the workers let us know about your visit\nafterward.\n\nWe heard that your father, a former officer or staff member, had passed\naway and you were hoping to get a picture inside his old haunt. For so\nmany of us, this place holds layers of memory, andknowing you all wished\nto return, even just for a photograph, touched us greatly. The club carries\npieces of all wha have been part of its story, and his presence here is very\nmuch a part of that history.\n\nYou mentioned traveling from out of town, and we regret we missed the\nchance to connect while you were here.\n\nIf this was your family, please reach out. We would be honored to connect\nwith you and remember him together."
+    },
+    {
+      "page": 32,
+      "file": "fall-2025-32.webp",
+      "sourceSha256": "c5e74750d19997f0b4af366f459395aeadf018189e2dd20836b1a64ceb1b2091",
+      "thresholding": 0,
+      "confidence": 93.5,
+      "words": 327,
+      "solidWords": 316,
+      "text": "2\n\nThis is a favorite for pot lucks and definitely a winner from my wife's perspective. I just made a\nbatch, quadrupling the recipe for a party this weekend. The original recipe included tuna, but I\nomit that when I make it.\n\nJohn Bussoletti ‘72\nPenelope Casas\nRICE SALAD, BARCELONA STYLE\n\n10 servings\n\nSalad 1/4 teaspoon dried tarragon, crushed\n\n2 tablespoons olive oll 2 green onions, minced =\n1/4 cup minced onion 1 dill pickle, minced F\n1 medium clove garlic, peeled and minced 1 medium green bell pepper, seeded and\n\n11/2 cups white rice minced\n\n11/2 cups chicken broth 1/2 medium carrot, peeled and minced 3\n11/2 cups water 1/2 medium cucumber, peeled and minced |\n1/4 teaspoon salt 3 small romaine leaves (from the inner part of {3\n1 sprig parsley the head)\n\n1/4 teaspoon dried thyme, crushed 1 whole canned pimento, diced\n\nDressing 1/4 teaspoon dried thyme\n\n4 tablespoons olive oil 1 medium clove garlic, peeled and forced\n\n3 tablespoons lemon juice through a press\n\n1 tablespoon red-wine vinegar 1/4 teaspoon salt\n\n1 teaspoon Dijon mustard Freshly ground black pepper to taste\n\n1. To prepare the salad: In a medium pan heat the olive oil over medium heat. Add\nthe onion and garlic, sauteing until softened. Add the rice and stir to coat. Add\nthe chicken broth, water, salt, parsley, thyme and tarragon. Bring to a boil and\ncontinue to boil until the level of the water just covers the rice. Cover, turn the\nheat to low and cook 20 minutes. Remove from the heat and cool slightly.\n\n2. To prepare the dressing: In a small jar combine the olive oil, lemon juice, red-\nwine vinegar, mustard, thyme, garlic, salt and pepper. Shake well until emulsified.\n\n3. Pour the dressing over the rice. Add green onions, pickle, bell pepper, carrot,\ncucumber, romaine and pimento. Refrigerate, covered. Bring to room tempera-\nture 1 hour before serving. Adjust the seasonings if necessary.\n\n—\n\nWs 5 4"
+    },
+    {
+      "page": 33,
+      "file": "fall-2025-33.webp",
+      "sourceSha256": "a6f33a5f852198f28e83db95290acd17eb778c08e5ce3b710c4bda6a3da974be",
+      "thresholding": 0,
+      "confidence": 93.8,
+      "words": 332,
+      "solidWords": 325,
+      "text": "We're in the dog days of summer, babies — and that means I'm running through all of my best\nsummer recipes before the season ends. This one is a classic - a favorite in my family for\ngenerations and a staple of my seasonal cuisine. It comes together quickly and with very little\neffort — pair it with a nice green salad for a perfect late-summer dinner.\n\nJenny Marlowe '04\n\nCHEESE-TOMATO TARTE PROVENGALE\n\nIngredients 1/8 tsp pepper\n\n1 pie crust, homemade or store-bought 1 tsp basil\n\n3 cups Swiss cheese, shredded 1 tsp oregano\n\n1/2 cup cheddar cheese, shredded 1/2 cup scallions, chopped\n3 tomatoes 2 tbsp unsalted butter\n1/2 tsp salt 2 tbsp breadcrumbs\n\n1. Prepare pie crust according to your favorite recipe; or use a store-bought\npie shell — I for one will not judge you!\n\n2. If you've made your own crust, roll it out and fit it into a 9” pie plate; trim any\noverhang and crimp the edges.\n\n3. Prick your pie shell all over with a fork; line with a double layer of aluminum foil\nand fill with pie weights. Pre-bake your pie crust in a hot oven until golden (400°\nfor 12-15 minutes or according to package directions); set aside to cool and\nreduce the oven temperature to 325°.\n\n4. Mix the Swiss and cheddar cheeses and spoon them into your pie crust.\n\n5. Slice the tomatoes in half lengthwise and then into thin wedges. Arrange\nthem in a circular pattern around the edge of the tart, slightly overlapping the\nwedges.\n\n6. Sprinkle the salt, pepper, basil, and oregano over the tomatoes.\n\n7. Melt the butter in a small saucepan; sauté the scallions for a few minutes until\ntender.\n\n8. Spoon the scallions into the center of the tart; top with the breadcrumbs.\n\n9. Bake at 325° for 20 minutes. Let the tart cool before slicing and serving.\n\nEt voila, babies — you can feel trés francais as you enjoy this late-summer treat.\nBon appétit!"
+    },
+    {
+      "page": 34,
+      "file": "fall-2025-34.webp",
+      "sourceSha256": "43de5d0dbf33217c9520b8e5b31d50423d502f098666e107da81cc81cbc54d7e",
+      "thresholding": 0,
+      "confidence": 88,
+      "words": 5,
+      "solidWords": 5,
+      "text": "Jenny Marlowe's Cheese-Tomato Tarte Provencale"
+    },
+    {
+      "page": 35,
+      "file": "fall-2025-35.webp",
+      "sourceSha256": "edff3e64c4d4aa47ba9e77fe4d69cf808287c447e8f0230b489829bca319b7cc",
+      "thresholding": 0,
+      "confidence": 91.3,
+      "words": 221,
+      "solidWords": 208,
+      "text": "Members of Terrace who have passed since November 2024\n\nMr. Richard A. Berthold ‘65\n\nMrs. Susan McConnell Brady ‘87\nDr. John E. Burchard ‘53 *58\n\nMr. Claude W. Case ‘64\n\nMr. Lewis M. Coco ‘63 P87\n\nDr. William L. Focht ‘63\n\nSidney J. Friedman, Ph.D. ‘61\n\nDr. Damon V. Ciovanielli ‘65 P96 PO1\nM. Jay Goodkind, M.D. ‘49\nRichard S. Gould, M.D. ‘63\n\nMr. Carl L. Heimowitz ‘64\n\nMr. Philetus H. Holt, Ill ‘50 *52\nCharles j. Hudson, M.D. ‘69\n\nMr. James H. Jdiranek ‘55 P78\n\nRoger S. Kaufman, M.D. ‘566 P*99\nDr. Robert Lugannani ‘56 *64 P81\nCharles C. Marboe, M.D. ‘71 573\nDr. Barry Miller ‘55\n\nMr. Knox M. Mitchell ‘51\n\nMr. Barrie Munro ‘48\n\nDr. Scott B. Parry ‘54\n\nThe Rt. Rev. Leonard W. Riches ‘61\nMs. Aida Rodriguez ‘76\n\nMr. Henry M. Rutledge, V ‘66\n\nMr. Anthony D. Saunders ‘83\nMrs. Bonnie Barr Smith ‘78\n\nMr. Conrad W. Stout ‘54\n\nOne of our sophomore members, Kerry Grundlingh ‘27, sadly passed in\na cycling accident in her hometown of Johannesburg.\n\nHead rowing coach Lori Dauphiny isquotedin ~~ describing Kerry\nas “a tremendous daughter, sister, friend and teammate who constantly\ngave the best of herself for the betterment of others in each and every\n\ndaily interaction.”\n\nA commemorative gathering to honor Kerry's life will be held at the club."
+    },
+    {
+      "page": 36,
+      "file": "fall-2025-36.webp",
+      "sourceSha256": "2d3a2b7767c22b244876d97ce015b6d31d858228f75e95339009bb246b2b8c33",
+      "thresholding": 0,
+      "confidence": 65.9,
+      "words": 94,
+      "solidWords": 54,
+      "text": "by:\nWis\n\nShedbrasuate Officers\n\n: Lillie Szemvaj ‘26 | iy A\n: Vitus Larrien/26 A \\\nRER: Cian Healy ‘26 Ar : {\n\nIR: Suthi Navaratnam-Tomayko ‘26\n\n: Kyle Foster‘26. | |\n\nHOUSE MANAGER: Laurie Drayton |\n\nProfessional Staff\n\nRAL MANAGER: Nicole Gorton\n\nFr \\ |}\n\nrw \\ 4\n\n7\nEy Justin Gerald ‘07\n\nAkil Alleyne ‘08 = Beverly Nwanna ‘09.\nPeterBaltera'l0 | ~ Jon Strassfeld ‘09\n\nJia Natalia Chen ‘18 Suneil Vallabh ‘09%,\nArielle Dehira ‘04 Ariana Vera ‘12 Oy OR\nJon Feyer ‘09 Rob Whitaker a\nSteve Feyer ‘03 Christine Vi NX"
+    }
+  ]
+}

@@ -8,7 +8,8 @@
     "check": "node tools/sveltekit-sync.mjs && svelte-check --tsconfig ./tsconfig.json",
     "test": "bun test",
     "build": "node tools/run-sveltekit.mjs build",
-    "preview": "node tools/run-sveltekit.mjs preview"
+    "preview": "node tools/run-sveltekit.mjs preview",
+    "ocr:newsletters": "bun tools/newsletter-ocr/ocr.ts"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "^5.5.7",
