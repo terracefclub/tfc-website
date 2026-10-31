@@ -1,4 +1,4 @@
-import type { EventCategory, Initiative, Newsletter, TerraceEvent } from '../content';
+import { fixtureContent, type EventCategory, type EventImage, type Initiative, type Newsletter, type TerraceEvent } from '../content';
 
 type RecordValue = Record<string, unknown>;
 type Fetch = (input: string | URL, init?: RequestInit) => Promise<Response>;
@@ -50,6 +50,8 @@ export function createPayloadClient(options: {
   origin: string;
   publicOrigin?: string;
   fetch?: Fetch;
+  /** Poster used when an event has no (usable) CMS image; defaults to the sample fixture poster for the same slug. */
+  fallbackImage?: (slug: string) => EventImage | undefined;
   timeoutMs?: number;
   now?: () => Date;
 }) {
@@ -57,9 +59,12 @@ export function createPayloadClient(options: {
   const publicBase = origin(options.publicOrigin ?? options.origin);
   const request = options.fetch ?? globalThis.fetch;
 
-  function mediaURL(value: unknown, mime: string): string {
+  const posterTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  const fallbackImage = options.fallbackImage ?? ((slug: string) => fixtureContent.events.find(value => value.slug === slug)?.image);
+
+  function mediaURL(value: unknown, mime: string | string[]): string {
     const item = record(value);
-    if (item.public !== true || item.mimeType !== mime) throw new ContentUnavailable();
+    if (item.public !== true || typeof item.mimeType !== 'string' || !(Array.isArray(mime) ? mime : [mime]).includes(item.mimeType)) throw new ContentUnavailable();
     let url: URL;
     try { url = new URL(text(item.url, 2000), base); } catch { throw new ContentUnavailable(); }
     if (url.origin !== base.origin || url.username || url.password || url.search || url.hash ||
@@ -108,14 +113,34 @@ export function createPayloadClient(options: {
     finally { clearTimeout(timer); }
   }
 
+  // A missing, unpopulated, private or malformed image never hides the event: it falls back instead.
+  function posterImage(value: unknown): EventImage | undefined {
+    try {
+      const item = record(value);
+      const result: EventImage = { url: mediaURL(item, posterTypes), alt: text(item.alt, 300) };
+      const { width, height } = item;
+      if (Number.isInteger(width) && Number.isInteger(height) && (width as number) > 0 && (height as number) > 0 && (width as number) <= 20000 && (height as number) <= 20000) {
+        result.width = width as number;
+        result.height = height as number;
+      }
+      for (const [key, max] of [['caption', 500], ['credit', 200]] as const) {
+        if (typeof item[key] === 'string' && item[key].trim() && item[key].length <= max) result[key] = item[key].trim();
+      }
+      return result;
+    } catch { return undefined; }
+  }
+
   function event(doc: RecordValue): TerraceEvent {
     const category = text(doc.category, 30);
     if (!['music', 'food', 'community'].includes(category)) throw new ContentUnavailable();
     const startsAt = date(doc.startsAt), endsAt = doc.endsAt ? date(doc.endsAt) : undefined;
     if (endsAt && Date.parse(endsAt) <= Date.parse(startsAt)) throw new ContentUnavailable();
     const excerpt = text(doc.summary);
-    return { slug: slug(doc.slug), title: text(doc.title, 200), category: category as EventCategory,
-      startsAt, endsAt, location: text(doc.locationName, 200), excerpt, description: bodyText(doc.body, excerpt), preview: false };
+    const eventSlug = slug(doc.slug);
+    const image = posterImage(doc.coverImage) ?? fallbackImage(eventSlug);
+    return { slug: eventSlug, title: text(doc.title, 200), category: category as EventCategory,
+      startsAt, endsAt, location: text(doc.locationName, 200), excerpt, description: bodyText(doc.body, excerpt),
+      ...(image ? { image } : {}), preview: false };
   }
 
   return {

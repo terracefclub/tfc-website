@@ -13,7 +13,12 @@
   {#if event.image}
     <figure class="event-photo">
       <a href={eventUrl(event)} tabindex="-1"><img src={event.image.url} alt={event.image.alt} width={event.image.width} height={event.image.height} loading="lazy" /></a>
-      <figcaption><a href={event.image.sourceUrl}>{event.image.caption} <span aria-hidden="true">↗</span></a></figcaption>
+      {#if event.image.caption || event.image.credit}
+        <figcaption>
+          {#if event.image.sourceUrl}<a href={event.image.sourceUrl}>{event.image.caption} <span aria-hidden="true">↗</span></a>{:else if event.image.caption}{event.image.caption}{/if}
+          {#if event.image.credit}<span class="image-credit">{event.image.caption ? ' · ' : ''}{event.image.credit}</span>{/if}
+        </figcaption>
+      {/if}
     </figure>
   {/if}
   <div class="event-card-body">
@@ -38,7 +43,7 @@
   .poster-topline { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 17px; border-bottom:1px solid #33253a; font-size:10px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; }
   .sample-label { font-size:9px; letter-spacing:0; text-align:right; }
   .event-photo { margin:0; padding:14px 14px 0; }
-  .event-photo img { width:100%; height:auto; filter:saturate(.93); }
+  .event-photo img { display:block; width:100%; height:auto; max-height:520px; object-fit:contain; filter:saturate(.93); }
   .event-photo figcaption { padding:9px 0 2px; font-size:10px; line-height:1.4; }
   .event-photo figcaption a { text-decoration:underline; text-underline-offset:2px; }
   .event-card-body { display:block; padding:19px 22px 24px; }
