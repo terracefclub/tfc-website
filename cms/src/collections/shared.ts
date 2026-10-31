@@ -23,3 +23,15 @@ export const editorialAccess: { create: Access; update: Access; delete: Access }
   update: ({ req }) => isMember(req.user),
   delete: ({ req }) => isAdmin(req.user),
 }
+
+export const posterImageMimeTypes = ['image/jpeg', 'image/png', 'image/webp']
+
+/** Event posters are displayed uncropped on the website, so only raster images are accepted. */
+export const imageCoverOnly: CollectionBeforeChangeHook = async ({ data, req, originalDoc }) => {
+  const value = Object.hasOwn(data ?? {}, 'coverImage') ? data.coverImage : originalDoc?.coverImage
+  if (!value) return data
+  const id = typeof value === 'object' ? value.id : value
+  const media = await req.payload.findByID({ collection: 'media', id, req, overrideAccess: true, depth: 0 })
+  if (!posterImageMimeTypes.includes(media.mimeType ?? '')) throw new Error('The poster image must be a JPEG, PNG, or WebP image.')
+  return data
+}

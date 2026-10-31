@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { ContentUnavailable, createPayloadClient } from '../src/lib/server/payload';
+import { fixtureContent } from '../src/lib/content';
 
 const publishedEvent = { _status: 'published', slug: 'club-dinner', title: 'Club dinner', summary: 'Everyone is welcome.', startsAt: '2027-01-08T23:00:00.000Z', endsAt: '2027-01-09T01:00:00.000Z', category: 'food', locationName: 'The clubhouse' };
 const json = (docs: unknown[], hasNextPage = false) => Response.json({ docs, hasNextPage });
@@ -109,5 +110,50 @@ describe('public Payload boundary', () => {
       init?.signal?.addEventListener('abort', () => reject(new Error('internal diagnostic')), { once: true });
     }) });
     await expect(cms.events()).rejects.toThrow('Published content is temporarily unavailable');
+  });
+});
+
+describe('event poster images', () => {
+  const poster = { id: 7, public: true, mimeType: 'image/webp', url: 'http://127.0.0.1:3000/api/media/file/poster.webp', alt: 'A hand-lettered soup poster', caption: 'Poster for the supper', credit: 'Ada Example', width: 800, height: 1200 };
+  const first = async (coverImage: unknown, slug = 'club-dinner', options: Partial<Parameters<typeof createPayloadClient>[0]> = {}) =>
+    (await createPayloadClient({ origin: 'http://127.0.0.1:3000', publicOrigin: 'https://files.example.org', now: () => new Date('2027-01-01T00:00:00.000Z'), fetch: async () => json([{ ...publishedEvent, slug, coverImage }]), ...options }).events())[0];
+
+  test('maps a public CMS image to the browser origin with alt, caption, credit and dimensions', async () => {
+    expect((await first(poster)).image).toEqual({ url: 'https://files.example.org/api/media/file/poster.webp', alt: poster.alt, caption: poster.caption, credit: poster.credit, width: 800, height: 1200 });
+  });
+
+  test('omits optional caption, credit and unusable dimensions instead of inventing them', async () => {
+    const image = (await first({ ...poster, caption: ' ', credit: null, width: 0, height: 'tall' })).image;
+    expect(image).toEqual({ url: 'https://files.example.org/api/media/file/poster.webp', alt: poster.alt });
+  });
+
+  test('without a CMS image, a sample slug keeps its fixture poster and other events have none', async () => {
+    const sample = fixtureContent.events[0];
+    expect((await first(null, sample.slug)).image).toEqual(sample.image);
+    expect((await first(undefined, sample.slug)).image).toEqual(sample.image);
+    expect('image' in (await first(null))).toBe(false);
+  });
+
+  test('a CMS image takes precedence over the fixture poster', async () => {
+    expect((await first(poster, fixtureContent.events[0].slug)).image?.alt).toBe(poster.alt);
+  });
+
+  test.each([
+    ['an unpopulated relationship id', 7],
+    ['private media', { ...poster, public: false }],
+    ['a PDF', { ...poster, mimeType: 'application/pdf' }],
+    ['an SVG', { ...poster, mimeType: 'image/svg+xml' }],
+    ['a foreign origin', { ...poster, url: 'https://other.example/api/media/file/poster.webp' }],
+    ['a non-media path', { ...poster, url: '/api/users/me' }],
+    ['missing alt text', { ...poster, alt: ' ' }]
+  ])('falls back rather than showing %s', async (_name, coverImage) => {
+    const sample = fixtureContent.events[1];
+    expect((await first(coverImage, sample.slug)).image).toEqual(sample.image);
+    expect('image' in (await first(coverImage))).toBe(false);
+  });
+
+  test('the fallback can be replaced by the caller', async () => {
+    const image = { url: '/x.png', alt: 'x' };
+    expect((await first(null, 'club-dinner', { fallbackImage: () => image })).image).toBe(image);
   });
 });

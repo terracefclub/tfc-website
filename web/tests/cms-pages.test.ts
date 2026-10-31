@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test';
 import { parseHTML } from 'linkedom';
 
-let mode: 'published' | 'empty' | 'draft' | 'outage' = 'published';
+let mode: 'published' | 'poster' | 'empty' | 'draft' | 'outage' = 'published';
 let eventStartsAt: string;
 const cms = Bun.serve({
   hostname: '127.0.0.1', port: 0,
@@ -10,7 +10,7 @@ const cms = Bun.serve({
     const path = new URL(request.url).pathname;
     let docs: unknown[] = [];
     if (mode !== 'empty') {
-      if (path === '/api/events') docs = [{ _status: mode === 'draft' ? 'draft' : 'published', slug: 'club-dinner', title: 'Published dinner', summary: 'A gathering at Terrace.', startsAt: eventStartsAt, category: 'food', locationName: 'Clubhouse', body: '<script>window.unsafeContent=true</script>' }];
+      if (path === '/api/events') docs = [{ _status: mode === 'draft' ? 'draft' : 'published', slug: 'club-dinner', title: 'Published dinner', summary: 'A gathering at Terrace.', startsAt: eventStartsAt, category: 'food', locationName: 'Clubhouse', body: '<script>window.unsafeContent=true</script>', ...(mode === 'poster' ? { coverImage: { id: 3, public: true, mimeType: 'image/png', url: '/api/media/file/poster.png', alt: 'Tall hand-lettered poster', caption: 'Poster caption', credit: 'Ada Example', width: 600, height: 900 } } : {}) }];
       if (path === '/api/newsletters') docs = [{ _status: 'published', title: 'Winter 2027 News', issueDate: '2027-01-01T00:00:00.000Z', issuePdf: { public: true, mimeType: 'application/pdf', url: '/api/media/file/winter.pdf' } }];
       if (path === '/api/initiatives') docs = [{ _status: 'published', slug: 'care', title: 'Clubhouse care', summary: 'Keep the house welcoming.', body: 'A little care goes a long way.' }];
     }
@@ -67,6 +67,23 @@ test('CMS data renders through the HTTP boundary without fixture labels or execu
   expect(document.querySelector('.prose script')).toBeNull();
   const news = await (await fetch(`${origin}/newsletter/`)).text();
   expect(news).toContain('https://files.example.org/api/media/file/winter.pdf');
+});
+
+test('a CMS poster renders on the card and detail page with alt text, credit, and intrinsic size', async () => {
+  mode = 'poster';
+  for (const [path, selector] of [['/events/', '.event-photo img'], ['/events/club-dinner/', '.event-head figure img']] as const) {
+    const { document } = parseHTML(await (await fetch(`${origin}${path}`)).text());
+    const image = document.querySelector(selector)!;
+    expect(image.getAttribute('src')).toBe('https://files.example.org/api/media/file/poster.png');
+    expect(image.getAttribute('alt')).toBe('Tall hand-lettered poster');
+    expect([image.getAttribute('width'), image.getAttribute('height')]).toEqual(['600', '900']);
+    const caption = image.closest('figure')!.querySelector('figcaption')!.textContent!;
+    expect(caption).toContain('Poster caption');
+    expect(caption).toContain('Ada Example');
+  }
+  mode = 'published';
+  const { document } = parseHTML(await (await fetch(`${origin}/events/`)).text());
+  expect(document.querySelector('.event-photo')).toBeNull();
 });
 
 test('empty published collections render empty states and missing details return404', async () => {

@@ -11,7 +11,7 @@
     <div class="shell"><a class="back-link" href="/events/">← Back to the noticeboard</a>
       <div class="event-head-grid" class:with-image={Boolean(data.event.image)}>
         <div><p class="event-overline">{data.event.category.toUpperCase()} AT TERRACE{#if data.event.preview} · SAMPLE EVENT{/if}</p><h1>{data.event.title}</h1><p class="event-intro">{data.event.excerpt}</p>{#if data.event.preview}<p class="imagined-stamp">IMAGINED FOR THE PREVIEW · NOT SCHEDULED</p>{/if}</div>
-        {#if data.event.image}<figure><img src={data.event.image.url} alt={data.event.image.alt} width={data.event.image.width} height={data.event.image.height} fetchpriority="high" /><figcaption><a href={data.event.image.sourceUrl}>{data.event.image.caption} ↗</a></figcaption></figure>{/if}
+        {#if data.event.image}<figure><img src={data.event.image.url} alt={data.event.image.alt} width={data.event.image.width} height={data.event.image.height} fetchpriority="high" />{#if data.event.image.caption || data.event.image.credit}<figcaption>{#if data.event.image.sourceUrl}<a href={data.event.image.sourceUrl}>{data.event.image.caption} ↗</a>{:else if data.event.image.caption}{data.event.image.caption}{/if}{#if data.event.image.credit}<span class="image-credit">{data.event.image.caption ? ' · ' : ''}{data.event.image.credit}</span>{/if}</figcaption>{/if}</figure>{/if}
       </div>
     </div>
   </section>
@@ -33,7 +33,7 @@
   .event-intro { max-width:570px; font-size:17px; line-height:1.8; }
   .imagined-stamp { display:inline-block; margin-top:17px; padding:8px 12px; border:2px solid #33253a; font-size:9px; font-weight:800; letter-spacing:.03em; transform:rotate(-2deg); }
   figure { margin:0; padding:12px; background:#fff7e8; box-shadow:10px 10px 0 #33253a; transform:rotate(1deg); }
-  figure img { width:100%; height:auto; }
+  figure img { display:block; width:100%; height:auto; max-height:80vh; object-fit:contain; }
   figcaption { padding:14px 4px 5px; font-size:11px; line-height:1.55; }
   figcaption a { text-decoration:underline; text-underline-offset:2px; }
   .prose p { color:#33253a; }
@@ -44,5 +44,6 @@
   .detail-sidebar h2 { font:400 30px/1.1 'Anton',Impact,sans-serif; letter-spacing:0; margin-bottom:25px; text-transform:none; }
   .detail-sidebar strong { font-size:10px; text-transform:uppercase; letter-spacing:.08em; }
   .detail-sidebar .button { background:#33253a; }
+  @media(prefers-reduced-motion:reduce) { figure { transform:none; } }
   @media(max-width:800px) { .event-head-grid.with-image { grid-template-columns:1fr; gap:30px; } figure { max-width:600px; margin-inline:5px; } .event-head { padding-block:30px 50px; } .back-link { margin-bottom:30px; } h1 { font-size:clamp(54px,11vw,85px); } .detail-layout { gap:35px; } }
 </style>

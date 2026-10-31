@@ -43,8 +43,9 @@ export const Media: CollectionConfig = {
     return data
   }] },
   fields: [
-    { name: 'alt', type: 'text', required: true },
-    { name: 'caption', type: 'textarea' },
+    { name: 'alt', type: 'text', required: true, maxLength: 300, admin: { description: 'Describe what the image shows for people who cannot see it. Required.' } },
+    { name: 'caption', type: 'textarea', maxLength: 500, admin: { description: 'Optional visible caption.' } },
+    { name: 'credit', type: 'text', maxLength: 200, admin: { description: 'Optional photographer, artist, or source credit.' } },
     { name: 'public', type: 'checkbox', defaultValue: false, required: true, admin: { description: 'Private uploads cannot be served to anonymous visitors.' } },
   ],
 }

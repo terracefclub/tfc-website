@@ -3,10 +3,12 @@ export type EventCategory = 'music' | 'food' | 'community';
 export type EventImage = {
   url: string;
   alt: string;
-  width: number;
-  height: number;
-  caption: string;
-  sourceUrl: string;
+  /** Intrinsic size, when known; omitted for CMS images without recorded dimensions. */
+  width?: number;
+  height?: number;
+  caption?: string;
+  credit?: string;
+  sourceUrl?: string;
 };
 
 export type TerraceEvent = {

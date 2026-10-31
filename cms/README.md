@@ -22,13 +22,23 @@ Stop the CMS with the exact process PID you started. Stop local PostgreSQL with 
 
 Payload REST lists use `GET /api/<collection>?depth=1` and return `{ docs, totalDocs, ... }`. Detail lookup uses `where[slug][equals]=<slug>`. Anonymous reads are limited to `_status=published`, including when a caller requests `draft=true`. Editors and admins can read drafts. The collections are:
 
-- `events`: `slug`, `title`, `summary`, `startsAt` (UTC ISO), optional `endsAt`, `category` (`music`, `food`, `community`), `locationName`, optional plain-text `body`, optional `coverImage`, `_status`.
+- `events`: `slug`, `title`, `summary`, `startsAt` (UTC ISO), optional `endsAt`, `category` (`music`, `food`, `community`), `locationName`, optional plain-text `body`, optional `coverImage` (shown to editors as "Poster image"), `_status`.
 - `newsletters`: `slug`, `title`, `issueDate`, `summary`, required-on-publication `issuePdf`, optional `coverImage`, `_status`.
 - `initiatives`: `slug`, `title`, `summary`, optional plain-text `body`, `ctaLabel`, `ctaUrl`, `coverImage`, `_status`.
 - `redirects`: `sourcePath`, `destinationUrl`, `statusCode`, `active`; only active redirects are public.
-- `media`: `alt`, `caption`, `public`, `url`, `mimeType`; only explicitly public media are visible or downloadable anonymously.
+- `media`: `alt`, `caption`, `credit`, `public`, `url`, `mimeType`, `width`, `height`; only explicitly public media are visible or downloadable anonymously.
 
 Payload emits absolute `media.url` values using `CMS_ORIGIN`. Consumers should accept URLs only from that configured origin and rewrite the pathname to their trusted public CMS origin as needed. Uploads allow PNG, JPEG, WebP, and PDF, at most 10 MiB, and check file signatures. Published content cannot reference private media. A published newsletter must have a public PDF. Media referenced by published content cannot be made private or deleted until that content is unpublished. An anonymous direct upload URL returns 403 for private files.
+
+## Event images
+
+Editors attach a poster to an event from **Events > Poster image**. The website shows it uncropped on the event card and detail page.
+
+1. In **Media**, upload a JPEG, PNG, or WebP of at most 10 MiB (file signatures are checked; SVG, GIF, and other types are refused). Fill in **Alt text** (required, at most 300 characters; describe what the poster shows), and optionally **Caption** (500) and **Credit** (200). Tick **Public**.
+2. In the event, pick that media item as **Poster image**. A PDF cannot be chosen. A published event cannot use a private image, and a media item used by a published event cannot be made private or deleted until the event is unpublished.
+3. The website maps the image URL, alt text, caption, credit, and intrinsic width/height when Payload recorded them. If an event has no usable poster (none set, not public, wrong type, or no alt text) the site shows no poster, except that the built-in sample events keep their bundled sample poster when matched by slug. Events remain labelled as sample content until a verified calendar source exists.
+
+The caption and credit are shown under the poster. The credit line is plain text, never HTML.
 
 ## Editorial workflow and validation
 
@@ -40,6 +50,8 @@ After schema changes, run `direnv exec . tools/with-local bun run migrate:create
 direnv exec . bun run check
 direnv exec . tools/with-local bun test
 ```
+
+`test/event-media.test.ts` covers the poster rules and the `credit` migration against real PostgreSQL.
 
 For the direct HTTP file ACL test, run the CMS locally and use `direnv exec . tools/with-local env CMS_HTTP_URL=http://127.0.0.1:3010 bun test`. CI starts isolated PostgreSQL, applies migrations, builds the app, starts the production server, and runs all tests; it has no deploy step.
 
