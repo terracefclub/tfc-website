@@ -3,6 +3,7 @@
   import { pageAtReadingLine } from './reader-position';
   import type { ArchiveIssue, ArchiveStory } from './content';
   import type { NewsletterPage } from './reader';
+  import NewsletterSearch from './NewsletterSearch.svelte';
 
   export let issue: ArchiveIssue;
   export let pages: NewsletterPage[];
@@ -56,6 +57,8 @@
     <h2 id="reader-title">Stay a <em>little longer.</em></h2>
     <p>Every page, just as it was printed. Scroll through, jump around, or follow something that catches your eye.</p>
   </div>
+
+  <NewsletterSearch currentIssue={issue.slug} onjump={goToPage} />
 
   <div class="reader-controls" bind:this={controls}>
     <div class="reader-navigation" aria-label="Newsletter page controls">
