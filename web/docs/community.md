@@ -26,6 +26,13 @@ external embeds are supported. These are text-first community tools, not a
 moderated production social network. Reporting, moderator procedures, account
 erasure/export, and upload safety need a separate release before a broad launch.
 
+## Look and feel
+
+The private pages reuse the public palette and local Anton face (`members.css`; the standalone
+sign-in/denied page loads `static/fonts/anton-latin-400.woff2`, OFL). Consent switches are native
+checkboxes restyled as OFF/ON and must stay unchecked by default; keep every control, label and
+test id when restyling.
+
 ## Runtime and checks
 
 The SvelteKit server sends the signed-in member's bearer token to Payload; it
