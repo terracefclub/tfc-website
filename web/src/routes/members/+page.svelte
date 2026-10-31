@@ -1,7 +1,7 @@
 <svelte:head><title>The living room · Terrace members</title><meta name="robots" content="noindex,nofollow" /></svelte:head>
-<p class="member-eyebrow">Current members + alumni</p>
+<header class="member-hero member-hero--home"><p class="member-eyebrow">Current members + alumni</p>
 <h1>Pull up a chair.</h1>
-<p class="member-intro">The conversation keeps going. Bring a memory, find your people, start a little group, or offer what you’ve learned to another Terran.</p>
+<p class="member-intro">The conversation keeps going. Bring a memory, find your people, start a little group, or offer what you’ve learned to another Terran.</p></header>
 <div class="member-home-links">
   <a href="/members/stories/"><strong>Pass a story around.</strong><span>A recipe, a night you remember, a thing you made.</span></a>
   <a href="/members/people/"><strong>Who’s around?</strong><span>Meet the members and alumni who have chosen to share a profile.</span></a>
