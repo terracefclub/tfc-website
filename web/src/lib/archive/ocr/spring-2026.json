@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "issueSlug": "spring-2026",
+  "sourcePdfSha256": "982c143c45f74de570d29e7c8a89ebf343d30484cc3f1c70c248cc155ed6e6ad",
+  "tool": {
+    "name": "newsletter-ocr",
+    "version": "1.0.0",
+    "engine": "tesseract 5.5.3",
+    "language": "eng",
+    "psm": 3,
+    "oem": 1,
+    "thresholding": [
+      0,
+      1,
+      2
+    ]
+  },
+  "pages": [
+    {
+      "page": 1,
+      "file": "spring-2026-01.webp",
+      "sourceSha256": "aecad4a3b5dd22470c4f96c02735feab764232f9f40e6f7f9cab646732092e1d",
+      "thresholding": 0,
+      "confidence": 51.4,
+      "words": 15,
+      "solidWords": 5,
+      "text": "a » he [3\n-, -\n~d\n\nSpry 2026 uA ewig\n\nTERRACE F. CLUB |"
+    },
+    {
+      "page": 2,
+      "file": "spring-2026-02.webp",
+      "sourceSha256": "bfe0708fedb9c36543f89a75595171285c3f0d357eec0ddace53df5c53e57006",
+      "thresholding": 0,
+      "confidence": 94.9,
+      "words": 209,
+      "solidWords": 207,
+      "text": "Dear Terrans,\n\nEven as the University grows endlessly in all directions, our\nTerrace Club is staying rooted in what we do best.\n\nIn the kitchen and on the stage, we still crank up the volume\nwhile staying true to our roots. We’re serving 19 meals a week,\ndoubling down on creative menus that they never see on Prospect.\nAnd our social calendar remains the envy of the Street. So it’s\nno wonder that Terrace continues to draw a crowd, with 133\nsophomores choosing us at sign-ins this winter.\n\nLooking ahead, the Board is focused on ensuring the club’s long-\nterm sustainability. We are taking care of our 1904 house, and\nthis winter undertook a major project to upgrade our heating\nsystem. Making sure that \"Food = Love\" has a permanent home takes\nwork, and so we're actively seeking new volunteers among our base\nof committed alumni.\n\nThere's something for everyone to do, and there are no\ngeographical restrictions here in 2026 (I live in California). So\nif you're looking for a way to reconnect with Princeton, activate\na community of brilliant people, and secure your favorite home-\naway-from-home for another generation, please drop me a note at\nsteve. feyer@terracefclub.org.\n\nFood to all,\nSteve Feyer '03\nChair, Board of Governors"
+    },
+    {
+      "page": 3,
+      "file": "spring-2026-03.webp",
+      "sourceSha256": "a68284cac19996dd25765e19203b6c99962e1890ff06a6ef358f0987d5072093",
+      "thresholding": 0,
+      "confidence": 87.5,
+      "words": 116,
+      "solidWords": 103,
+      "text": "q » EN - .\n\np=\n\ni : r »\n\n«NV\nc\n’\n-\n\nName: Madison - President\n\nHometown: Everett, Wa (home of the funko\npop!)\n\nMajor: Molecular Biology\n\nFavorite Terrace Event: i can't talk about\nthat publicly...\n\nFun Fact: during COVID, i got really into\nspeed running Minecraft and have since\napplied that knowledge to the heavily\nattended terrace event “Y2Kave”\n\nName: Evan - Social Chair\nHometown: Jackson, NJ\nMajor: Computer Science\n\nFavorite Terrace Event: any formal\nrave\n\nFun Facts: has connected toes, can\nplay guitar, is nice at fortnite\n\nName: Otto - Music Chair\nHometown: Princeton\n\nMajor: Anthropology\n\nFav Terrace Event: Solarium\nSessions\n\nFun fact: Unlike Nell, nobody in my\nfamily is a redhead!"
+    },
+    {
+      "page": 4,
+      "file": "spring-2026-04.webp",
+      "sourceSha256": "f51cadf52a399551a1cddf297cf1db4fde76cdb543760ee1825fca25e853bc72",
+      "thresholding": 0,
+      "confidence": 83.5,
+      "words": 140,
+      "solidWords": 115,
+      "text": "OD» . 3 )\n. 5 a by\n\n— 2\n= v »\n\n£4\n\nName: Nell - Vice President\n\na L Hometown: Bainbridge Island,\nWashington\nMajor: Comparative literature\nFav Terrace Event: Weekly Wednesday\ntrivia! :\nFun fact: My sisters are both gingers...\nwhat could have been </3\n\nBs\nN\n™~\nx\n\\*\n-\n-\n\nName: Connor - Treasurer\n\nHometown: Oklahoma City, Oklahoma W\nMajor: Comparative Literature ;\nFavorite Terrace Event: D2C @\n\nFun fact: On my high schools senior skip day\n| woke up at 6 o'clock to clean up the\naftermath while still drunk, and ever since\nthat day knew | wanted to be a terrace\nofficer\n\nName: Georgia - House Manager\nHometown: Columbia, MD\n\nMajor: Linguistics\n\nFavorite Terrace Event: d2c\n\nFun facts: successfully learned how to\nwalk at a young age, has been to\nWyoming, is not 5'6”"
+    },
+    {
+      "page": 5,
+      "file": "spring-2026-05.webp",
+      "sourceSha256": "7bf66b6cff56f9dda0c9eba309d69fb751781ae7242d6a6a8d21ca0a6c9dfd6f",
+      "thresholding": 2,
+      "confidence": 87.5,
+      "words": 187,
+      "solidWords": 165,
+      "text": "& £)\n\n30 MINUTES\nON...\n\nOur Terrace 30 in\nJanuary 2026\nfocused on\ndemocracy and\nwas led by\nChristine Young\n'92.\n\nTerrace 30:\n\n30 Minutes on Mental Health\n\nra ; Tuesday, February 17, 2026, 8-8:30 pm Eastern\n: 8 Our Terrace\nAN 30 in March\n\n2026 centered\non birding\nand was led\nby Jon\nStassfeld '09.\n\n| Svring 2046]\n\nOur Terrace 30 series continues! All of our\nTerrace 30 events are open to everyone in our\nTerrace family to lead and attend. Grateful for\n\nus to hang out online together and discuss\nvarious interests of our Terrans.\n\nTerrace 30:\n30 minutes for Democracy\n\nThursday, January 22, 2026, 8-8:30 pm Eastern\n\nOur Terrace 30 in\nFebruary 2026\ngave us the\nopportunity to\ndiscuss mental\nhealth and was led\n\nto\nby Jon Feyer '09. EIT\nadd\nTerrace 30: 9\n30 minutes on Birding\nTuesday, March 24, 2026, 8-8:30 pm Eastern 3»\n24 0) Sih\na ke \\\n\nIf you have an interest that you'd like to share in under 30\n\nminutes, please email Vice Chair Jenny Korn '96 at 1\n\nJjkorn@alumni.princeton.edu with your ideas for our future\ngatherings online."
+    },
+    {
+      "page": 6,
+      "file": "spring-2026-06.webp",
+      "sourceSha256": "7e42bc3b57c0e4d8b30ac88bb3f3f59dc06959c4a73e95c8cdcd1c607f4a3bbe",
+      "thresholding": 0,
+      "confidence": 95,
+      "words": 238,
+      "solidWords": 237,
+      "text": "ALUMNI\nVISITORS\nPOLICY\n\nAlumni visitors are not entitled to admission to\nthe Club and should seek permission from the\nClub Manager and/or Undergraduate Officers by\nsubmitting their requests to visit to\nvisitors@terracefclub.org. Requests should be\nsubmitted at least 72 hours in advance of the\nproposed visitation date. The Club Manager\nand/or Undergraduate Officers reserve the right\nto approve, deny, limit, or rescind visitation\nprivileges for any legally permissible reason,\nbefore and during the visit, and are not required\nto provide an explanation for any decision.\n\nWe are grateful for Terrace Governance\nCommittee Co-Chairs Beverly Nwanna\n'09 and Jon Strassfeld '09 for their\nleadership in revising the bylaws for the\nTerrace Board of Directors.\n\nWe thank Mihalis Alisandratos '18, Peter\nBaltera 10, Jon Feyer '09, Steve Feyer '03,\nMike Hodgson '04, Jasmine Jeffers 11,\nJenny Korn '96, Suneil Vallabh '09, and\nAri Vera \"12 for their feedback on bylaws.\nOver several meetings of many hours,\nour bylaws are now updated!\n\nAll decisions by the Club Manager and/or\nUndergraduate Officers are final, and there\nshall be no right of appeal to the Board of\nGovernors or any higher authority. The Club\nanager and/or Undergraduate Officers\nalso reserve the right to take any legally\npermissible action necessary to enforce this\npolicy, or violations thereof, including\ninvolving law enforcement. Exceptions to\nhis policy, including events such as\nHomecoming, Lawn Parties, Alumni Day,\nand Reunions, will be communicated to\nTerrace alumni in advance."
+    },
+    {
+      "page": 7,
+      "file": "spring-2026-07.webp",
+      "sourceSha256": "35a3f4b7000eb3838a4780e3ab7077d8a8f6d35db6a2dec43b25879edb03380e",
+      "thresholding": 0,
+      "confidence": 94,
+      "words": 134,
+      "solidWords": 130,
+      "text": "Want to volunteer with Terrace? Cong ratulations\n\nto our Business Manager Ashley on her\n\n1st Terraceversary!\n\nPlease contact jkorn@alumni.princeton.edu.\n\nDo you miss our beloved club? Looking for a way to\nstay connected to Terrace? Come join the Terrace\nGraduate Board!\n\nIf you'd like to learn more, fill out this quick Google\n\nForm: https://forms.gle/UcARWKofXMMjrGo77\n\nOr reach out directly to Vice Chair Jenny Korn '96 at\njkorn@alumni.princeton.edu.\n\n1% oz Rye Whiskey\n*. oz Campari\n\nTIGER’S BLOOD ¥. oz Carpano Antica Sweet Vermouth\n(A FAREWELL ¥% oz Blood Orange Juice\n\nCOCKTAIL) Shake with ice and strain over a large rock in a\nrocks glass.\n\nBY: Garnish with a blood orange wheel or orange\npeel.\nColor: deep orange-red.\n\nNICOLE\n\nGORDON A bittersweet whiskey cocktail inspired by the\nclassic Boulevardier, brightened with blood\norange for balance and citrus lift."
+    },
+    {
+      "page": 8,
+      "file": "spring-2026-08.webp",
+      "sourceSha256": "82095c9772dc217ed7820d9b9579c7a7495cf0490d534a0afa955a35d3993b7f",
+      "thresholding": 0,
+      "confidence": 91,
+      "words": 175,
+      "solidWords": 162,
+      "text": "December vibes in April? Yes! Our own Morgan Young '16 is — to share about a new\nshort: \"Since studying theatre and gender and sexuality studies at Princeton, | moved\ninto the world of film and television! I've been a children's animated TV producer and\ncoordinator since 2018 and live in New Jersey with my husband and many cats. Stoned\nfor Christmas, in many ways, feels like a culmination of my work in children's animation:\nit's a short story told with heightened animated and musical language, but it still has\nheart and should make you feel warm and fuzzy.\" Congratulations, Morgan!\n\nCALLING ALL\n\nALUMNI! pps 1\n\nInterested in serving as\nmentee or mentor to other\n\nTerrans in career\n\nSUPPORT COACHING\n\ndevelopment? Please send a\nInterested in serving as mentee or mentor\n\nblank email to to other Terrans in career development?\nCareerMentoring+subscribe SEALS WEL\n\nCareerMentoring +subscribe@terrace.groups.io.\n\n@terrace.groups.io to join We'll see you there!\n\nour Terrace Career . . .\nIf you're interested in learning\n\nmore, please email Vice Chair\nJenny Korn '96 at\njkorn@alumni.princeton.edu.\n\nMentoring community."
+    },
+    {
+      "page": 9,
+      "file": "spring-2026-09.webp",
+      "sourceSha256": "38e12a195a12ad0eeb3cedaf607eab8cfb1e2fc8bf79a59663a55a2db1fa161d",
+      "thresholding": 0,
+      "confidence": 92.7,
+      "words": 300,
+      "solidWords": 286,
+      "text": "SR | OST IN TRINBAGO\n\nLe\n\na\n\nSome years ago—in the era that | like to call “B.C.,\" or “Before COVID\"—my\n\nmother questioned why, come hell or high water, | had always made sure to\n\nmake it from my hometown of Montreal, Canada back to my alma mater to\n\nattend our annual Reunions hoedown in an unbroken streak lasting 11 years.\n| | replied, \"Mom, is it really that surprising, given where we hail from?\n\n“Think about it,” | said. “Here’s an annual event lasting several days that\n\npeople travel from all over the world to attend. It features plenty of drinking,\n\ndancing, and socializing, as well as a slew of intellectual and cultural\n\nactivities. It offers ample opportunities for old friends to reunite and get\n\nreacquainted. Finally, the climax is a giant parade in which participants dress\nup in costumes and drink and dance the day away. Does that not remind you of any cultural tradition\nfrom our family’s background?”\n\n| was, of course, comparing Princeton's Reunions to\nthe annual Carnival celebration in my parents’ home\ncountry, Trinidad and Tobago, long billed by its\nfans —both foreign and domestic—as “The Greatest\nShow on Earth.” That analogy quickly illustrated for\nmy mother how my heritage gave rise to my lifelong\nlove for dressing up and dancing, and thereby to my\nReunions addiction. Eventually, however, it dawned\non me how absurd it was that, despite the facts that\n(a) both of my parents hail from T&T; (b) | lived there\nmyself until shortly before my fifth birthday; and (c) |\nhave a virtual army of aunts and uncles, first, second,\nand third cousins, and even an older brother still living\nthere, | hadn't experienced the divine madness of\n\n} Trinidad Carnival once since 1993—and not at all\nsince | reached adulthood."
+    },
+    {
+      "page": 10,
+      "file": "spring-2026-10.webp",
+      "sourceSha256": "ee4568b5d30ff3d70af5fa904779256bdfda2b1fda56abee1cfbd0e8423e3b38",
+      "thresholding": 0,
+      "confidence": 92.9,
+      "words": 346,
+      "solidWords": 333,
+      "text": "SR | OST IN_TRINBAGO\n\nWe\n\nv\n\nFor example, | was able to attend the annual “Canboulay”\nevent, in which actors and dancers in colourful costumes\nreenact the late-19th-century “Canboulay Riots,” when\nemancipated ex-slaves rebelled against the colonial\nauthorities’ restrictions on their musical and dance traditions.\n(You can even catch a brief glimpse of me in the stands in the\nvideo at these links.) Furthermore, after personally playing\nthe steelpan—Trinidad and Tobago’s national music\ninstrument —throughout most of my youth, | finally got to\nattend the annual “Panorama” steelband competition in\nperson.\n\nTo be sure, visiting the country during the winter of 2026 was\nremarkable from a historical and political standpoint as well. Trinidad and Tobago is an almost-literal\nstone's throw away from neighbouring Venezuela; so, | got a virtual front-row seat to U.S. President\nDonald Trump's abduction of Venezuelan dictator Nicolas Maduro and his wife last January. This\nwas in keeping with the current Trinidadian government's overall policy of cooperating extensively\nwith the Trump administration's anti-Maduro and anti-drug smuggling campaigns in the region, down\nto the assassinations of alleged drug smugglers in the waters off the coasts of both Venezuela and\nTrinidad.\n\n| was also able to get caught up on the internal politics of T&T itself. Current Prime Minister Kamla\n(not to be confused with Kamala!) Persad-Bissessar has followed in Trump's footsteps in that she,\ntoo, lost power at the ballot box back in 2015 after serving her first term, only to come rip-roaring back\nto power a decade later in last summer's general election. Kamla—as most Trinbagonians casually\nrefer to their first woman Prime Minister—has reportedly imported a Trumpian style of politics as well,\ncomplete with Republican-style policies like the country’s own homegrown “Stand Your Ground”\nlaw.\n\nDuring my stay, | even heard grapevine gossip that Mrs. Persad-Bissessar has been making moves\nto concentrate more political power in her own hands and prolong her stay in office, mirroring Trump's\npower grabs in the States. So where do Trinidad's politics go from here? Only time will tell; but |, for\none, plan to stay tuned."
+    },
+    {
+      "page": 11,
+      "file": "spring-2026-11.webp",
+      "sourceSha256": "c0f9e815a599586e4b369cbbaf0c7ad209e661ce3429763c23b13139756a12ca",
+      "thresholding": 0,
+      "confidence": 93.5,
+      "words": 268,
+      "solidWords": 259,
+      "text": "LOST IN TRINBAGO\n(3/3)\n\nProbably my favorite aspect of my visit was the quality of the Soca music—a dance-oriented spinoff\nof calypso dating back to the 1970s —that was released during this year's Carnival season. Coming\nfrom a Caribbean background, I've been a fan of the genre my whole life; but after spending last\nwinter in T&T, | honestly believe that we're currently living through the art form's golden age.\n\nThis was perhaps the first of my 40 years on this planet in which I've enjoyed every single Soca tune\nthat was in heavy rotation on the island's airwaves, from “power Soca” hits like Voices “Cyah Behave\nMyself” to sweet, mid-tempo grooves like Sherman Devries’ “Lost in Trinbago™ and my personal\nfavorite, Contain & Tano's “Wedding Band.\" If you're a fan of —\n\nother dance music genres like dancehall, reggaeton, or\n\nAfrobeat, you'd be remiss not to explore the Soca that's been\n\non offer over the past decade or so. Trust me, you won't be\n\ndisappointed.\n\nThis trip has left me with a desire to return to visit Trinidad\nand Tobago more frequently. For that very reason, I'm\nseeking more and steadier remote work, which | hope will\neventually enable me to spend all of my future winters there.\nMoreover, I've returned with a determination to promote\n\nTrinidadian culture in general and Soca in particular—\n\nperhaps the most underrated musical genre I've ever heard—\nfar and wide. Hell, given the aforementioned similarities\nbetween Trinidad’s Carnival and Princeton’s Reunions, | think\nthe P-Rade could benefit from some Caribbean style and\nflavor this coming spring and beyond. What say you?"
+    },
+    {
+      "page": 12,
+      "file": "spring-2026-12.webp",
+      "sourceSha256": "0af05fc348a62b2be3f7c46b875c8d0e51e51ff3c6ce5733c6fdfba27c8f57c0",
+      "thresholding": 1,
+      "confidence": 67.9,
+      "words": 127,
+      "solidWords": 79,
+      "text": "; all\nta J By.\n\nWE ARE GRATEFUL FOR THE FOLLOWING\nGENEROUS INDIVIDUALS THAT HAVE MADE\nFINANCIAL CONTRIBUTIONS TO KEEP OUR\n\nTERRACE GOING. IF YOU'D LIKE TO JOIN THESE\nSUPPORTERS, PLEASE VISIT:\nHTTPS://PRINCETONTERRACECLUB.ORG/DONATE/ |\n\nEVERY LITTLE BIT COUNTS TOWARDS SECURING\n\nTHE FUTURE OF THE PLACE WE LOVE.\n\nror\n»\na\nEk 4\n\nad\n1\n\nob\n- rs\n\n’\n\ng\n[fA\n\nyo\n\n4\n\noy |\n\nArielle Debira Maria Wich-Vila\n\nSr\n\ner\n\nWY\ny |\n\nCy Watsky Michael Smith\n\n~N\n\nFrancis Freeman Peter Baltera\n\n-\n\nJenny Korn Rob Whitaker\n\nJuliet Eilperin Shelly Zhao\n\n: T. .\n\na L/ f at,\n2%,\"\nSi\n\n‘@\n\n‘ \\\n=\nre\n\n»,\n\n|\n“7\ni\n\nLauren Wu Stephen Feyer\n\n4\n\\fy pa\n\nnA\n\n\\ RE\nNN\n~~\n_\n\nLaurence Taylor | william Price"
+    },
+    {
+      "page": 13,
+      "file": "spring-2026-13.webp",
+      "sourceSha256": "bebd28de63acbbdd84d3ff08f3c9569bbcb22582bbe77a963d764584aa69c327",
+      "thresholding": 0,
+      "confidence": 95.8,
+      "words": 198,
+      "solidWords": 198,
+      "text": "REMEMBERING\n\nIONNIS\n\nIoannis “Yani” Mentzas\n\n(1972-2026)\n\nVERTICAL CO-\nFOUNDER AND\nKODANSHA\nUSA\nEDITORIAL\nDIRECTOR\nIOANNIS\nMENTZAS '94\nPASSED AT\nTHE AGE OF\n54 EARLIER\nTHIS YEAR.\n\n\"Yani\" was a key figure in the growth of Japanese\nliterature and manga in English translation. Mentzas\nwas born in Kobe City, Hyogo Prefecture, where his\nfather was Greek and his mother was Japanese.\n\nHe served as the editorial director of Vertical, where\nhe was responsible for selecting, editing, and\noverseeing translated works from Japanese to\nEnglish. He founded Vertical in 2001 together with\nfounder Hiroki Sakai, specializing in English\ntranslations of Japanese novels and manga, before\nKodansha USA acquired the company in 2020.\n\nMentzas was quoted discussing the challenges and\nexcitement of bringing Japanese literature to\nWestern readers, advocating for works that\ntranscend cultural boundaries and resonate with\ngeneral readers rather than only niche audiences.\nHe was a culturally grounded editorial director and\ntranslator who played a key role in introducing and\nshaping the presence of Japanese literary and\ngraphic works in the English-language publishing\nworld through his leadership at Vertical.\n\nMentzas majored in comparative literature at\nPrinceton in 1994 and also earned a master's\ndegree in English at Columbia University."
+    },
+    {
+      "page": 14,
+      "file": "spring-2026-14.webp",
+      "sourceSha256": "b6b223dabbdd5a4ece84a8441ae441eae19484f1c8a53ceb54ca7ab25285a516",
+      "thresholding": 1,
+      "confidence": 73.5,
+      "words": 147,
+      "solidWords": 103,
+      "text": "iy.)\n\n2 n Undergraduate Officers\nClub President: Madison McNeal-\nay. Martinis '27\n<i Vice President: Nell Marcus '27\n) g% | Treasurer: Connor Evans 27\nPg Social Chair: Evan Walsh '27\nW\\ NX Music Chair: Otto Trueman 27\nJ 2 | House Manager: Georgia Martin '27\nboo | Professional Staff\n.\nYd\na Business Manager: Ashley Blair\nSen Head Chef: Manuel Gonzalez\n=\n1 Board of Governors\n\n¥\n\nChair: Steve Feyer '03\nVice Chair: Jenny Korn '96\nTreasurer: Jasmine Jeffers 11\nSecretary: Ari Vera '12\n\nArielle Debira '04\nSteve Feyer '03\nJenny Korn '96\nat Chen '18\n\nAndrew Kinaci \"10\nTristan Schrader '18\n\nAri Vera 12\nJasmine Jeffers 1\nJon Strassfeld '09\nBeverly Nwanna '09\nMihalis Alisandratos '18\nPeter Baltera \"10\nSuneil Vallabh '09\nJon Feyer '09\n\ni =\n~~\nSE\n\nMe TT\nhn”\n\nYE\nFi. a\n\n”\n\n.\n\n3\n\nF -\n-\n-\n\n.\na\n-"
+    }
+  ]
+}

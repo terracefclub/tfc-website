@@ -1,0 +1,350 @@
+{
+  "schemaVersion": 1,
+  "issueSlug": "fall-2023",
+  "sourcePdfSha256": "871d1dab35cca5c9062cb2cb6d2da04c85d2c59a5256a736330c28b1ed13cf54",
+  "tool": {
+    "name": "newsletter-ocr",
+    "version": "1.0.0",
+    "engine": "tesseract 5.5.3",
+    "language": "eng",
+    "psm": 3,
+    "oem": 1,
+    "thresholding": [
+      0,
+      1,
+      2
+    ]
+  },
+  "pages": [
+    {
+      "page": 1,
+      "file": "fall-2023-01.webp",
+      "sourceSha256": "8b60e4691a909326857b879ce4dff0fa06e6913c4cb2ccc8588ee528a322d769",
+      "thresholding": 0,
+      "confidence": 91.7,
+      "words": 35,
+      "solidWords": 32,
+      "text": "WELCOME 0\n\nCLUB TERRACE\n\nLETTER FROM THE (SENIOR) PRESIDENT, MEET THE NEW OFFICERS,\nPHOTOS FROM THE CLUB, CONGRATULATING SAM HARSHBARGER\n‘24, SOLARIUM SESSIONS, OFFICER ELECTIONS 2045, THANKING\n\nDONORS, ALUMNI NOTICES, ALUMNI EVENTS\n\nFALL 2023 NEWSLETTER"
+    },
+    {
+      "page": 2,
+      "file": "fall-2023-02.webp",
+      "sourceSha256": "6c870747ec91794823bfa56216235c520bbbce77c4a91d0feb6a4551f22ea75d",
+      "thresholding": 0,
+      "confidence": 58,
+      "words": 401,
+      "solidWords": 188,
+      "text": "ALE BE CA\n4\n\nLetter Fram the {senior} President.\nSeat pe eae a RAR Rn ORDER ORO Re\nSp MOSHAGGRS 4 Ye a wie emo TERRACEF, CEUB - ©\ni Hetlo STARCHLOREN ow AND vous. i :\nbg THE TERRACE cB Is ALIVE AND WELL! FOOD, LOVELART AND. MUSIC LIVE ON IN THE HEARTS OF OUR.\n© NOW BOOMING MEMBERSHIP'(SO BOOMING, IN FACT, WE. HAD 0 CREATE A WAITLIST TO HANDLE ALL\n\nTHE E POTENTIAL TERRACE TIMETRAVELERS >. THIS VERR @.: LORE Bo\n: WAT. couLD ALL THESE PEOPLE BE HERE FOR? : : PES ue Te\n\n© COULD IT BE THE NEWLY COMPOSTABLE NAPKINS? w SPER THREE TIMES; COMPOST MAKES THE *-.\n2 WORLD.GO ROUND) SADIE I Es\nPERHAPS THE BELOVED FRIDAY / GUACAMOLE? Ts T At Sool ie onl aE Sk .\n© \"NEW COUCH COVERS?? COMFY AND CLEANABLE ~*~ ** \"wo ® i i Ser sn\n\n_- MAINE LUNCH ON TAP? THE FINEST OF BEERS FOR. THe PUES he a #5 Boor\n- BALLS? 2 5 are A an\n\nTHE JUST- RELEASED TERRACE VERBATIVS CHAT? WHERETHE ODDEST. FUNNIEST, WILDEST WACK] JEST, £5\n“7+ MOST WHOLESOME QUOTES ARE DROPPED INTO THE PUBLICTERRACEEVE ~~ + +\n\"TERRACE FACTUAL CLUB? THE WEEKLY BEER- NIGHT TRI IAs HAT FACTS: RO YOU KNOW WITH: -\n\n~~, ANOTHER BEERIN YOU? AND'ONE MORE? ©. RS ae\n© MAVBE GARDENING? STRAWBERRIES, 0 IATQES, si AND ore ALL IN TERRAN-PAINTED POTS”\n\nTERRE on KS Bs 1 Sn . Bre ”\n\n=\n\nAs WE REFLECT oN THE Fst SEVEN WEEKS oF THE SEMESTER, A Lot HAS S HAPPENED (SEE ABOVE, Sl\nBUT, OF COURSE, WWE CAN’ T. FORGET ABOUT OUR NONDERFUL EVENTS. (RE- JBIRTHDAY- PARTIES, iE\n27 SPEAK-EASY JAZZ LOUNGES, A PRINCETON GRAFFITI THEMED RAVE (THE P-RAVE), A 5\n. DARK CIRCUS MEETS ~TALENT- SHOW PARTY, STUDENT PERFORMANCES OF ALL SHAPES AND SIZES,\n5 : \"AND LOTS AND- LOTS (AND Lots) OF FOOD. WE HAVE CERTAINLY HAD / = WONDERFUL AND COLORFUL\n23 START 101 THE SEMESTER:\n\nAS WE REFLECT EVEN FURTHER, NONE OF THE E TERRACE OF THE NOW WOULD BE POSSIBLE WITHOUT\n~*~ ALL OF THE TERRANS OF THE PAST. WE LOVE YOU. MOTHER LOVES YOU. AND, MORE THAN ANYTHING,\n© WEARE ABSOLUTELY STOKED ON THE FUTURE. See a Lee\n\nFoop-LovE Eats oo A a\n\"LEILA GRANT. Sag RE aa RE EE Na ESTP\n\nNUP next! Something from three off\nEE our newly elected officers. J"
+    },
+    {
+      "page": 3,
+      "file": "fall-2023-03.webp",
+      "sourceSha256": "c42898231441efcbe3d09ea3bb821a5e79f3354a13009a1ac82cace7fd2e8dbd",
+      "thresholding": 2,
+      "confidence": 87.3,
+      "words": 451,
+      "solidWords": 398,
+      "text": "WN J\n. < | 7 PET AEE BESTE NDE\n\n‘nm 5 Samara Samad (Music Chair)§\n8 ote Tovwans of Ye Put (er the FUTURE), 1\n\nMy name is Samara Samad, and I'm a 2025-er in the Economics Department getting a minor in Music\n\n(Electronic Music :p) and hopefully a certificate in History (unless the office of the registrar pulls \\\na sneaky on me)... & I'M SO EXCITED TO BE TERRACE’S NEW MUSIC CHAIR!!! \\\nBY I'm from the wonderful city of Atlanta, GA (well 30 mins North but who the fr*ck knows where\nx Alpharetta, GA is)... anyways :)))) }\nOther than Terrace or (Terrizz as my homies lovingly call it), I'm a part of Princeton University Rock\n|\n\nEnsemble (PURE), Child’s Play Improv, Wildcats A Cappella, the Ultraviolet Recording Studio, and some\nother bands on campus.. yippee I love singing & making some music with my pals (got some stuff on |\n\nN spotify & shidd woo) !!\n\nJ Because food = love, I think it’s only fitting to share what food(s) = the most love to me: any |\nLebanese dish (b/c yay my culture & b/c it’s absolute gas), Welch’s fruit snacks, tomatoes with lemon, “a\nanything with Yum Yum sauce on it, any candy that is artificially lime flavored, and Waffle House iy\n\n| waffles (it’s because I'm from the South duhhhhh)... hl\n\n| |\n\n11 IF I COULD THROW A MASSIVE RAGER it would be a 3-way theme combo — each floor of Terrace is one of\n\nChelse jihemes : oA\nEF] iL) Straight Out of 1967 (basement)— I'm talking prime-time cool fits (velvet military jackets and [|\n\nai | bright-colored tights..think Sgt. Pepper), great music, psychedelic patterns and lights, and\nliquid light shows.. like a cut scene from the Austin Powers universe or the art party from\n\n= —\n\n| “Across the Universe”...but like authentic and glamorous and not ~Party City 60s blahhhh~\n2) Punk Let Them Eat Cake (main floor)— I’m envisioning 18th-century rococo flamboyance but with\nfishnets and leather added, gold-leaf and pastel decorations but everything smells like\n\ncigarettes and hairspray, Marie Antoinette type-beat but with 70s Camden punk blasting, food fd\nfights, and satin heels included!!\n\n3) Liminal Space Toga Party (upstairs)— Everyone in togas and golden laurels while drinking red\nwine from glass chalices, but the walls of the rooms are encased with white paper. There is no\ntalking only sipping. Brian Eno’s music is playing in the background. (This is someone’s VIS i\n\nos] project)...\n\nSo excited for this next year!! Come say hi @ Reunions b/c i’d love to meet you wo0000000\n\nen GH\n\n#§ YAY FOOD = LOVE & MUSIC = FOOD !!!\n<3, Samara :)"
+    },
+    {
+      "page": 4,
+      "file": "fall-2023-04.webp",
+      "sourceSha256": "5ac4afb8f4b513108fabccb3069d581189740a2bd965c246280a2779ceb5365f",
+      "thresholding": 0,
+      "confidence": 83.6,
+      "words": 60,
+      "solidWords": 49,
+      "text": "\\\n\nLa\n\nalker Penfield (Treasurer)\n< - - - —— T T\n\n- = !\n\nI'm an economics major from\nMendon, Massachusetts. My\n\n| favorite comfort food is buffalo\n\nchicken/ipizza. My dream terrace\nevent would be to invite some\nprofessional queens to help host\nour lannual Drag Ball) (cameo of me\nthis year as \"Twinker Bell\" below\nXD) .\n\ni"
+    },
+    {
+      "page": 5,
+      "file": "fall-2023-05.webp",
+      "sourceSha256": "822e5a30a583e3118ab30067426190cb06d49567a2044271dd95491d2c66c8b5",
+      "thresholding": 2,
+      "confidence": 90,
+      "words": 212,
+      "solidWords": 194,
+      "text": "| My name is Savannah,\n\naround a lot, so I went to high school in Crawfordville, Florida,\nbut now my family lives in Dallas, TX. One of my favorite comfort\nfoods has gotta be grilled cheese and tomato soup, it feels so |\nchildhood. Also, not a food but a drink, a coffee is by far my\n\nlsavannah Woellert (Social Chair)|\n\n7. TT al\n\nPim 4)\n\nand I'm an English major. My family moves\n\nTe eT\n\nfavorite comfort thing. So warm and cozy, protecting me from the\n\nsleepies.\n\nIf IT could throw a dream Terrac vent I honestly think I might do 5\n\nit festival style over a weekend. There would be rotating music acts\nin the afternoons and evenings, there would be quiet rooms with |\n\ncrafting or sensory activities, there would be a food/hydration\n\narea, there would be a room set up for people who want to partake in\ncolorful Terrace activities, there would be a sober room for those\n\ngames off to the side! Bringing as much of Terrace into one gigantic\nevent sounds so beautiful, but is definitely very energy consuming\n\nto\na\n\nactually throw.\n\nEES,\nhay\n\n|\n\n|\n\n; ; d |\n\nwho want to get away from any drinking or such activities. Outdoor |\n|\n\n|"
+    },
+    {
+      "page": 6,
+      "file": "fall-2023-06.webp",
+      "sourceSha256": "ab7959b30ae2eb32cd42787628c8d09b49143235874c239ba16978cd14b3ed11",
+      "thresholding": 0,
+      "confidence": null,
+      "words": 0,
+      "solidWords": 0,
+      "text": ""
+    },
+    {
+      "page": 7,
+      "file": "fall-2023-07.webp",
+      "sourceSha256": "11a2d57ff0361d4c3577d8945ded399fae8e7abb44a3e2da65f8408dd6720bdb",
+      "thresholding": 2,
+      "confidence": 74.7,
+      "words": 15,
+      "solidWords": 12,
+      "text": "Bur plywood choir, Claire Fisher ‘24, peeking\n\nout from her most recent creotion\n\n~~ ——"
+    },
+    {
+      "page": 8,
+      "file": "fall-2023-08.webp",
+      "sourceSha256": "defa71aebbe8c21869194c68e4849a60bbb80c545e722552de39025a48da1eca",
+      "thresholding": 0,
+      "confidence": 79.6,
+      "words": 31,
+      "solidWords": 27,
+      "text": "From o recent drog workshop, (n which legendary\nPhilodelphio drog ortist /N(ss Thing come to Terrace to give\nUs some drog mokeup tips in preparation for our upcoming\nonnuol drog boll"
+    },
+    {
+      "page": 9,
+      "file": "fall-2023-09.webp",
+      "sourceSha256": "4ba989c94ff182a5e0074b3d32b370786d42f5559abdf483bc86032accbf80ff",
+      "thresholding": 1,
+      "confidence": 59.2,
+      "words": 44,
+      "solidWords": 24,
+      "text": "4\n\nN=\n\n(3\n\nJ\n\n2\n\nnotorious sho\n\n9\n\n24 ond\n\npector\n\nlls showdown\n\n2\n\nIno bo\nA>\n\nAlan Gut\nlub gio\n<\n\n=n\n\n/Nor&o Petrovi\n\nnotorious <\noo\n\n¢\n\n_\nver\n24 ond\n\n[1\n\nhed o\na\n\nS\n»\nSo\n\ndnes\np\nJoonson\n\ntrium"
+    },
+    {
+      "page": 10,
+      "file": "fall-2023-10.webp",
+      "sourceSha256": "92e1d4b933f85552296056b28b51523f34d81c506a72d04b2d36ef19c5a4f2a7",
+      "thresholding": 0,
+      "confidence": 79.1,
+      "words": 45,
+      "solidWords": 34,
+      "text": "Imoges from a pointing & plonting event,\nwhere Terrons gothered to plant fall bulbs\noutside and paint our plont pots to moke the\nhouse o little more colorful. The photo on the\nright feotures artist ond Terron Shong Chen\n\n‘2§S.\n\na Tomes TEE al\n\n>"
+    },
+    {
+      "page": 11,
+      "file": "fall-2023-11.webp",
+      "sourceSha256": "2beabe5fcf5cb485cfb9779d311b980f11f0729811b19a9a8c531fa3abcab456",
+      "thresholding": 1,
+      "confidence": 37.2,
+      "words": 98,
+      "solidWords": 22,
+      "text": "4 . Bu : % | Sa pr | y ;\n\nhich\n\nther\npoe\n\n24\n\non\n\nons, (n w\nsand 0\n\n.\n4\n\ntr\nA\n\n\\tributions. Above (so slom,\n\npoe\n\nor\n. ,\n\noe\n-«\n\nht Popes aad E7:\n_' CT <\n2 BER i\n. CE\nIA\na ‘\n\n-\nerron /Nadison Lint\n\nLoa\n\nerform music,\n\nCO Al\nER Cm S\n. BR BEE =\n\nhy\n\nkey TT wo\nLl Eli\noy Ah ~\nhe A. 4\n\nEA ’ Mico J\n2) d\n. & =\n: ge\nR I.\nIn 1\n5\n\nFromour lost Solorium Sess"
+    },
+    {
+      "page": 12,
+      "file": "fall-2023-12.webp",
+      "sourceSha256": "13a6add82755fe04641c672a2382b0895aa711941b0338877336f3a57e8d7fda",
+      "thresholding": 2,
+      "confidence": 69.5,
+      "words": 17,
+      "solidWords": 11,
+      "text": "J\n\nGreen thumb Sunny Boll ‘2S filling our\nwindow boxes with foll flowers\n\n— pr Tm\n\n«"
+    },
+    {
+      "page": 13,
+      "file": "fall-2023-13.webp",
+      "sourceSha256": "c3158246978f77c20a86f4bbba21ce83d2d5049534025931c58bf7d084801966",
+      "thresholding": 1,
+      "confidence": 67.7,
+      "words": 96,
+      "solidWords": 62,
+      "text": "Card Payments Only\n\ngreen thumébs’ fall plant hall,\n\nB\nJ\n-\n.\n-\n:\n.\n\\\ny\nLN\n\\\n>.\n\na\nincluding mums, bulbs for the Spring, ond some new\nplants for the solorium/ We also got mulch Which is\nprotecting our three new mognolio tree soplings in TONe\n\nthe front of the club (along the rood), os well os our\noo\n\nnew strawberry patch/ Featuring green thumés\nDE oo } . DE Co, oo\nFiona Logon-Sankey 24, Sunny Roll 2S, and Ninh\nDuong ‘22 (lett to right, in the bottom photo).\n\nB oo DE oo"
+    },
+    {
+      "page": 14,
+      "file": "fall-2023-14.webp",
+      "sourceSha256": "1ad1b66506a032ce139dad3cc66e929299b10f347cb22e4729ecc496652969fe",
+      "thresholding": 0,
+      "confidence": 77.6,
+      "words": 26,
+      "solidWords": 20,
+      "text": "=\nImages from the preporotion for our first rove of\n\nthe semester! Feoturing Terrons Nodison Linton\n‘24 ond Vino Greene ‘24 (left to right).\n\n-e\n\n+."
+    },
+    {
+      "page": 15,
+      "file": "fall-2023-15.webp",
+      "sourceSha256": "e121669f090ab9b40b85dc59d8c54000748db49e91e640b9b4f99c9c396ff462",
+      "thresholding": 2,
+      "confidence": 56,
+      "words": 64,
+      "solidWords": 25,
+      "text": "SELF ACE FF CLUB PRESENTS\n\npa -\n- p =\nos | - a\nA BA \\\n. - ~~ BAAN\n‘\nFa\nFa a re b\nlew Lo\nLWAARE UJ V4\n\nar A\n\nJ]\n\nThe P-rade begins atXp.m. sharp\nwith the Old Guard leading the\n\nway! ArriVe-ontme\n\n$F You WANT\nMENENE\nWWENE\n\nE rove poster created by VP Saroh Kimmel ‘24\n\na\n\nI"
+    },
+    {
+      "page": 16,
+      "file": "fall-2023-16.webp",
+      "sourceSha256": "ce9b896a7f0c1964f9de35016d548f9997ee5044428867e48f93c9681d96895d",
+      "thresholding": 0,
+      "confidence": 80.8,
+      "words": 80,
+      "solidWords": 66,
+      "text": "We kicked off the semester with o Lo\nporty inthe SPA fountoain/\n\nbor Doy pool\n\nVo\n\nBur new strowberry potch,\nWhich was creoted With free\nclippings from a neighbor. The\nlittle sproutlings were\nmulched to protect them from\nthe winter weather. \\We hope\nto get our first few\nStrowberries this spring, ond\nthot the potch continues to -\ngrow and blossom for years to\ncome. p\nPlonted 64 Fiona\n\nLogon-Sankey ‘24, Ninh\nDuong ‘22, and Josper Lydon\n‘24. v\n\nFo"
+    },
+    {
+      "page": 17,
+      "file": "fall-2023-17.webp",
+      "sourceSha256": "da7639e5f48791ac322e5675a836263d1755ac9df9619a2b48816d3fa31c719c",
+      "thresholding": 2,
+      "confidence": 76.2,
+      "words": 26,
+      "solidWords": 18,
+      "text": "The green room got o little mokeover this foll breok,\n\n0s (t was bestowed a new cloud ceiling by /MNolly\n\nTruemon ‘24 and Josper Lydon ‘246."
+    },
+    {
+      "page": 18,
+      "file": "fall-2023-18.webp",
+      "sourceSha256": "a86bdabd3bb6499aa10c6ebfdab47c0aab678155f9a043d80c7d7e71c8f076f4",
+      "thresholding": 0,
+      "confidence": 92.1,
+      "words": 220,
+      "solidWords": 208,
+      "text": "i\n\nue\n7\n\nARS LF hi 24\n\nOur very own —- Harshbarger - been awarded a Rhodes Rp to study at the\nUniversity of Oxford. His journey to this point has been motivated by his experience\nabroad during high school, participating in programs in Russia and Turkey that\nchallenged his view on politics and his place in the world.\n\nSam's first two years at Princeton were impacted by the pandemic and so when he was\nable to return he wanted to make the most of the social interactions and organic\nmeetings that being on campus had to offer. He already had a sense of community on\ncampus having attended Princeton High School, but expanded his community with his\nroommates and at Terrace.\n\nThe college experiences he missed out on during the pandemic are the moments he\nappreciates the most now. These are the moments he will cherish: conversations had at\nfine beer nights, Sunday dinners at SC house, Friday night movies with friends and\nsocial interactions over meals.\n\nAnd for the future future future? Sam is excited to get his thesis done. He's excited to\n\ngo on a trip with this roommates. He's excited to go to Oxford, experience a different\n\nacademic scene and make new friends.\n\nFor more information about Sam and his research interests, please read the 5"
+    },
+    {
+      "page": 19,
+      "file": "fall-2023-19.webp",
+      "sourceSha256": "d90c6dce0a31dfc1341f2fcd3855a1ece9cae938b1466393099cba0322b46c48",
+      "thresholding": 0,
+      "confidence": 85.7,
+      "words": 86,
+      "solidWords": 74,
+      "text": "Last year Solarium Sessions- a monthly open mic event - was birthed.by music chair\n\n¥ Jimmy Waltman 23. Solarium Sessions has now become a Terrace tradition, with\nSteve Krebs claiming that it “..can now be considered in the'same bredth as...4th\n\nA Course and Balls.\" : Tn\n\n\\\n\n* &\n\nMore than 10 performers shared acoustic songs and spoken word poetry®@uring the\nlast session.\n\nSolarium Sessions continues to grow, under the stewardship of senior musicgchair\nSam Spector 24 and newly elected music chair Samara Samad 25. ~—"
+    },
+    {
+      "page": 20,
+      "file": "fall-2023-20.webp",
+      "sourceSha256": "dfc7eac94d64fdfd2fc343f92dd57cad4d6acf08c8733470cd81503db3cac327",
+      "thresholding": 2,
+      "confidence": 89.2,
+      "words": 78,
+      "solidWords": 72,
+      "text": "OFFICER ELECTIONS 2045\n\nTFC OFFICER ELECTIONS\n\nOFFICIAL(ISH) BALLOT\n\nSTATE OF THE WOMB\n\n| TFC OFFICER ELECTIONS\n\nB STATE OF THE WOMB\n\nBR | NOVEMBER 2045\n\nINSTRUCTIONS TO THE VOTER\n\nAN X OR Vv.\n\nTO VOTE YOU MUST BLACKEN THE OVAL (es) COMPLETELY! DO NOT MAKE\n\nIF YOU SPOIL YOUR BALLOT, DO NOT ERASE, BUT ASK FOR A NEW BALLOT.\n\nFOR TFC PRESIDENT*\n(Vote for One)\n\nCD] RAAHI KINACI\n\n>) KRISHNAN BRADY\n\n* list of candidates is not final"
+    },
+    {
+      "page": 21,
+      "file": "fall-2023-21.webp",
+      "sourceSha256": "3fc52e2991edc7c8e5b4d5b904a17a2ae8441043605e4adf488f09b5992ddd4a",
+      "thresholding": 0,
+      "confidence": 94.2,
+      "words": 148,
+      "solidWords": 145,
+      "text": "> RAAHI KINACI\n\nCandidate Name: Raahi Kinaci\n\nD.0.B. May 11, 2023\n\nCandidate Strengths: Familiarity with\nvomit, manual dexterity, distrust of Tower\n\nClub\n\nMusic Interests: Heavy Bass, Reggaeton,\nFunk\n\nAs the son of former undergrad VP and current Board Chair Andrew Kinaci '10 and Smitha\nNagaraja (Univ. of Chicago '09) I was born already knowing what the F stands for. I've been\nlistening to taproom bangers and drinking alone in my room all my life - and even though I'm\nnot yet eating solids, I already know that Food = Love. I look forward to mastering the game\nof Balls (as soon as I can sit upright)\n\nAs my dad and Alex Brady '10 once formed a Lincoln-esque \"team of rivals\" in Terrace\nleadership, IT hope Krish and I will one day form like Voltron to lead Terrace in the fall of 2043.\nHere's to the future (future future)!"
+    },
+    {
+      "page": 22,
+      "file": "fall-2023-22.webp",
+      "sourceSha256": "1908a6145bcf402dfb44de2c2c5437fccf9c8bc1b256f9b40bf0b71f88a74410",
+      "thresholding": 0,
+      "confidence": 93.7,
+      "words": 94,
+      "solidWords": 92,
+      "text": "_ ) KRISHNAN BRADY\n\nCandidate Name: Krishnan \"Krish\" Brady\nD.0.B.: May 19, 2023\n\nCandidate Strengths: Lifelong Learner,\nPositive Attitude, Eyebrows\n\nMusic Interests: Harry Belafonte, R&B,\nRattles\n\nKrish, son of Alex Brady (TFC Pres '10) and Karuna Mehta, has felt a deep, almost physical\nconnection to the Womb for as long as he can remember. He takes a hands-on approach to\nany problem -- or object -- he encounters, and he won't rest until he's satisfied.\n\nTogether with Raahi, he knows he has what it takes to lead the club into the future (future,\nfuture)."
+    },
+    {
+      "page": 23,
+      "file": "fall-2023-23.webp",
+      "sourceSha256": "3889b384c20b87107a1ed4ee5225c3ecb9d2fdfd8e0c883a7d02e0574a87d54d",
+      "thresholding": 0,
+      "confidence": 92.9,
+      "words": 51,
+      "solidWords": 49,
+      "text": "Do you miss our dear club? Are you\nlooking for a way to stay connected to\nTerrace? Then come join us on the\nTerrace Graduate Board!\n\nIf you're interested in learning more,\nplease fill out the following Google Form\nlinked here, or email Vice Chair Jenny\nKorn \"96 at jkorn@alumni.princeton.edu.\n\n\\"
+    },
+    {
+      "page": 24,
+      "file": "fall-2023-24.webp",
+      "sourceSha256": "9be709aa56434a40e932f90b1e0d07737ea7098613acff98e189015474713ae5",
+      "thresholding": 0,
+      "confidence": 84.6,
+      "words": 231,
+      "solidWords": 195,
+      "text": "THANKING DONORS\n\nWe are grateful for the following generous individuals that have\nmade financial contributions to keep our Terrace going. If you'd like to\njoin these supporters, please visit:\n\nhttps) /princetonterraceclub.ora/donate\n\nto donate, if you're able. Every little bit counts towards securing the\nfuture of the place we love.\n\nIf you'd like to donate time to Terrace, we have active volunteer\nprojects ond open board positions for which we'd appreciate your\nparticipation. Just email Vice Chair Jenny Korn ‘S56 at\njkorn@alumniprincetonedu to indicate your interest, and we'll follow\nup.\n\nThomas F. Adams 'B6 Christian Herff\n\nPinto O. Adola \"10 Andrew A. Kinaci 10\n\nWilliam Brady \"73 Jenny Korn 'S6\n\nLauren Brandt Schloss '93 Andrew Manion \"1S\n\nAndrew Chong '13 Jamie Niemaski '06\n\nArielle Debira 'O% Lucia Perasso \"1B\n\nAnthony Faulise '86 William Price '66\n\nStephen Feyer '03 Natieka Samuels '03\n\nJose Figueroa ‘81 Ryan Sawchuk '00\n\nKamal Fizazi '95 Katelyn Scanlan “13\n\nScott A. Forsyth “73 Kenneth Stinernan '93\n\nJohn P. Godich '66 Lisa Tom \"11\n\nLisa Han \"13 Louis Tucciarone 79\n\nBrian C. Haynsworth '90 Timothy Wheeler '83\n\nCarl L Heimowitz 'B Peter Whitney '80\n\nHoward Helms 'SB Lawren Wu '32\n\nSpecial thank you to Justin Goldberg '02 for donating\na flamingo and pinball machine to the club, To the\nincredibly generous Terrans whose donation surpassed\nour initial request at Reunions — we are profoundly\ngrateful for your exceptional support!"
+    },
+    {
+      "page": 25,
+      "file": "fall-2023-25.webp",
+      "sourceSha256": "92bcba4a6dfbe5a6656b7f1102c58ba08d5212e07162ef7bf53e7fe99944c63d",
+      "thresholding": 1,
+      "confidence": 72.4,
+      "words": 205,
+      "solidWords": 136,
+      "text": "¥ A ig\n\nWanted to fot you le ha - second e ition of\n7 book just came out! AW\nBm gn ON\n‘Bang! Masturbation for People of All ”~ ea\n_ Abilities a truly inclusive, own voices, solo\n| sex-education book. All genders, a all tl body types, all z\n\nSm for\n\npeople of all \\ |\ngenders & abilities\n\nabilities, ar are in e invited to share a. a space ace designed f\npracticing sexual empathy and sexually open *\n\n| conversation. It is designed to build a sex-positive\n\nlanguage as a basis of navigating not only\n\n~ body-positive relationships, no matter if you are |\ntrans, disabled, or a person of color, but also asa\nfoundation for Dh. consent i in sexual\n\n=] aa \\ 2 = 1 pe ~\n| The £8 nN oy of Bang is ov A in\n“the world!!! This lil baby is a whole 68 pages\n\n‘consume and mc make orn ethically by El Elle Snr 8\n‘and Trip Richards, a section o Sensua lity | io 4\n. Ev'Yan Whitney, a SHR Gem sex by 4\n~ | Heather Corinna, and a section on ethical sex toys |\n\ng 2 Djs Lola. EET. I CEN BN"
+    },
+    {
+      "page": 26,
+      "file": "fall-2023-26.webp",
+      "sourceSha256": "ff38381774fbef709ef6652678d83c6cc33e53033883f82d1f5383384de967a1",
+      "thresholding": 0,
+      "confidence": null,
+      "words": 0,
+      "solidWords": 0,
+      "text": ""
+    },
+    {
+      "page": 27,
+      "file": "fall-2023-27.webp",
+      "sourceSha256": "ad5e456d42214d504f9fdf48ed0f4c98b9737c3f41c5621c15cc381a395eebc4",
+      "thresholding": 1,
+      "confidence": 58.7,
+      "words": 387,
+      "solidWords": 187,
+      "text": "pr m—— J\nFROM CAREY ONES 06 |\n\nBE 7 SE ee TQ\n\n~ | I've gone from bartending at the Terrace = room to br ci NE\ny i rofes and my third cocktail book, , Every Cocktail Cocktail i\n| as wist, r\n\neleases on November 7! Here are two cocktai o cocktails to A\n| make this fall -- one a simple riff on the Old Fashioned; th [4\nE a ve teat cocktail starring New Ce s a native spirit\n7\na\n\nPie.\n\n-- Laird’ s applejack.\n\n|\n\nAR a Ci .\ney Sen\n\n17.\nPty\n\nA\nNT a\n\n2 opocsl\n\n% be bud — < Le Ny Y\n\nN: + dass Od Fashioned b bitters\n\ny,\n3-4\" orange. eel, Pi sh\n\nJU\n\nCombine all ingress in mixing gl\n\nhg glass % full with ice. Stir nti :\nNR Tega oy ch\nell-chilled, Brae 30 pe NE\n\nnN 2 AY Loh _—\nBN a res Sl over fres rest ice.\n\nfo\n\nover NE uct of 1 the drink, run the skin\na STN ER i; Tf\n\nExpress TE of ore orange ge peel, ski\n\naround the rim of the hogs: to p disEEANG the f\n\nJ Bl REFER LN\n\ncitrus oils, and add the peel, skin sigs ht Tio\n\na\ny the coca\n\noie.\n\nON, S—\n\nNn\n\nLastCall Le oe hk - TAN — 7\n\nRelligis the most underappreciosd American\n\na La\n\n_—\n\ni , applejock has ¢ a has a history tha ot dates back\n\nTh 14 Ay\nto Clue i and a rich character wT\n\nF\n\nFr 4\n\n: “wh\n\nmr\nreminiscent of E hihkoyiy - whiskey that we Er\n\nan ercherily Png is. 5% two-ingredient\nPE——\n\nparis IES like fll fio a loss and and comes\n\nete in n GpconiEs She a i so asy, so good. A 3]\n\n| i ae\no\n\nLemon - togarnish\n1 Yea\n8 Rosemary sprig, to garnish\n\ni\nWoe A\nIn a Moscow Nie ay mug aug (or Collins ¢ Er\n\nomer _.— 3\nNia with ice, co mbine all all ingredie edients. Stir :\nTE Rok\n\nbriefly. MN it a a “ri\nCTE TU ET\nsqueezed into the glass and dropped in, oe,\nCBT AEE TH EE\na fresh rosemary sprig, Feta between\nEh FE Ee\n\nCi hands to release its oes oils."
+    },
+    {
+      "page": 28,
+      "file": "fall-2023-28.webp",
+      "sourceSha256": "96b670646a7d51728016e786033949f0cb29b57599886b69524b8b93348bc32d",
+      "thresholding": 0,
+      "confidence": 87.5,
+      "words": 263,
+      "solidWords": 233,
+      "text": "| FROM JENNY MARLOWE '04\n\\ NEW ENGLAND BERRY & CITRUS PIE\n\nIt’s Fall, babies - and one of my favorite things about Fall is\n\n~. making pies. This one is deceptively simple and makes the perfect\n\naddition to any autumnal holiday meal - a nice change from the\nstandard apple and pumpkin. And it’s pretty, too :)\n\n_ A real feature of this recipe is that it works with any combination\n© of berry and citrus - as long as one is sweet and the other tart. I\nhave successfully made cranberry-orange, blueberry-lemon, and\nraspberry-lime versions; and it’s come out perfectly every time -\nit’s an incredibly flexible recipe. So choose your poison and give it a\ngo!\n\nI recommend serving with whipped cream on the side - if you\nreally want to get fancy, you can use your chosen citrus to flavor\n| the whipped cream... But plain works beautifully, too.\n\nA\n\n\"| INGREDIENTS\n\ny\n\n\\ For the crust:\n\n%. cup butter, melted - plus a little more for the pie plate\n% tsp salt\n1 package Biscoff cookies, finely crushed\n\nFor the filling:\n\n1 packet powdirel gelatin\n%. cup cold water\n10 oz. fresh or frozen cranberries (about 2 % cups) *\n%. cup firmly packed brown sugar\nJuice and zest of 1 orange*\n1 (13.5 oz) can evaporated milk\n1 tsp. grated fresh ginger\n2 tbsp heavy cream\n* % tsp almond extract (optional)\n%%. tsp salt\n_ Whipped cream, for serving =\n\"| * Feel free to substitute a different berry and citrus combination of\n\"| your choice!"
+    },
+    {
+      "page": 29,
+      "file": "fall-2023-29.webp",
+      "sourceSha256": "686b58d58d6c6a41e909fa5ce31c5f16f6db5c09c2c46e351c49d8cf8d8e89b8",
+      "thresholding": 1,
+      "confidence": 66.4,
+      "words": 311,
+      "solidWords": 182,
+      "text": "{ Pre-heat ov ove to tose andra grease a | pie 97 pie plate but. EK\nPoin eta N.Y\n\n_ (3 \". Sol. pe N ine your eco crumbs with the hry ih]\nButte Salt h Press the mixture into the bottom and u the sides\nof the pie plate. Bake u til the crust is Gri about 10 minutes. Set\n\n: the crust aside to cool completely. AY Sad i =\nrd SAE)\n§ 3. Meazahile. combine the gelatin and ¥% cup id vv water in a —_— A i\nowl and leave to bloom, about 10 minutes.\n\n~Pa k.\np. Ina — over medium EW oll? berries, brown own -\nsugar, juice, and zest and 5 a simmer. Cook, stirring ~~\noccasionall i until most of the gi EY burst and the Hoo has -\nthickened slightly, about SE ie. 1 Er 8\n\\ gr ad ox _— +I.\ndd your evaporate milk, ae] eavy cream, a PY ory ! h\n%E using), and salt to the saucepan and stir to blend. Heat until 8\nsteaming (but do not boil), then remove the mixture from the heat. 3 vs\nStir in your bloomed gelatin until it dissolves. p\nLENE, YT ee A\n6. Use a blender or food processor to puree the berry on fie until\nsmooth. Strain into a bowl and discard the solids - or save ther m\nand eat them on toast like jam; it’s waste-f: ee a d dell Tous] = <3\n: IChEhs miu rd iN room RI pr i. »\n\n»\n\nLy\n\n“we\n\ni\n\nEB\ny.-\nrman\n\ni:\n\n7. Pour the tas o be ot J £8 ants Ba prepared ust and py 3\nrefrigerate until completely set, at least 6 hours.\n\nBY J ARR iF I :\n\nHappy Harvest, luvvies! | FE\n\nLa RY ON WEEN 1\n\nA\np\n\ny = EY"
+    },
+    {
+      "page": 30,
+      "file": "fall-2023-30.webp",
+      "sourceSha256": "d7da60846248c57fc66837c85b1fd9b0dbcc7f1458e8b5a2c867854cae92cc30",
+      "thresholding": 0,
+      "confidence": 84.2,
+      "words": 197,
+      "solidWords": 169,
+      "text": "AX\n\nPAST\n\n% NYC Meetu 202 Kubeh\n\"| January 23, 2023\n\nNYC Terrans gathered at the beginning of the year to meet, eat,\nand bond over their time at the club. Thank you to the\nco-organizers Lauren Brandt Schloss ‘93 and Aya\n\n4 Horikoshi ‘9z for making this event happen!\n\n\\\n\n* y\n\"\n\nLa Solidi Over Marginalized Identities in the Workplace\nA September 14, 2023\nA\n\n- An online discussion was led by Terrace board members Justin\n| Gerald 'o7 and Jenny Korn '96 discussing this topic. A thank you to\n2! the people who attended!\n\n:. UPCOMING\n\nSF/Bay Area fot coCIER Social\n\nJanuary 12, 2023, 5-8pm\n\nCome to our next social in SF at Lost Marbles Brewpub, 823\n\n~ Clement Street. Register at https://TerraceSFjan2024.eventbrite.com/\n4 - i.\n\n£ Alumni Day 2022 @ Terrace F. Club\nFebruary 24, 2024\n-\n\n| Come join us for Alumni Day! We will be Sbsjioc a reception and\n4 hope to see you all there. More information to follow soon.\n\n\"| Want to plan an event? Want to loop in the Terrace Alumni Relations Committee (ARC)? Email\n| our co-chairs Abby Kalmbach (abigailkalmbach@gmail.com) ‘00 and Arielle Debira ‘oz\n| (grielleln@gmail.com)!"
+    },
+    {
+      "page": 31,
+      "file": "fall-2023-31.webp",
+      "sourceSha256": "fa171a4bc42334d443b452cf3ff45ff8851e79f0f52f321902256eef199a2fbf",
+      "thresholding": 0,
+      "confidence": 65.5,
+      "words": 373,
+      "solidWords": 211,
+      "text": "Dr. William J; Food 73 TR ; Mr. Robert A, Gilbert \"sg 2 53 rl\nDonald G. Avery, Esq. '65 Po8 ; Mr. Gordon P. Goodfellow, Jr. Cia SL\nDr. Walker H. Bowman, ill \"46 ge Mr. Burnham S. Gould, Jr. 8 PER ey\nMr. H. Bartlett Brown 's8 pC JX. fa Mr William oe Web. 3\n\nGrassmyer” 156.\n\n“The Rev. Robert E. Brown '64.. lamptot\n\"Mr. Donald E. Carey ' 51 yet\nMr. William H. Carpenter ‘51°\nA. Michael Collins, Ph.D: NBs pis dv o's\nSo Mr. George C. Connolly 16375. sage wd Mr. Waldo L. Johnson’ 51 i\n“Mr. A. Blair Crownover ' 55 LE Rg < r. George T. Kirby, Jr. ! SA\nMr. Robert B. Duncan 's7 P86 Toga ENE David T. McCabe \"57. Poz..\nBabatunde A. Eboreime, M.D. '67 ME Ms. Katherine Mendeloff '76\n“Mr. FranklincC, Ellis, Jr. 's4 Mr. Lawrence M. Ps 2 :\nMr. Charles J. Farrell '51 i The Hon.\nr* “Mn Rigas E* eet Je! Bow aR\nDr. Stephen A. g'59 er 7 Hd\n\nMr. Robert: Ferd 253\n\nMr. Frederick W. Fraley, || it sq\nMr. Nicholas A. Gallg, a 162\n\nar. Robe\n\nba : et % De\n\nés the following about Mike’\n\nBiche] oes ‘who passed on June 11, 2023, after a\n\ncourageous 10-month battle against leukemia: “Mike\nSouthwell ‘60 served on the Terrace Club 85rd of Governors x\nfrom late 2005 through 2016, which coincided almost exactly\nwith my own time on the Board. He always could be counted\non as a'measured voice of reason at Board meetings and\noutside of them, plus % was justia great guy. ‘Mike and | also\nworked closely together for a decade on aR\nPrinceton Progressives until the'latter part of hen his\nhealth unfortunately began to agin So for me pe oe onally\n\n_.italso is a loss of a friend that p rticularly stings. “Mike will.\n\n»\n\nfib missed by his family, friends, and a. host of Princetoniansy i\nincluding als8 those in his Class Bre for which he served x\n\ni wn ‘ as Class President not re AR\n\nA yp\n\n¥ vi \\ 3 RE \\¢\nwi\n\n8 3 4 bn aR x\nTTR E TT Ne BEEN \\ Ya 8 ER TT NN"
+    },
+    {
+      "page": 32,
+      "file": "fall-2023-32.webp",
+      "sourceSha256": "d2bac8debaaee45816f277306f9c635a9230e3f4779cdfeea931faf2e46280f0",
+      "thresholding": 0,
+      "confidence": 93.6,
+      "words": 402,
+      "solidWords": 391,
+      "text": "L\n\n2X Remembef\n\nN\n\nRobert Louis Ferris, Jr.\n\nNavy veteran, industrial engineer, beloved family man, 92\n\nRobert Louis\nFerris, Jr. of\nBrick, passed\naway April 26\nat home from\ncomplications\nof Parkinson's\nDisease. He\nwas 92.\n\n\"He was born in Plainfield, NJ\nto Agnes (Lundy) and Robert\nL. Ferris, Sr. He attended\nMetuchen and Plainfield\nschools, and graduated from\nPlainfield High School. A\nproud member of the class of\n1949, he stayed in contact with\nclassmates, organizing season-\nal get-togethers.\n\nHe graduated from Princ-\neton University with a B.S. in\nEngineering in 1953. He joined\nthe Navy, attending OTC in\nNewport, VA, graduatingasa\nSecond Lieutenant.\n\nBob married his beloved\nKathleen Griffin (also PHS ‘49)\nand they headed west as he\nserved as Executive Officer on\nthe minesweeper USS Cormo-\nrant in the Sea of Japan. They\nlived in Long Beach, CA and\nSasebo, Japan before returning\nto NJ.\n\nHe received his M.A. in\nBusiness Management from\nRutgers University in 1965. He\nworked for Western Elec-\ntric, Kearny as an industrial\nengineer while the family was\nliving in Scotch Plains. In 1976,\nthe company (having become\nAT&T) transferred the family\nto North Little Rock, Arkan-\nsas. Whilein AR, he was an\nactive member of Immaculate\n\nConception Roman Catholic\nChurch. An avid sports fan,\nhe had season tickets to the\n\nArkansas Travelers baseball\nteam.\n\nBob moved back to NJ in\n2008 following the death of his\nwife. He settled in Greenbriar\n1. He was active with the Point\nPleasant Historical Society,\n\nSt. Martha's RC Church, the\nOld Guard of Brick and several\ncoffee klatches around town.\n\nHe was predeceased by his\nparents, his brother Richard\nand his wife Kathleen. He is\nsurvived by his three children\nKathleen Heim (and Jeffrey),\nPoint Pleasant; Paul, Cranford;\nand Jean, Bay Head.\n\nMemorial visitation will be\nfrom 10 - 10:30 a.m., Wednes-\nday, May 3 at the Pable Evertz\nFuneral Home of Point Pleas-\nant, 9o1 Beaver Dam Road. At\n11 a.m. a Funeral Liturgy will\nbe celebrated at the Church of\nSaint Martha, Point Pleasant,\nfollowed by inurnment at the\nBGWCD Veterans Memorial\nCemetery, Arneytown.\n\nIn lieu of flowers, please con-\nsider a donation in his memory\nto either the ACLU-NJ www.\naclu-nj.org, Southern Poverty\nLaw Center www.splcenter.\norg or Save Barnegat Bay www.\nsavebarnegatbay.org\n\nTributes and condolenc-\nes are welcome at www.\npableevertzfuneralhome.com\n\nPable-Evertz Funeral Home\n901 Beaver Dam Rd.\n\nPoint Pleasant, NJ 08742\n(732) 899-3300"
+    },
+    {
+      "page": 33,
+      "file": "fall-2023-33.webp",
+      "sourceSha256": "84ba27f48050c7ecbf8225c1bffde3fcd4951c81f878f86ef7ea27cc0f7bc578",
+      "thresholding": 0,
+      "confidence": 89.3,
+      "words": 90,
+      "solidWords": 82,
+      "text": "Board\nCHAIR Andrew Kinaci’10\nVICE CHAIR Jenny Korn ’96\nTREASURER Jasmine Jeffers ‘11\nSECRETARY Tristan Schrader ’18\n\nAkil Alleyne '08\nArielle Debira’04\nJia Natalia Chen ’18\nAndrew Chong ‘11\nSteve Feyer 03\nJustin Gerald '07\nAbigail Kalmbach '00\nLucia Perasso ‘16\nJon Strassfeld '09\nAriana Vera ‘12\nRob Whitaker ‘18\n\nProfessional Staff\nGENERAL MANAGER Steve Krebs\nBUSINESS MANAGER Ryan Krebs\n\nUndergraduate Officers\nPRESIDENT Natasha Greenstein ‘25\n\nVICE PRESIDENT Alan Gutierrez ‘25\nMUSIC CHAIR Samara Samad ’'25\nSOCIAL CHAIR Savannah Woellert ‘25\nTREASURER Walker Penfield ‘25\nHOUSE MANAGER Joey Nartker ‘25"
+    }
+  ]
+}

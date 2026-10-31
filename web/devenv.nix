@@ -1,4 +1,9 @@
-{ pkgs, config, lib, ... }: {
+{ pkgs, config, lib, ... }:
+let
+  # English-only data keeps the OCR engine small. The engine version comes from
+  # the nixpkgs revision pinned in devenv.lock, so every checkout gets the same one.
+  tesseractEnglish = pkgs.tesseract.override { enableLanguages = [ "eng" ]; };
+in {
   languages.javascript = {
     enable = true;
     bun = {
@@ -8,7 +13,7 @@
   };
   languages.typescript.enable = true;
 
-  packages = [ pkgs.git pkgs.glab pkgs.gitleaks ];
+  packages = [ pkgs.git pkgs.glab pkgs.gitleaks tesseractEnglish ];
 
   # The repo's common Git directory is bare and shared by worktrees. Standard
   # hook installation would mutate every checkout's hooks, so install locally.
