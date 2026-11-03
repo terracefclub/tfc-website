@@ -11,12 +11,13 @@ import { Redirects } from './collections/Redirects'
 import { Users } from './collections/Users'
 import { Members } from './collections/Members'
 import { communityCollections } from './community/collections'
+import { editorialEndpoints } from './auth/editorial'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 const origin = process.env.CMS_ORIGIN || 'http://127.0.0.1:3010'
 
 if (new URL(origin).protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(new URL(origin).hostname)) {
-  throw new Error('This CMS trial only supports a loopback origin until per-user OIDC is implemented.')
+  throw new Error('This CMS preview requires a loopback origin; public deployment remains gated on TLS, database and recovery validation.')
 }
 
 if (!process.env.PAYLOAD_SECRET || !process.env.DATABASE_URI) {
@@ -26,7 +27,10 @@ if (!process.env.PAYLOAD_SECRET || !process.env.DATABASE_URI) {
 export default buildConfig({
   secret: process.env.PAYLOAD_SECRET,
   serverURL: origin,
-  admin: { user: Users.slug, importMap: { baseDir: path.resolve(dirname) } },
+  admin: { user: Users.slug, importMap: { baseDir: path.resolve(dirname) }, components: {
+    beforeLogin: ['/components/EditorialLogin#EditorialLogin'], logout: { Button: '/components/EditorialLogin#EditorialLogout' },
+  } },
+  endpoints: editorialEndpoints,
   editor: lexicalEditor(),
   db: postgresAdapter({ pool: { connectionString: process.env.DATABASE_URI }, push: false }),
   collections: [Users, Members, Media, Events, Newsletters, Initiatives, Redirects, ...communityCollections],
