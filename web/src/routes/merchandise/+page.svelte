@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '$lib/edges.css';
   import { official } from '$lib/content';
   import { terraceShop } from '$lib/merch';
   import type { PageData } from './$types';
@@ -25,6 +26,7 @@
     </div>
   </div>
 </section>
+<div class="edge-seam" style="--edge:#32224d" aria-hidden="true"></div>
 
 <section class="shop-shelf shell" id="designs" aria-labelledby="designs-title">
   <div class="shop-heading"><div><p class="shop-overline">FROM TERRACE’S REDBUBBLE SHOP</p><h2 id="designs-title">Good things.<br /><em>Odd company.</em></h2></div>
@@ -48,25 +50,25 @@
 <style>
   .shop-hero { overflow:hidden; background:#32224d; color:#fff7e9; }
   .shop-intro { display:grid; grid-template-columns:1fr 1fr; gap:65px; align-items:center; padding-block:85px 95px; }
-  .shop-overline { font-size:11px; font-weight:800; letter-spacing:.13em; }
+  .shop-overline { font-size:13px; font-weight:800; letter-spacing:.13em; }
   .shop-hero .shop-overline { color:#e7dc85; }
-  h1 { margin:24px 0; font-size:clamp(68px,10vw,128px); line-height:.9; letter-spacing:-.04em; }
-  h1 em { color:#e7dc85; }
+  h1 { margin:24px 0; font:400 clamp(84px,12vw,168px)/.9 'Anton',Impact,sans-serif; letter-spacing:-.01em; text-transform:uppercase; }
+  h1 em { color:#e7dc85; font-style:normal; }
   .shop-lede { max-width:420px; font-size:19px; line-height:1.7; }
-  .shop-link { display:inline-flex; gap:45px; margin-top:22px; font-size:13px; font-weight:800; padding-block:12px; border-bottom:2px solid #e7dc85; }
+  .shop-link { display:inline-flex; gap:45px; margin-top:22px; font-size:15px; font-weight:800; padding-block:12px; border-bottom:2px solid #e7dc85; }
   .shop-collage { position:relative; padding:20px 24px 70px 0; }
   .shop-shirt { margin:0; background:#f6e7d1; color:#32224d; padding:12px; transform:rotate(5deg); box-shadow:16px 16px 0 #644d77; }
   .shop-shirt img { display:block; width:100%; height:auto; }
-  figcaption { padding:15px 4px 5px; font-size:12px; font-weight:800; letter-spacing:.08em; }
+  figcaption { padding:15px 4px 5px; font-size:14px; font-weight:800; letter-spacing:.08em; }
   .shop-sticker { position:absolute; width:31%; height:auto; bottom:0; left:-24px; transform:rotate(-12deg); border:8px solid #fff7e9; box-shadow:6px 6px 0 #1b1228; }
   .shop-stamp { position:absolute; bottom:10px; right:5px; width:115px; height:115px; display:grid; place-content:center; text-align:center; background:#e7dc85; color:#32224d; border-radius:50%; font:900 23px/1.05 'Fraunces Variable',Georgia,serif; transform:rotate(12deg); }
   .shop-shelf { padding-block:75px; scroll-margin-top:25px; }
   .shop-heading { display:grid; grid-template-columns:1fr 1fr; gap:70px; align-items:end; }
-  h2 { font-size:clamp(40px,5vw,65px); line-height:1.02; margin:15px 0 0; }
-  h2 em { color:#733748; }
-  .shop-heading > p { max-width:420px; font-size:15px; line-height:1.8; }
+  h2 { font:400 clamp(48px,6vw,84px)/1 'Anton',Impact,sans-serif; letter-spacing:-.01em; text-transform:uppercase; margin:15px 0 0; }
+  h2 em { color:#733748; font-style:normal; }
+  .shop-heading > p { max-width:420px; font-size:17px; line-height:1.8; }
   .shop-filters { display:flex; flex-wrap:wrap; gap:10px; margin:36px 0 30px; }
-  .shop-filters a { padding:12px 18px; border:1px solid #32224d; font-size:12px; font-weight:800; min-height:44px; }
+  .shop-filters a { padding:12px 18px; border:1px solid #32224d; font-size:14px; font-weight:800; min-height:44px; }
   .shop-filters a[aria-current] { background:#32224d; color:#fff7e9; }
   .shop-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:32px 25px; }
   .shop-card { border:1px solid #32224d; background:#eee6f4; }
@@ -76,13 +78,13 @@
   .shop-product-image img { display:block; width:100%; height:auto; object-fit:contain; transition:transform .2s; }
   .shop-product-image:hover img { transform:rotate(-2deg); }
   .shop-card-copy { padding:8px 22px 26px; }
-  .shop-kind { margin:0; font-size:10px; text-transform:uppercase; letter-spacing:.1em; font-weight:800; }
-  h3 { margin:12px 0; font-size:30px; line-height:1.1; }
-  .shop-card-copy > p:not(.shop-kind) { font-size:13px; line-height:1.6; }
-  .shop-product-link { display:flex; justify-content:space-between; gap:12px; margin-top:22px; padding-top:14px; border-top:1px solid #32224d66; font-size:12px; font-weight:800; }
+  .shop-kind { margin:0; font-size:12px; text-transform:uppercase; letter-spacing:.1em; font-weight:800; }
+  h3 { margin:12px 0; font:400 36px/1.05 'Anton',Impact,sans-serif; letter-spacing:.005em; text-transform:uppercase; }
+  .shop-card-copy > p:not(.shop-kind) { font-size:16px; line-height:1.6; }
+  .shop-product-link { display:flex; justify-content:space-between; gap:12px; margin-top:22px; padding-top:14px; border-top:1px solid #32224d66; font-size:14px; font-weight:800; }
   .shop-more { display:flex; gap:35px; align-items:center; justify-content:space-between; padding:45px 0; margin-top:30px; border-bottom:2px solid #32224d; }
-  .shop-more h2 { font-size:45px; }
-  .shop-orders { max-width:780px; margin-top:30px; font-size:14px; line-height:1.8; }
+  .shop-more h2 { font-size:clamp(48px,5vw,72px); }
+  .shop-orders { max-width:780px; margin-top:30px; font-size:16px; line-height:1.8; }
   summary { cursor:pointer; padding-block:10px; font-weight:800; }
   .shop-orders a { text-decoration:underline; }
   @media(prefers-reduced-motion:reduce) { .shop-product-image img { transition:none; } }

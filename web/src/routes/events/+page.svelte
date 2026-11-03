@@ -35,25 +35,25 @@
   .events-world { color:#33253a; background:#f3ecda; overflow:clip; }
   .events-hero { padding-top:64px; background:#33253a; color:#fff7df; }
   .hero-grid { display:grid; grid-template-columns:1fr 1.05fr; align-items:center; gap:60px; padding-bottom:74px; }
-  .overline { font-size:10px; font-weight:800; letter-spacing:.13em; text-transform:uppercase; }
+  .overline { font-size:12px; font-weight:800; letter-spacing:.13em; text-transform:uppercase; }
   .hero-copy > .overline { color:#e5e785; margin-bottom:30px; }
   h1 { margin:0 0 30px; font:400 clamp(70px,8.5vw,122px)/.96 'Anton',Impact,sans-serif; letter-spacing:-.025em; }
   h1 em { color:#e5e785; font-style:normal; }
-  .hero-intro { max-width:390px; font-size:16px; line-height:1.8; }
-  .bill-link { display:inline-flex; gap:36px; border-bottom:1px solid #e5e785; padding-block:12px; color:#e5e785; font-weight:800; font-size:12px; }
+  .hero-intro { max-width:420px; font-size:18px; line-height:1.8; }
+  .bill-link { display:inline-flex; gap:36px; border-bottom:1px solid #e5e785; padding-block:12px; color:#e5e785; font-weight:800; font-size:14px; }
   .hero-photo { position:relative; margin:0; transform:rotate(2deg); background:#fff7df; padding:12px; color:#33253a; box-shadow:13px 14px 0 #e5e785; }
   .hero-photo img { width:100%; height:auto; }
-  .hero-photo figcaption { padding:15px 4px 7px; font-size:9px; font-weight:800; line-height:1.6; letter-spacing:.04em; }
-  .hero-photo figcaption a { display:block; margin-top:7px; font-size:12px; text-decoration:underline; }
+  .hero-photo figcaption { padding:15px 4px 7px; font-size:12px; font-weight:800; line-height:1.6; letter-spacing:.04em; }
+  .hero-photo figcaption a { display:block; margin-top:7px; font-size:14px; text-decoration:underline; }
   .photo-stamp { position:absolute; right:-22px; bottom:0; display:grid; place-content:center; width:100px; height:100px; background:#e5e785; border:2px solid #33253a; border-radius:50%; text-align:center; font:700 19px/1 'Fraunces Variable',Georgia,serif; transform:rotate(-12deg); }
   .house-strip { display:flex; flex-wrap:wrap; justify-content:space-around; gap:20px; padding:17px; border-block:1px solid #33253a; color:#33253a; background:#e5e785; font:400 clamp(20px,2.5vw,32px)/1 'Anton',Impact,sans-serif; letter-spacing:.03em; }
   .bill { padding-block:78px 100px; scroll-margin-top:24px; }
   .bill-heading { display:flex; justify-content:space-between; align-items:end; gap:30px; }
   .bill-heading h2 { margin:0; font-size:clamp(45px,5vw,70px); }
-  .bill-heading > p { font-size:13px; }
+  .bill-heading > p { font-size:15px; }
   .preview-note { display:flex; gap:30px; align-items:center; margin-top:34px; padding:20px 24px; background:#e8dfcb; border-left:4px solid #33253a; }
   .preview-note > strong { flex:0 0 170px; font:700 22px/1.15 'Fraunces Variable',Georgia,serif; }
-  .preview-note p { margin:0; font-size:12px; line-height:1.7; }
+  .preview-note p { margin:0; font-size:14px; line-height:1.7; }
   .preview-note a { text-decoration:underline; font-weight:700; }
   .filter-row button { border-radius:0; border-color:#33253a; color:#33253a; }
   .filter-row button:hover,.filter-row button[aria-pressed='true'] { background:#33253a; color:#fff7df; }
@@ -61,7 +61,7 @@
   .archive-invite { display:flex; align-items:center; gap:30px; padding-block:0 90px; }
   .archive-invite > span { font-size:95px; line-height:1; }
   .archive-invite h2 { font-size:38px; margin-bottom:12px; }
-  .archive-invite p { max-width:520px; font-size:13px; }
+  .archive-invite p { max-width:520px; font-size:15px; }
   .archive-invite .button { margin-left:auto; flex-shrink:0; }
   @media(max-width:1000px) { .hero-grid { gap:35px; } .event-list { grid-template-columns:repeat(2,minmax(0,1fr)); } .photo-stamp { right:-8px; width:82px; height:82px; font-size:16px; } }
   @media(max-width:700px) { .events-hero { padding-top:42px; } .hero-grid { grid-template-columns:1fr; gap:40px; padding-bottom:50px; } h1 { font-size:clamp(72px,15vw,106px); } .hero-copy > .overline { margin-bottom:22px; } .hero-photo { margin-inline:8px; } .hero-intro { max-width:440px; } .house-strip { gap:15px; } .bill { padding-block:55px 65px; } .bill-heading { display:block; } .bill-heading > p { margin-top:20px; } .preview-note { display:block; padding:20px; } .preview-note p { margin-top:12px; } .event-list { grid-template-columns:minmax(0,1fr); gap:35px; } .archive-invite { display:block; padding-bottom:60px; } .archive-invite > span { display:none; } .archive-invite .button { margin-top:12px; } }

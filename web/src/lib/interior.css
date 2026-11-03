@@ -1,0 +1,14 @@
+.page-hero { padding: 72px 0 80px; background: #173f32; color: #fffaf0; }
+.page-hero.coral { background: #df906d; color: #173f32; }
+.page-hero.yellow { background: #e5e785; color: #33253a; }
+.page-hero h1 { max-width: 980px; margin: 14px 0 22px; font: 400 clamp(64px, 9vw, 128px)/.95 'Anton', Impact, sans-serif; letter-spacing: -.015em; text-transform: uppercase; }
+.page-hero h1 em { color: #f2ce74; font-style: normal; }
+.page-hero.coral h1 em { color: #5d2824; }
+.page-hero.yellow h1 em { color: #6b2540; }
+.page-hero.coral .eyebrow,.page-hero.yellow .eyebrow { color: #5d2824; }
+.page-hero.yellow .eyebrow { color: #33253a; }
+.page-hero p { max-width: 650px; margin: 0; font-size: 19px; }
+@media (max-width: 700px) {
+  .page-hero { padding: 65px 0; }
+  .page-hero h1 { font-size: clamp(49px, 11vw, 74px); }
+}
