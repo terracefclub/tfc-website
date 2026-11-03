@@ -17,6 +17,32 @@ The dev server hot reloads changes. To connect the separately running CMS:
 CONTENT_SOURCE=cms CMS_ORIGIN=http://127.0.0.1:3010 direnv exec . bun run dev
 ```
 
+For a detached walkthrough of the latest merged website, install dependencies as above,
+start your own local identity using `../identity/README.md`, and run from `web/`:
+
+```sh
+direnv exec . ../identity/tools/with-local bun tools/local-preview.ts
+```
+
+This starts the hot-reloading website at `http://127.0.0.1:4194/`, with explicitly
+sample public content and private API calls to the separately migrated CMS at
+`http://127.0.0.1:3040`. Set `CMS_ORIGIN` to another plain HTTP `127.0.0.1` origin
+when starting your own CMS elsewhere. The member callback origin is always4194.
+If using an existing dedicated identity in another worktree, substitute its
+absolute `identity/tools/with-local` path; credentials are inherited without
+copying or printing their values. The CMS must use that same identity realm.
+Use **Editor sign-in** above the site navigation to open the configured Payload
+portal at `/admin/login`. The link appears only on this dedicated local
+development preview. **Members** opens the separate private community.
+
+The launcher refuses an occupied4194 and never stops an existing process.
+It records its detached wrapper's exact PID in `.state/local-preview.pid` and
+keeps output in `.state/local-preview.log` (directory0700, files0600).
+After verifying the recorded PID belongs to this checkout, stop only that PID
+with `kill -TERM <pid>`; the wrapper forwards termination to its Vite child.
+Restarting the website clears its in-memory member sessions. Existing previews
+in other worktrees are left running.
+
 For a populated design walkthrough, use `CONTENT_SOURCE=preview direnv exec . bun run dev --port 4176`. Keep the CMS preview on a different port, such as `--port 4174`: fixture event URLs are available only in preview mode, while CMS mode serves the records actually published there.
 
 The development watcher excludes `.devenv` and `.direnv` and does not follow symlinks. Nix profiles point outside the app into the Nix store; traversing them previously exhausted the preview server's memory. Source changes still hot reload.
