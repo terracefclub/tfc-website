@@ -17,6 +17,19 @@ Public pages include about, join, membership, dues, financial aid, reporting, co
 
 Do not migrate payment credentials or historical submissions without explicit retention/privacy review. Full field definitions, conditional rules, notification recipients, entries, private pages and custom-field schemas require authorized WordPress export/admin access. Public REST output is not a complete database or plugin inventory.
 
+### Inventory form definitions offline
+
+Once an authorized operator supplies a [Gravity Forms **Export Forms** JSON file](https://docs.gravityforms.com/exporting-a-form-from-gravity-forms/), keep the original in protected storage outside the checkout. The export may contain notification recipients, default values and add-on settings. From the repository root, run:
+
+```sh
+direnv allow web
+direnv exec web bun web/tools/gravity-forms-inventory.ts < /protected/terrace/forms.json
+```
+
+The command reads standard input and writes one JSON report. It accepts a single form object (also available from [`wp gf form get <id>`](https://docs.gravityforms.com/managing-forms-wp-cli/)), an array or a numeric-keyed collection with optional export version. Forms and fields must have positive numeric source IDs. The limit is 8 MiB. An unsupported input returns a nonzero status and an empty report stream. Use the form-definition export, not **Export Entries**, SQL or a list of form summaries.
+
+Match forms and fields to the private source by ID. The report preserves field order, nested fields, known types and required flags, whether conditional logic is omitted, absent or configured, plus counts of configured choice options, compound inputs and conditional rules. It counts notification and confirmation definitions per form; `null` means the export omitted that information. Unknown field types become `other` and need private review. Labels, choices, rule contents, recipients, free text, settings and submissions are excluded. Configured logic is not evaluated; its presence does not prove it will run. A payment field alone cannot identify an active processor. The report covers only the supplied forms. Use the preserved original for exact configuration, and reconcile plugin tables, entry totals, active feeds and inactive or trashed forms separately under approved access.
+
 ## Migration mapping
 
 | Source | Preserve in Payload / destination | Notes |
