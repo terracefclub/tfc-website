@@ -4,12 +4,12 @@ import { memberRoles, type MemberRole } from '../access/members'
 export type MemberClaims = { issuer: string; subject: string; displayName: string; roles: MemberRole[] }
 export type KeycloakConfig = { issuer: string; audience: string; clientId: string; introspectionClientId: string; introspectionSecret: string }
 
-export function keycloakConfig(env = process.env): KeycloakConfig | null {
-  if (!env.MEMBER_AUTH_ISSUER) return null
-  const issuer = new URL(env.MEMBER_AUTH_ISSUER)
+export function keycloakConfig(env = process.env, prefix = 'MEMBER_AUTH'): KeycloakConfig | null {
+  if (!env[`${prefix}_ISSUER`]) return null
+  const issuer = new URL(env[`${prefix}_ISSUER`]!)
   if (issuer.username || issuer.password || issuer.search || issuer.hash || !/^\/realms\/[^/]+$/.test(issuer.pathname) ||
       (issuer.protocol !== 'https:' && !(issuer.protocol === 'http:' && issuer.hostname === '127.0.0.1'))) throw new Error('Invalid member identity issuer.')
-  const values = [env.MEMBER_AUTH_AUDIENCE, env.MEMBER_AUTH_CLIENT_ID, env.MEMBER_AUTH_INTROSPECTION_CLIENT_ID, env.MEMBER_AUTH_INTROSPECTION_SECRET]
+  const values = ['AUDIENCE', 'CLIENT_ID', 'INTROSPECTION_CLIENT_ID', 'INTROSPECTION_SECRET'].map((key) => env[`${prefix}_${key}`])
   if (values.some((value) => !value)) throw new Error('Member identity configuration is incomplete.')
   return { issuer: issuer.href, audience: values[0]!, clientId: values[1]!, introspectionClientId: values[2]!, introspectionSecret: values[3]! }
 }
@@ -25,13 +25,13 @@ export function approvedClaims(payload: JWTPayload, config: KeycloakConfig): Mem
 
 type Fetcher = (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => Promise<Response>
 
-export function createMemberVerifier(config: KeycloakConfig, request: Fetcher = fetch) {
+export function createKeycloakVerifier<T extends { subject: string }>(config: KeycloakConfig, claimsFromToken: (payload: JWTPayload, config: KeycloakConfig) => T, request: Fetcher = fetch) {
   const boundedFetch: Fetcher = (input, init) => request(input, { ...init, redirect: 'error', signal: AbortSignal.timeout(4000) })
   const keys = createRemoteJWKSet(new URL(`${config.issuer}/protocol/openid-connect/certs`), { [customFetch]: boundedFetch, timeoutDuration: 4000 })
-  return async (token: string): Promise<MemberClaims> => {
+  return async (token: string): Promise<T> => {
     if (token.length > 16384) throw new Error('Member access denied.')
     const { payload } = await jwtVerify(token, keys, { issuer: config.issuer, audience: config.audience, algorithms: ['RS256'], requiredClaims: ['sub', 'exp', 'iat', 'jti'], maxTokenAge: 65, clockTolerance: 0 })
-    const claims = approvedClaims(payload, config)
+    const claims = claimsFromToken(payload, config)
     const response = await boundedFetch(`${config.issuer}/protocol/openid-connect/token/introspect`, {
       method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ token, client_id: config.introspectionClientId, client_secret: config.introspectionSecret }),
@@ -43,6 +43,10 @@ export function createMemberVerifier(config: KeycloakConfig, request: Fetcher = 
     if (active.active !== true || active.sub !== claims.subject || !active.exp || active.exp * 1000 <= Date.now()) throw new Error('Member access denied.')
     return claims
   }
+}
+
+export function createMemberVerifier(config: KeycloakConfig, request: Fetcher = fetch) {
+  return createKeycloakVerifier(config, approvedClaims, request)
 }
 
 let verifier: ReturnType<typeof createMemberVerifier> | undefined
