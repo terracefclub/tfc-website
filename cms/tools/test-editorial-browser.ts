@@ -1,6 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { chromium, type BrowserContext, type Page } from 'playwright'
+import { localFixtureCredentials } from './local-fixtures'
 
 const origin = process.env.CMS_ORIGIN || 'http://127.0.0.1:3040'
 const issuer = process.env.CMS_AUTH_ISSUER || ''
@@ -12,7 +11,7 @@ for (const value of [origin, issuer, ...(webOrigin ? [webOrigin] : [])]) {
 }
 if (!identityState) throw new Error('TERRACE_TEST_IDENTITY_STATE must reference the dedicated local fixtures.')
 // Fixture credentials are consumed only by the browser/API, never printed or saved in artifacts.
-const credentials = JSON.parse(readFileSync(resolve(identityState, 'credentials.json'), 'utf8'))
+const credentials = localFixtureCredentials(identityState, ['adminPassword', 'editorialAdminPassword', 'editorialEditorPassword', 'memberPassword', 'alumniPassword', 'outsiderPassword'])
 const browser = await chromium.launch({ headless: true })
 let stage = 'start', count = 0
 class TestFailure extends Error {}

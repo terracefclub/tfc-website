@@ -100,13 +100,17 @@ An approved member can report a story they can currently read from the **Stories
 
 Each member can report a given story once. Its snapshot survives later edits or deletion, so a reviewer sees the content that was reported. Marking a report reviewed records triage only. It does not remove the story, contact anyone or suspend an account. Before inviting real members, Terrace must name reviewers, agree on response times, escalation and a retention/deletion policy. Check the queue manually in the local pilot.
 
-`tools/test-reports-browser.ts` checks the real member Keycloak login and report form, mobile layout, ordinary-editor HTTP rejection, native Payload review/save controls and snapshot retention after story removal. Use owned loopback runtimes and synthetic data only. Its reviewer login uses the local password trial; per-user editorial SSO is covered separately by `test-editorial-browser.ts`. Start the test CMS without `CMS_AUTH_*` settings, while retaining the dedicated realm’s `MEMBER_AUTH_*` settings. Apply migrations and run the synthetic bootstrap before starting it; the website must target that same CMS. Never reuse a shared preview’s database for this test.
+`tools/test-reports-browser.ts` checks the real member Keycloak login and report form, mobile layout, ordinary-editor HTTP rejection, native Payload queue/review/save controls and snapshot retention after story edits and removal. Use owned loopback runtimes and synthetic data only. The website must target that same migrated CMS. With `CMS_AUTH_ISSUER` set, the check signs in through Keycloak as the existing `local-editorial-admin` and `local-editorial-editor` fixtures and verifies their separate roles and opaque sessions. It does not call account-creation endpoints or change provider configuration. The broader SSO/session checks remain in `test-editorial-browser.ts`.
 
-From `cms/`, install the test browser and run against your owned runtimes (replace the origins and fixture-state path as needed):
+From `cms/`, install the test browser and run against your owned SSO runtimes (replace the origins and fixture-state path as needed). `CMS_LOCAL_BOOTSTRAP=1` is an explicit assertion that these runtimes contain synthetic local fixtures; it does not run bootstrap or change the database:
 
 ```sh
 direnv exec . env PLAYWRIGHT_BROWSERS_PATH=.state/browsers bun node_modules/playwright/cli.js install chromium
-direnv exec . tools/with-local env CMS_ORIGIN=http://127.0.0.1:3042 MEMBER_AUTH_ORIGIN=http://127.0.0.1:4240 TERRACE_TEST_IDENTITY_STATE=../identity/.state PLAYWRIGHT_BROWSERS_PATH=.state/browsers bun tools/test-reports-browser.ts
+direnv exec . ../identity/tools/with-local env CMS_LOCAL_BOOTSTRAP=1 CMS_ORIGIN=http://127.0.0.1:3040 MEMBER_AUTH_ORIGIN=http://127.0.0.1:4194 TERRACE_TEST_IDENTITY_STATE=../identity/.state PLAYWRIGHT_BROWSERS_PATH=.state/browsers bun tools/test-reports-browser.ts
 ```
 
-Screenshots are written to ignored `.state/report-member.png` and `.state/report-reviewer.png`. Test content and the temporary editor are removed. The report migration’s rollback deletes stored snapshots; use it only on an empty synthetic database or after verifying backup and recovery for retained data.
+For the original password trial, omit all `CMS_AUTH_*` settings when starting the test CMS and running this check, retain its member-authentication settings, and use `tools/with-local` instead of the identity wrapper in the test command. This mode uses the generated local administrator and creates/removes a temporary local editor. It requires the synthetic bootstrap before starting the CMS; it is never a deployed-account provisioning tool.
+
+Screenshots are written to ignored `.state/report-member.png` and `.state/report-reviewer.png`. Test content and any temporary trial editor are removed. The report migration’s rollback deletes stored snapshots; use it only on an empty synthetic database or after verifying backup and recovery for retained data.
+
+Both browser checks load fixture credentials through `tools/local-fixtures.ts`, which validates the required string keys and replaces file/JSON errors with a static message. Run `direnv exec . bun test test/local-fixtures.test.ts` to verify malformed credentials cannot expose their contents through uncaught stderr.
