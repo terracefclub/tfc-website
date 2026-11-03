@@ -11,7 +11,9 @@ export function editorialEnabled(env = process.env) {
 export function editorialSettings(env = process.env): EditorialSettings {
   const config = keycloakConfig(env, 'CMS_AUTH')
   if (!config || !env.CMS_AUTH_CLIENT_SECRET || !env.CMS_ORIGIN) throw new Error('Editorial sign-in is not configured.')
-  const origin = new URL(env.CMS_ORIGIN)
+  let origin: URL
+  try { origin = new URL(env.CMS_ORIGIN) }
+  catch { throw new Error('Invalid CMS origin.') }
   if (origin.username || origin.password || origin.search || origin.hash || origin.pathname !== '/' ||
       (origin.protocol !== 'https:' && !(origin.protocol === 'http:' && origin.hostname === '127.0.0.1'))) throw new Error('Invalid CMS origin.')
   return { ...config, secret: env.CMS_AUTH_CLIENT_SECRET, origin: origin.origin, secure: origin.protocol === 'https:' }

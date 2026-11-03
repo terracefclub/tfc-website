@@ -6,7 +6,9 @@ export type KeycloakConfig = { issuer: string; audience: string; clientId: strin
 
 export function keycloakConfig(env = process.env, prefix = 'MEMBER_AUTH'): KeycloakConfig | null {
   if (!env[`${prefix}_ISSUER`]) return null
-  const issuer = new URL(env[`${prefix}_ISSUER`]!)
+  let issuer: URL
+  try { issuer = new URL(env[`${prefix}_ISSUER`]!) }
+  catch { throw new Error('Invalid member identity issuer.') }
   if (issuer.username || issuer.password || issuer.search || issuer.hash || !/^\/realms\/[^/]+$/.test(issuer.pathname) ||
       (issuer.protocol !== 'https:' && !(issuer.protocol === 'http:' && issuer.hostname === '127.0.0.1'))) throw new Error('Invalid member identity issuer.')
   const values = ['AUDIENCE', 'CLIENT_ID', 'INTROSPECTION_CLIENT_ID', 'INTROSPECTION_SECRET'].map((key) => env[`${prefix}_${key}`])

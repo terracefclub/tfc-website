@@ -2,6 +2,7 @@ import { constants, closeSync, fstatSync, lstatSync, openSync, realpathSync, unl
 import { dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { clientSecuritySettings, clientSettings, realmRoleNames, realmSettings, roleScopeMappings, type ClientCredentials } from './realm-config'
+import { productionOrigin, productionSecret } from '../../cms/src/auth/production-input'
 
 const invalid = (): never => { throw new Error('Invalid production realm input.') }
 const credentialKeys = ['webSecret', 'introspectionSecret', 'cmsSecret', 'editorialSecret'] as const
@@ -9,16 +10,7 @@ const repositoryRoot = realpathSync(fileURLToPath(new URL('../..', import.meta.u
 const maxInputBytes = 32 * 1024
 
 function httpsOrigin(value: unknown): string {
-  if (typeof value !== 'string') return invalid()
-  try {
-    const url = new URL(value)
-    const labels = url.hostname.split('.')
-    if (url.protocol !== 'https:' || url.origin !== value || url.username || url.password ||
-        url.pathname !== '/' || url.search || url.hash || labels.length < 2 || url.hostname.length > 253 ||
-        !labels.every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)) ||
-        !/[a-z]/.test(labels.at(-1)!) || /(?:^|\.)localhost$/.test(url.hostname)) return invalid()
-    return value
-  } catch { return invalid() }
+  try { return productionOrigin(value) } catch { return invalid() }
 }
 
 function credentials(value: unknown): ClientCredentials {
@@ -26,9 +18,8 @@ function credentials(value: unknown): ClientCredentials {
   const source = value as Record<string, unknown>
   if (Object.keys(source).length !== credentialKeys.length || !credentialKeys.every(key => Object.hasOwn(source, key))) return invalid()
   const values = credentialKeys.map(key => source[key])
-  if (!values.every(value => typeof value === 'string' && value.trim() === value &&
-      Buffer.byteLength(value) >= 32 && Buffer.byteLength(value) <= 4096 && !/[\x00-\x1f\x7f]/.test(value)) ||
-      new Set(values).size !== credentialKeys.length) return invalid()
+  try { values.forEach(productionSecret) } catch { return invalid() }
+  if (new Set(values).size !== credentialKeys.length) return invalid()
   return source as ClientCredentials
 }
 

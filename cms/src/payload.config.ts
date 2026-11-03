@@ -12,13 +12,10 @@ import { Users } from './collections/Users'
 import { Members } from './collections/Members'
 import { communityCollections } from './community/collections'
 import { editorialEndpoints } from './auth/editorial'
+import { cmsRuntimeOrigin } from './runtime-policy'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
-const origin = process.env.CMS_ORIGIN || 'http://127.0.0.1:3010'
-
-if (new URL(origin).protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(new URL(origin).hostname)) {
-  throw new Error('This CMS preview requires a loopback origin; public deployment remains gated on TLS, database and recovery validation.')
-}
+const origin = cmsRuntimeOrigin()
 
 if (!process.env.PAYLOAD_SECRET || !process.env.DATABASE_URI) {
   throw new Error('PAYLOAD_SECRET and DATABASE_URI are required. Run tools/local-up for local development.')
