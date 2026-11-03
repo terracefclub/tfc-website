@@ -24,11 +24,12 @@ await new Promise<void>((done, fail) => { probe.once('error', fail); probe.liste
 const logPath = resolve(state, `preview-${origin.port}.log`)
 const log = openSync(logPath, 'a', 0o600)
 chmodSync(logPath, 0o600)
-const child = spawn(resolve(root, 'node_modules/.bin/next'), ['dev', '--hostname', '127.0.0.1', '--port', origin.port], {
+const child = spawn('node', [resolve(root, 'node_modules/.bin/next'), 'dev', '--hostname', '127.0.0.1', '--port', origin.port], {
   cwd: root, env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' }, detached: true, stdio: ['ignore', log, log],
 })
 if (!child.pid) throw new Error('Preview did not start.')
 writeFileSync(pidFile, `${child.pid}\n`, { mode: 0o600 })
+if (process.env.TERRACE_LOCAL_STACK_RUN) writeFileSync(resolve(state, 'local-stack-start.json'), JSON.stringify({ run: process.env.TERRACE_LOCAL_STACK_RUN, pid: child.pid }), { mode: 0o600 })
 child.unref()
 closeSync(log)
 console.log(`CMS preview started at ${origin.origin}/admin (PID ${child.pid}); private log in .state/.`)

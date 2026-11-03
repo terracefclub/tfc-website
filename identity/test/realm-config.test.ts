@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { clientSettings, cmsOrigins, editorialRoleNames, keycloakOrigin, memberRoleNames, realmSettings, roleScopeMappings, syntheticIdentityRoles, webOrigins } from '../tools/realm-config'
+import { clientSettings, cmsOrigins, editorialRoleNames, keycloakOrigin, localClientOrigins, memberRoleNames, realmSettings, roleScopeMappings, syntheticIdentityRoles, webOrigins } from '../tools/realm-config'
 
 test('local realm requires approval and uses short, rotating sessions', () => {
   expect(realmSettings.registrationAllowed).toBe(false)
@@ -7,6 +7,23 @@ test('local realm requires approval and uses short, rotating sessions', () => {
   expect(realmSettings.accessTokenLifespan).toBe(60)
   expect(realmSettings.revokeRefreshToken).toBe(true)
   expect(realmSettings.refreshTokenMaxReuse).toBe(0)
+})
+test('an isolated stack registers only its explicitly selected exact local callbacks', () => {
+  const origins = localClientOrigins('http://127.0.0.1:4252', 'http://127.0.0.1:3046')
+  const clients = clientSettings({ webSecret: 'synthetic-web', introspectionSecret: 'synthetic-resource', cmsSecret: 'synthetic-cms', editorialSecret: 'synthetic-editorial' }, origins)
+  expect(clients[0].redirectUris).toEqual(['http://127.0.0.1:4252/auth/callback'])
+  expect(clients[2].redirectUris).toEqual(['http://127.0.0.1:3046/api/editorial/callback'])
+  for (const value of ['https://external.invalid', 'http://127.0.0.1:4252/*', 'http://u:p@127.0.0.1:4252', 'http://127.0.0.1:4252/?x=1']) expect(() => localClientOrigins(value, 'http://127.0.0.1:3046')).toThrow()
+  expect(() => localClientOrigins('http://127.0.0.1:4252')).toThrow()
+})
+test('malformed local-origin errors never retain private input or raw URL diagnostics', () => {
+  const marker = 'synthetic-private-origin-marker'
+  let failure: unknown
+  try { localClientOrigins(`http://[${marker}`, 'http://127.0.0.1:3046') } catch (error) { failure = error }
+  expect(failure).toBeInstanceOf(Error)
+  expect((failure as Error).message).toBe('Local client origins must be exact loopback HTTP origins with bounded ports.')
+  expect((failure as Error).message).not.toContain(marker)
+  expect(failure).not.toHaveProperty('input')
 })
 test('member browser client is PKCE only with its own exact callbacks, audience, and roles', () => {
   const [web, resource] = clientSettings({ webSecret: 'synthetic-web', introspectionSecret: 'synthetic-resource', cmsSecret: 'synthetic-cms', editorialSecret: 'synthetic-editorial' })

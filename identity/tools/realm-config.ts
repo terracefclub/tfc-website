@@ -19,6 +19,17 @@ export const syntheticIdentityRoles = [
 ] as const
 export const realmSettings = { realm, enabled: true, displayName: 'Terrace', registrationAllowed: false, resetPasswordAllowed: false, loginWithEmailAllowed: true, duplicateEmailsAllowed: false, bruteForceProtected: true, sslRequired: 'none', accessTokenLifespan: 60, ssoSessionIdleTimeout: 1800, ssoSessionMaxLifespan: 28800, revokeRefreshToken: true, refreshTokenMaxReuse: 0 }
 const audienceMapper = { name: 'community-resource', protocol: 'openid-connect', protocolMapper: 'oidc-audience-mapper', config: { 'included.custom.audience': 'terrace-community', 'id.token.claim': 'false', 'access.token.claim': 'true' } }
+export function localClientOrigins(web?: string, cms?: string): ClientOrigins {
+  if (web === undefined && cms === undefined) return { webOrigins, cmsOrigins }
+  const exact = (value?: string) => {
+    try {
+      const url = new URL(value || '')
+      if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || url.username || url.password || url.pathname !== '/' || url.search || url.hash || Number(url.port) < 1024 || Number(url.port) > 64535) throw new Error()
+      return url.origin
+    } catch { throw new Error('Local client origins must be exact loopback HTTP origins with bounded ports.') }
+  }
+  return { webOrigins: [exact(web)], cmsOrigins: [exact(cms)] }
+}
 export function clientSettings(credentials: ClientCredentials, origins: ClientOrigins = { webOrigins, cmsOrigins }) {
   const { webOrigins, cmsOrigins } = origins
   return [
