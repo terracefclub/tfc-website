@@ -1,5 +1,6 @@
 import type { CollectionConfig, PayloadRequest } from 'payload'
 import { memberOnly, publicMediaOrMember } from '@/access/rules'
+import { mediaDirectory } from '../media-directory'
 
 async function assertNoPublishedReferences(req: PayloadRequest, id: string | number) {
   for (const [collection, field] of [
@@ -19,7 +20,7 @@ export const Media: CollectionConfig = {
   access: { create: memberOnly, read: publicMediaOrMember, update: memberOnly, delete: memberOnly },
   admin: { useAsTitle: 'alt' },
   upload: {
-    staticDir: '../../.state/media',
+    staticDir: mediaDirectory(),
     mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
     pasteURL: false,
     allowRestrictedFileTypes: false,

@@ -63,6 +63,28 @@ Payload emits absolute `media.url` values using `CMS_ORIGIN`. Consumers should a
 
 ## Event images
 
+Uploads are stored in this checkout's `cms/.state/media` by default. Set
+`CMS_MEDIA_DIR` to an absolute directory when using separate persistent storage.
+Include that directory with the CMS database in the backup plan.
+
+Older revisions used a relative path that resolved outside the checkout. Before
+upgrading an existing preview, stop its CMS process, keep PostgreSQL running,
+and run from `cms/`:
+
+```sh
+direnv exec . tools/local-up
+direnv exec . tools/with-local bun tools/migrate-media-directory.ts --from ../../.state/media
+```
+
+Then start the updated CMS normally. For an external destination, supply the same
+`CMS_MEDIA_DIR` to the migration and server commands. The command copies only
+filenames referenced by this database, verifies their bytes, and retains every
+original. It never overwrites different data or follows file symlinks. Verified
+copies remain after a partial failure, so fix the missing/conflicting input and
+rerun. It accepts up to 100,000 references and files up to 128 MiB, and prints
+counts only. Keep the original files until a separate backup and serving check
+have succeeded. Other checkouts may still reference them.
+
 Editors attach a poster to an event from **Events > Poster image**. The website shows it uncropped on the event card and detail page.
 
 1. In **Media**, upload a JPEG, PNG, or WebP of at most 10 MiB (file signatures are checked; SVG, GIF, and other types are refused). Fill in **Alt text** (required, at most 300 characters; describe what the poster shows), and optionally **Caption** (500) and **Credit** (200). Tick **Public**.

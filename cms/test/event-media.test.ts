@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test'
 import { getPayload } from 'payload'
 import config from '../src/payload.config'
+import { statSync } from 'node:fs'
+import { join } from 'node:path'
+import { mediaDirectory } from '../src/media-directory'
 
 const suffix = crypto.randomUUID().slice(0, 8)
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl7L2sAAAAASUVORK5CYII=', 'base64')
@@ -23,6 +26,12 @@ const createEvent = async (name: string, data: Record<string, unknown>) => {
   eventIds.push(event.id)
   return event
 }
+
+test('uploaded files are stored in this CMS media directory', async () => {
+  const media = await upload({ alt: 'Storage isolation fixture', public: false })
+  expect(typeof media.filename).toBe('string')
+  expect(statSync(join(mediaDirectory(), media.filename!)).size).toBeGreaterThan(0)
+})
 
 beforeAll(async () => {
   if (process.env.CMS_LOCAL_BOOTSTRAP !== '1') throw new Error('Integration tests require the isolated local profile.')

@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 state="$PWD/.state"
 mkdir -p "$state" "$state/postgres-socket" "$state/media"
-chmod 700 "$state" "$state/postgres-socket"
+chmod 700 "$state" "$state/postgres-socket" "$state/media"
 if [[ ! -f "$state/local.env" ]]; then
   bun -e 'import { randomBytes } from "node:crypto"; import { writeFileSync } from "node:fs"; const secret=randomBytes(48).toString("hex"); const password=randomBytes(24).toString("hex"); writeFileSync(".state/local.env", `PAYLOAD_SECRET=${secret}\nCMS_BOOTSTRAP_EMAIL=local-admin@terrace.invalid\nCMS_BOOTSTRAP_PASSWORD=${password}\nCMS_LOCAL_BOOTSTRAP=1\nCMS_ORIGIN=http://127.0.0.1:3010\n`, {mode:0o600,flag:"wx"});'
 fi
