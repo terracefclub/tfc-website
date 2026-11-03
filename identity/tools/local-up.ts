@@ -4,7 +4,7 @@ import { execFileSync, spawn } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
-import { origin, realm, webOrigins, realmSettings, clientSettings } from './realm-config'
+import { keycloakOrigin, realm, realmSettings, clientSettings, roleScopeMappings, syntheticIdentityRoles } from './realm-config'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const state = resolve(root, '.state')
@@ -12,13 +12,25 @@ mkdirSync(state, { recursive: true, mode: 0o700 })
 chmodSync(state, 0o700)
 const settingsPath = resolve(state, 'credentials.json')
 if (!existsSync(settingsPath)) writeFileSync(settingsPath, JSON.stringify({
-  adminPassword: randomBytes(32).toString('hex'), webSecret: randomBytes(32).toString('hex'), introspectionSecret: randomBytes(32).toString('hex'),
-  memberPassword: randomBytes(24).toString('hex'), alumniPassword: randomBytes(24).toString('hex'), outsiderPassword: randomBytes(24).toString('hex'),
+  adminPassword: randomBytes(32).toString('hex'), webSecret: randomBytes(32).toString('hex'), introspectionSecret: randomBytes(32).toString('hex'), cmsSecret: randomBytes(32).toString('hex'), editorialSecret: randomBytes(32).toString('hex'),
+  memberPassword: randomBytes(24).toString('hex'), alumniPassword: randomBytes(24).toString('hex'), outsiderPassword: randomBytes(24).toString('hex'), editorialEditorPassword: randomBytes(24).toString('hex'), editorialAdminPassword: randomBytes(24).toString('hex'),
 }), { mode: 0o600, flag: 'wx' })
 chmodSync(settingsPath, 0o600)
 const credentials = JSON.parse(readFileSync(settingsPath, 'utf8'))
+let credentialsUpdated = false
+for (const [key, size] of Object.entries({ cmsSecret: 32, editorialSecret: 32, editorialEditorPassword: 24, editorialAdminPassword: 24 })) {
+  if (!credentials[key]) {
+    credentials[key] = randomBytes(size).toString('hex')
+    credentialsUpdated = true
+  }
+}
+if (credentialsUpdated) writeFileSync(settingsPath, JSON.stringify(credentials), { mode: 0o600 })
 const pin = JSON.parse(readFileSync(resolve(root, 'keycloak-pin.json'), 'utf8'))
 const home = resolve(state, `keycloak-${pin.version}`)
+const httpPort = Number(process.env.KEYCLOAK_HTTP_PORT ?? 8184)
+if (!Number.isInteger(httpPort) || httpPort < 1024 || httpPort > 64535) throw new Error('KEYCLOAK_HTTP_PORT must be an integer from 1024 to 64535.')
+const managementPort = httpPort + 1000
+const origin = keycloakOrigin(httpPort)
 if (!existsSync(resolve(home, 'bin/kc.sh'))) {
   const response = await fetch(pin.url, { signal: AbortSignal.timeout(180_000) })
   if (!response.ok) throw new Error('Could not download the pinned Keycloak release.')
@@ -34,7 +46,7 @@ async function isReady() {
 }
 if (!await isReady()) {
   const log = openSync(resolve(state, 'keycloak.log'), 'a', 0o600)
-  const child = spawn('nohup', [resolve(home, 'bin/kc.sh'), 'start-dev', '--http-host=127.0.0.1', '--http-port=8184', '--hostname=http://127.0.0.1:8184', '--http-management-host=127.0.0.1', '--http-management-port=9184'], {
+  const child = spawn('nohup', [resolve(home, 'bin/kc.sh'), 'start-dev', '--http-host=127.0.0.1', `--http-port=${httpPort}`, `--hostname=${origin}`, '--http-management-host=127.0.0.1', `--http-management-port=${managementPort}`], {
     cwd: home, detached: true, stdio: ['ignore', log, log],
     env: { ...process.env, KC_BOOTSTRAP_ADMIN_USERNAME: 'terrace-local-admin', KC_BOOTSTRAP_ADMIN_PASSWORD: credentials.adminPassword, JAVA_OPTS_KC_HEAP: '-Xms128m -Xmx512m' },
   })
@@ -61,7 +73,9 @@ async function api(path: string, method = 'GET', data?: unknown) {
 
 if ((await api(`realms/${realm}`)).status === 404) await api('realms', 'POST', realmSettings)
 else await api(`realms/${realm}`, 'PUT', realmSettings)
-for (const name of ['current-member', 'alumni']) if ((await api(`realms/${realm}/roles/${name}`)).status === 404) await api(`realms/${realm}/roles`, 'POST', { name })
+for (const name of ['current-member', 'alumni', 'editorial-editor', 'editorial-admin']) {
+  if ((await api(`realms/${realm}/roles/${name}`)).status === 404) await api(`realms/${realm}/roles`, 'POST', { name })
+}
 for (const client of clientSettings(credentials)) {
   const matches = await (await api(`realms/${realm}/clients?clientId=${client.clientId}`)).json() as { id: string }[]
   const body = { ...client, enabled: true, publicClient: false, protocol: 'openid-connect', implicitFlowEnabled: false, consentRequired: false, fullScopeAllowed: false }
@@ -69,30 +83,35 @@ for (const client of clientSettings(credentials)) {
   else await api(`realms/${realm}/clients`, 'POST', body)
   const current = await (await api(`realms/${realm}/clients?clientId=${client.clientId}`)).json() as { id: string }[]
   const clientPath = `realms/${realm}/clients/${current[0].id}`
-  if (client.clientId === 'terrace-web') {
+  if (client.clientId === 'terrace-web' || client.clientId === 'terrace-cms') {
     const scopes = await (await api(`realms/${realm}/client-scopes`)).json() as { id: string; name: string }[]
     for (const name of ['basic', 'profile', 'roles']) {
       const scope = scopes.find((entry) => entry.name === name)
       if (!scope) throw new Error('Required Keycloak client scope is missing.')
       await api(`${clientPath}/default-client-scopes/${scope.id}`, 'PUT')
     }
-    const approvedRoles = await Promise.all(['current-member', 'alumni'].map(async (name) => (await api(`realms/${realm}/roles/${name}`)).json()))
-    await api(`${clientPath}/scope-mappings/realm`, 'POST', approvedRoles)
+    const allowedRoles = roleScopeMappings[client.clientId as keyof typeof roleScopeMappings]
+    const roles = await Promise.all(allowedRoles.map(async (name) => (await api(`realms/${realm}/roles/${name}`)).json()))
+    await api(`${clientPath}/scope-mappings/realm`, 'POST', roles)
   }
 }
 
 // Only synthetic local fixtures are seeded; real enrollment is an approval action.
-for (const [username, password, role, firstName] of [
-  ['local-member', credentials.memberPassword, 'current-member', 'Current Terran'],
-  ['local-alumni', credentials.alumniPassword, 'alumni', 'Alumni Terran'],
-  ['local-unapproved', credentials.outsiderPassword, '', 'Unapproved Visitor'],
-]) {
+const fixturePasswords = {
+  'local-member': credentials.memberPassword, 'local-alumni': credentials.alumniPassword, 'local-unapproved': credentials.outsiderPassword,
+  'local-editorial-editor': credentials.editorialEditorPassword, 'local-editorial-admin': credentials.editorialAdminPassword,
+}
+const fixtureNames = {
+  'local-member': 'Current Terran', 'local-alumni': 'Alumni Terran', 'local-unapproved': 'Unapproved Visitor',
+  'local-editorial-editor': 'Editorial Editor', 'local-editorial-admin': 'Editorial Administrator',
+}
+for (const { username, roles } of syntheticIdentityRoles) {
   let found = await (await api(`realms/${realm}/users?username=${username}&exact=true`)).json() as { id: string }[]
   if (!found[0]) {
-    await api(`realms/${realm}/users`, 'POST', { username, firstName, lastName: 'Local Preview', email: `${username}@terrace.invalid`, emailVerified: true, enabled: true, credentials: [{ type: 'password', value: password, temporary: false }] })
+    await api(`realms/${realm}/users`, 'POST', { username, firstName: fixtureNames[username], lastName: 'Local Preview', email: `${username}@terrace.invalid`, emailVerified: true, enabled: true, credentials: [{ type: 'password', value: fixturePasswords[username], temporary: false }] })
     found = await (await api(`realms/${realm}/users?username=${username}&exact=true`)).json() as { id: string }[]
   }
-  if (role) {
+  for (const role of roles) {
     const definition = await (await api(`realms/${realm}/roles/${role}`)).json()
     await api(`realms/${realm}/users/${found[0].id}/role-mappings/realm`, 'POST', [definition])
   }
@@ -101,7 +120,9 @@ const env = {
   MEMBER_AUTH_ISSUER: `${origin}/realms/${realm}`, MEMBER_AUTH_AUDIENCE: 'terrace-community', MEMBER_AUTH_CLIENT_ID: 'terrace-web', MEMBER_AUTH_CLIENT_SECRET: credentials.webSecret,
   MEMBER_AUTH_INTROSPECTION_CLIENT_ID: 'terrace-community', MEMBER_AUTH_INTROSPECTION_SECRET: credentials.introspectionSecret,
   MEMBER_AUTH_ORIGIN: 'http://127.0.0.1:4194',
+  CMS_AUTH_ISSUER: `${origin}/realms/${realm}`, CMS_AUTH_AUDIENCE: 'terrace-editorial', CMS_AUTH_CLIENT_ID: 'terrace-cms', CMS_AUTH_CLIENT_SECRET: credentials.cmsSecret,
+  CMS_AUTH_INTROSPECTION_CLIENT_ID: 'terrace-editorial', CMS_AUTH_INTROSPECTION_SECRET: credentials.editorialSecret,
 }
 writeFileSync(resolve(state, 'app.env'), Object.entries(env).map(([key, value]) => `${key}=${value}`).join('\n') + '\n', { mode: 0o600 })
 chmodSync(resolve(state, 'app.env'), 0o600)
-console.log('Dedicated local Keycloak ready at http://127.0.0.1:8184. Credentials and application settings remain in identity/.state/.')
+console.log(`Dedicated local Keycloak ready at ${origin}. Credentials and application settings remain in identity/.state/.`)
