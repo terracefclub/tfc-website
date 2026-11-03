@@ -4,7 +4,7 @@ import { execFileSync, spawn } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
-import { keycloakOrigin, realm, realmSettings, clientSettings, roleScopeMappings, syntheticIdentityRoles } from './realm-config'
+import { keycloakOrigin, realm, realmSettings, clientSettings, clientSecuritySettings, realmRoleNames, roleScopeMappings, syntheticIdentityRoles } from './realm-config'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const state = resolve(root, '.state')
@@ -73,12 +73,12 @@ async function api(path: string, method = 'GET', data?: unknown) {
 
 if ((await api(`realms/${realm}`)).status === 404) await api('realms', 'POST', realmSettings)
 else await api(`realms/${realm}`, 'PUT', realmSettings)
-for (const name of ['current-member', 'alumni', 'editorial-editor', 'editorial-admin']) {
+for (const name of realmRoleNames) {
   if ((await api(`realms/${realm}/roles/${name}`)).status === 404) await api(`realms/${realm}/roles`, 'POST', { name })
 }
 for (const client of clientSettings(credentials)) {
   const matches = await (await api(`realms/${realm}/clients?clientId=${client.clientId}`)).json() as { id: string }[]
-  const body = { ...client, enabled: true, publicClient: false, protocol: 'openid-connect', implicitFlowEnabled: false, consentRequired: false, fullScopeAllowed: false }
+  const body = { ...client, ...clientSecuritySettings }
   if (matches[0]) await api(`realms/${realm}/clients/${matches[0].id}`, 'PUT', body)
   else await api(`realms/${realm}/clients`, 'POST', body)
   const current = await (await api(`realms/${realm}/clients?clientId=${client.clientId}`)).json() as { id: string }[]
