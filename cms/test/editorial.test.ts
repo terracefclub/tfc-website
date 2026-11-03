@@ -64,6 +64,17 @@ test('editor cannot create users or grant admin role', async () => {
   expect(selfUpdate.role).toBe('editor')
 })
 
+test('managed identities cannot log in with a password in local fallback mode', async () => {
+  const email = `fallback-${suffix}@terrace.invalid`
+  const password = crypto.randomUUID()
+  const user = await payload.create({ collection: 'users', data: { email, password, identityKey: crypto.randomUUID(), displayName: 'Managed identity', role: 'admin' }, overrideAccess: true })
+  try {
+    await expect(payload.login({ collection: 'users', data: { email, password } })).rejects.toThrow()
+  } finally {
+    await payload.delete({ collection: 'users', id: user.id, overrideAccess: true })
+  }
+})
+
 test('a member identity with a colliding ID cannot enter editorial accounts or versions', async () => {
   const member: any = { id: editorId, collection: 'members', role: 'admin' }
   await expect(payload.find({ collection: 'users', user: member, overrideAccess: false })).rejects.toThrow()
