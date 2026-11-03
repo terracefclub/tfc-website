@@ -1,4 +1,5 @@
 export const previewOrigin = 'http://127.0.0.1:4194';
+export const publishedPreviewCookie = 'terrace_published_preview_4194';
 
 export function localCmsOrigin(value: string): string | null {
   try {

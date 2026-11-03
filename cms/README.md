@@ -18,7 +18,7 @@ direnv exec . tools/with-local ../identity/tools/with-local env CMS_ORIGIN=http:
 
 Open `http://127.0.0.1:3040/admin` and select **Sign in with Terrace**. The local identity fixtures are `local-editorial-editor` and `local-editorial-admin`; generated credentials remain in `identity/.state/credentials.json`. Never paste them into logs or source. `local-preview.ts` starts a detached loopback server, records its exact PID in `.state/preview-3040.pid`, and keeps logs readable only by the owner. Check that PID's command before stopping its process group. Restart after changing authentication code/configuration; the bounded session store survives ordinary hot reloads but is cleared on process restart.
 
-The [local website preview](http://127.0.0.1:4194/) has separate **Members** and **Editor sign-in** links. Its calendar shows labeled design fixtures. To preview published editorial changes on the website, use the [CMS-backed web mode](../web/README.md), setting `CONTENT_SOURCE=cms` and `CMS_ORIGIN` to the editor’s CMS origin.
+On the [local website preview](http://127.0.0.1:4194/), choose **Editor sign-in** to edit a draft. After publishing, choose **View published site** on the website to see the public result. **View sample site** returns to the design calendar. **Members** opens the private community.
 
 Sessions use opaque HttpOnly SameSite cookies, with Secure under HTTPS, distinct names per CMS origin, an eight-hour absolute lifetime and bounded server memory. Access/rotating refresh tokens never reach the browser. Every request verifies the short-lived resource JWT and live Keycloak session. Cookie-authenticated mutations require the exact Origin. This supports one CMS process; restarts sign editors out, and multiple replicas are not supported.
 
@@ -28,6 +28,8 @@ Run the reproducible real-browser check against that owned, synthetic loopback r
 direnv exec . env PLAYWRIGHT_BROWSERS_PATH=.state/browsers bun node_modules/playwright/cli.js install chromium
 direnv exec . tools/with-local ../identity/tools/with-local env CMS_ORIGIN=http://127.0.0.1:3040 TERRACE_TEST_IDENTITY_STATE=../identity/.state PLAYWRIGHT_BROWSERS_PATH=.state/browsers bun tools/test-editorial-browser.ts
 ```
+
+Set `TERRACE_TEST_WEB_ORIGIN=http://127.0.0.1:4194` to also exercise publishing and withdrawing an event on the anonymous website.
 
 The check consumes fixture credentials internally, exercises real Keycloak browser login and Payload APIs, rejects member/alumni/unapproved accounts, checks editor/admin permissions, saving an event draft from the dashboard, cross-origin writes, invalid state, session revocation and logout. Only synthetic content is created and removed. Screenshots stay in ignored `.state/`; raw authentication errors and token-bearing URLs are never printed. Unit tests additionally cover signature/issuer/audience/client failures, callback replay/expiry, refresh concurrency and bounded sessions.
 

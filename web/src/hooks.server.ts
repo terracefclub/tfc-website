@@ -1,7 +1,14 @@
 import type { Handle } from '@sveltejs/kit';
+import { dev } from '$app/environment';
+import { env } from '$env/dynamic/private';
+import { previewEditorLink, publishedPreviewCookie } from '$lib/server/local-preview';
 import { resolveMemberSession } from '$lib/server/member-auth';
 
 export const handle: Handle = async ({ event, resolve }) => {
+  const editorSignIn = dev && previewEditorLink(event.url.origin, env);
+  if (editorSignIn) {
+    event.locals.localPreview = { editorSignIn, published: event.cookies.get(publishedPreviewCookie) === '1' };
+  }
   event.locals.member = null;
   event.locals.memberAccessToken = null;
   const privatePath = /^\/members(?:\/|$)/.test(event.url.pathname) || /^\/members(?:\/|$)/.test(event.route.id ?? '');
@@ -21,10 +28,10 @@ export const handle: Handle = async ({ event, resolve }) => {
       response = new Response('The member space is temporarily unavailable. Please try again shortly.', { status: 503 });
     }
   } else response = await resolve(event);
-  if (privatePath || authPath) {
+  if (privatePath || authPath || event.locals.localPreview) {
     response.headers.set('Cache-Control', 'private, no-store');
     response.headers.set('X-Robots-Tag', 'noindex, nofollow');
-    response.headers.set('Vary', 'Cookie');
+    response.headers.append('Vary', 'Cookie');
   }
   response.headers.set('X-Content-Type-Options', 'nosniff');
   if (!response.headers.has('Referrer-Policy')) response.headers.set('Referrer-Policy', authPath ? 'no-referrer' : 'strict-origin-when-cross-origin');

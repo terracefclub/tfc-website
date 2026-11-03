@@ -26,6 +26,7 @@ beforeAll(async () => {
     env: {
       ...process.env,
       CONTENT_SOURCE: 'cms',
+      TERRACE_LOCAL_PREVIEW: '1',
       CMS_ORIGIN: `http://127.0.0.1:${cms.port}`,
       CMS_PUBLIC_ORIGIN: 'https://files.example.org',
       TERRACE_KIT_OUT_DIR: `.svelte-kit/test-cms-${process.pid}`,
@@ -51,6 +52,37 @@ afterAll(async () => {
   web?.kill();
   if (web) await web.exited;
   await cms.stop(true);
+});
+
+test('switching the local preview shows publications only in the requesting browser', async () => {
+  mode = 'published';
+  const headers = { host: '127.0.0.1:4194', origin: 'http://127.0.0.1:4194' };
+  const post = (mode: string, requestHeaders: Record<string, string>) =>
+    fetch(`${origin}/preview/source/${mode}/`, { method: 'POST', headers: requestHeaders, redirect: 'manual' });
+  const initial = await (await fetch(`${origin}/events/`, { headers })).text();
+  expect(initial).toContain('View published site');
+  expect(initial).not.toContain('Published dinner');
+  expect((await post('published', { origin })).status).toBe(404);
+  expect((await post('published', { host: headers.host, origin: 'https://elsewhere.invalid' })).status).toBe(403);
+  expect((await post('drafts', headers)).status).toBe(404);
+  const switched = await post('published', headers);
+  expect(switched.status).toBe(303);
+  expect(switched.headers.get('location')).toBe('/events/');
+  const cookie = switched.headers.getSetCookie()[0].split(';')[0];
+  const selected = { ...headers, cookie };
+  const page = await fetch(`${origin}/events/`, { headers: selected });
+  expect(page.headers.get('cache-control')).toBe('private, no-store');
+  expect(page.headers.get('vary')?.toLowerCase()).toContain('cookie');
+  const html = await page.text();
+  expect(html).toContain('Published dinner');
+  expect(html).toContain('View sample site');
+  expect(await (await fetch(`${origin}/initiatives/`, { headers: selected })).text()).toContain('Clubhouse care');
+  expect(await (await fetch(`${origin}/events/`, { headers })).text()).not.toContain('Published dinner');
+  mode = 'outage';
+  expect((await fetch(`${origin}/events/`, { headers: selected })).status).toBe(503);
+  const reset = await post('samples', selected);
+  expect(reset.status).toBe(303);
+  expect(reset.headers.getSetCookie()[0]).toContain('Max-Age=0');
 });
 
 test('CMS data renders through the HTTP boundary without fixture labels or executable markup', async () => {
