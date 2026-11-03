@@ -3,22 +3,29 @@ stages:
 
 web:
   stage: verify
-  image: oven/bun:1.4.4-alpine@sha256:4cf82f5686b196504fe119db3fcd9185b191f82ece82c40680e597228ec6070a
+  image: node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "dev"'
     - if: '$CI_COMMIT_BRANCH == "prod"'
   script:
+    - npm install --prefix /tmp/terrace-bun --no-save bun@1.4.4
+    - export PATH="/tmp/terrace-bun/node_modules/.bin:$PATH"
     - cd web
     - bun install --frozen-lockfile
     - bun run check
     - bun test
     - bun run build
+    - cd ..
+    - bun tools/release/pack.ts web .state/releases/web
   artifacts:
     when: on_success
     expire_in: 7 days
     paths:
-      - web/build/
+      - .state/releases/web/*.tar.gz
+      - .state/releases/web/*.sha256
+      - .state/releases/web/*.release.json
+      - .state/releases/web/SHA256SUMS
 
 cms:
   stage: verify
@@ -42,6 +49,14 @@ cms:
     - cd cms
     - bun install --frozen-lockfile
     - bun tools/ci.ts
+  artifacts:
+    when: on_success
+    expire_in: 7 days
+    paths:
+      - .state/releases/cms/*.tar.gz
+      - .state/releases/cms/*.sha256
+      - .state/releases/cms/*.release.json
+      - .state/releases/cms/SHA256SUMS
 
 identity-policy:
   stage: verify

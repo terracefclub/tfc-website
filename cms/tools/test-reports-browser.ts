@@ -17,7 +17,7 @@ if (editorialSSO) {
 }
 const credentials = localFixtureCredentials(state, ['memberPassword', 'alumniPassword', ...(editorialSSO ? ['editorialAdminPassword', 'editorialEditorPassword'] : [])])
 mkdirSync('.state', { recursive: true, mode: 0o700 })
-const browser = await chromium.launch({ headless: true })
+const browser = await chromium.launch({ headless: true, executablePath: process.env.TERRACE_TEST_BROWSER_BINARY || undefined })
 const contexts: BrowserContext[] = []
 let stage = 'start', count = 0
 class CheckFailure extends Error {}
@@ -28,14 +28,21 @@ async function cleanup(label: string, remove: () => Promise<APIResponse>) {
   process.exitCode = 1
 }
 async function member(username: string, password: string) {
+  const previousStage = stage
   const context = await browser.newContext()
   contexts.push(context)
   const page = await context.newPage()
-  await page.goto(`${web}/auth/login?returnTo=/members/stories/`)
+  page.on('pageerror', error => console.error(`Reporting client exception: ${['TypeError', 'ReferenceError', 'SyntaxError', 'Error'].includes(error.name) ? error.name : 'unclassified'}.`))
+  stage = `${username}: open website sign-in`
+  const response = await page.goto(`${web}/auth/login?returnTo=/members/stories/`)
+  assert(response?.ok(), `Member sign-in entrypoint failed (HTTP ${response?.status() || 0})`)
+  stage = `${username}: enter fixture credentials`
   await page.locator('#username').fill(username)
   await page.locator('#password').fill(password)
   await page.locator('#kc-login').click()
+  stage = `${username}: member callback`
   await page.waitForURL(`${web}/members/stories/`, { timeout: 60_000 })
+  stage = previousStage
   return page
 }
 async function editorial(page: Page, username: string, password: string, role: 'admin' | 'editor') {
@@ -59,9 +66,11 @@ const admin = await adminContext.newPage()
 try {
   stage = 'member story creation'
   author = await member('local-member', credentials.memberPassword)
+  stage = 'member story form'
   const share = author.locator('form[action="?/share"]')
   await share.locator('[name=title]').fill(title)
   await share.locator('[name=body]').fill('Original synthetic story <script>literal text</script>.')
+  stage = 'member story submission'
   await share.getByRole('button', { name: 'Share the story', exact: true }).click()
   await author.getByRole('status').filter({ hasText: 'Your story is shared.' }).waitFor()
   storyId = await author.locator('article').filter({ has: author.getByRole('heading', { name: title, exact: true }) }).locator('form[action="?/edit"] input[name=id]').getAttribute('value') || undefined

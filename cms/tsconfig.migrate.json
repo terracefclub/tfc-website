@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "incremental": false },
+  "include": ["tools/release-migrate.ts"],
+  "exclude": ["node_modules"]
+}
