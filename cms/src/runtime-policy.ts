@@ -39,8 +39,9 @@ export function cmsRuntimeOrigin(env = process.env, componentRoot = process.cwd(
     if (new Set(secrets).size !== secrets.length) throw new Error()
 
     const media = mediaDirectory(env)
-    const root = path.resolve(componentRoot)
-    if (!env.CMS_MEDIA_DIR || env.CMS_MEDIA_DIR !== media || path.resolve(media) !== media || media === path.parse(media).root ||
+    // These are runtime path comparisons, not build-time file dependencies.
+    const root = path.resolve(/* turbopackIgnore: true */ componentRoot)
+    if (!env.CMS_MEDIA_DIR || env.CMS_MEDIA_DIR !== media || path.resolve(/* turbopackIgnore: true */ media) !== media || media === path.parse(media).root ||
         /[\x00-\x1f\x7f-\x9f]/.test(media) || inside('/nix/store', media) || inside(root, media) || inside(media, root)) throw new Error()
     return origin
   } catch {

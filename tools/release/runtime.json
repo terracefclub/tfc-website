@@ -1,0 +1,7 @@
+{
+  "node": "24.21.0",
+  "bun": "1.4.4",
+  "platform": "linux",
+  "arch": "x64",
+  "libc": "glibc"
+}

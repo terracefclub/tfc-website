@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "incremental": false, "types": ["bun"], "allowImportingTsExtensions": true },
+  "include": [
+    "tools/ci.ts",
+    "tools/test-editorial-browser.ts",
+    "tools/test-reports-browser.ts",
+    "tools/test-release-media.ts",
+    "../tools/release/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}
