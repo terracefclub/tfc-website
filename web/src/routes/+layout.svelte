@@ -30,7 +30,7 @@
 <a class="skip-link" href="#main">Skip to content</a>
 <div class="topline">
   {#if data.localPreview}
-    <form method="POST" action={data.localPreview.published ? '/preview/source/samples/' : '/preview/source/published/'}>
+    <form method="POST" style="margin-right: 16px" action={data.localPreview.published ? '/preview/source/samples/' : '/preview/source/published/'}>
       <button type="submit" style="background: none; color: inherit; border: 0; padding: 0; font: inherit; font-size: .8rem; min-height: 24px; text-decoration: underline; cursor: pointer">
         {data.localPreview.published ? 'View sample site' : 'View published site'}
       </button>
