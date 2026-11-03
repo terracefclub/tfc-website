@@ -35,6 +35,11 @@ Use **Editor sign-in** above the site navigation to open the configured Payload
 portal at `/admin/login`. The link appears only on this dedicated local
 development preview. **Members** opens the separate private community.
 
+After publishing in Payload, choose **View published site** above the navigation.
+The calendar opens with published events; the homepage, newsletters and initiatives
+also use anonymous CMS reads. **View sample site** returns to the design fixtures.
+The choice lasts for this browser session and works with JavaScript disabled.
+
 The launcher refuses an occupied4194 and never stops an existing process.
 It records its detached wrapper's exact PID in `.state/local-preview.pid` and
 keeps output in `.state/local-preview.log` (directory0700, files0600).

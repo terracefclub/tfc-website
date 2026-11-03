@@ -4,8 +4,9 @@ import { chromium, type BrowserContext, type Page } from 'playwright'
 
 const origin = process.env.CMS_ORIGIN || 'http://127.0.0.1:3040'
 const issuer = process.env.CMS_AUTH_ISSUER || ''
+const webOrigin = process.env.TERRACE_TEST_WEB_ORIGIN
 const identityState = process.env.TERRACE_TEST_IDENTITY_STATE
-for (const value of [origin, issuer]) {
+for (const value of [origin, issuer, ...(webOrigin ? [webOrigin] : [])]) {
   const url = new URL(value)
   if (url.hostname !== '127.0.0.1' || url.protocol !== 'http:' || url.username || url.password) throw new Error('Browser tests only target owned loopback fixtures.')
 }
@@ -128,6 +129,24 @@ try {
   }, { origin, id: createdEvent }, { timeout: 20_000 })
   const saved = await editor.page.request.get(`${origin}/api/events/${createdEvent}?draft=true`)
   assert((await saved.json()).title === 'Edited from the Terrace dashboard', 'Draft UI changes did not persist')
+  if (webOrigin) {
+    stage = 'public website publication and withdrawal'
+    const visitor = await browser.newContext({ javaScriptEnabled: false })
+    contexts.push(visitor)
+    const publicPage = await visitor.newPage()
+    await publicPage.goto(`${webOrigin}/events/`)
+    await publicPage.getByRole('button', { name: 'View published site', exact: true }).click()
+    assert((await publicPage.request.get(`${webOrigin}/events/${event.slug}/`)).status() === 404, 'Website exposed draft')
+    assert((await editor.page.request.patch(`${origin}/api/events/${createdEvent}`, { headers: { origin }, data: { _status: 'published' } })).ok(), 'Publishing failed')
+    await publicPage.reload()
+    assert(await publicPage.getByRole('link', { name: 'Edited from the Terrace dashboard', exact: true }).isVisible(), 'Published event missing from website')
+    await publicPage.getByRole('link', { name: 'Edited from the Terrace dashboard', exact: true }).click()
+    assert(await publicPage.getByRole('heading', { name: 'Edited from the Terrace dashboard', exact: true }).isVisible(), 'Published detail missing')
+    assert((await editor.page.request.patch(`${origin}/api/events/${createdEvent}`, { headers: { origin }, data: { _status: 'draft' } })).ok(), 'Withdrawing publication failed')
+    assert((await publicPage.request.get(`${webOrigin}/events/${event.slug}/`)).status() === 404, 'Withdrawn event remained public')
+    await publicPage.getByRole('button', { name: 'View sample site', exact: true }).click()
+    assert(await publicPage.getByRole('button', { name: 'View published site', exact: true }).isVisible(), 'Could not return to design samples')
+  }
   stage = 'non-editor and invalid state denial'
   for (const [username, password] of [['local-member', credentials.memberPassword], ['local-alumni', credentials.alumniPassword], ['local-unapproved', credentials.outsiderPassword]]) {
     const deniedLogin = await signIn(username, password)

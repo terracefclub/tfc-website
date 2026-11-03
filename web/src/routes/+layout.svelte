@@ -29,9 +29,16 @@
 
 <a class="skip-link" href="#main">Skip to content</a>
 <div class="topline">
-  <span>62 WASHINGTON ROAD · PRINCETON, NJ</span>
-  {#if data.editorSignIn}<a href={data.editorSignIn} rel="external noreferrer" style="font-size: .8rem; line-height: 24px; text-decoration: underline">Editor sign-in</a>
-  {:else}<span>EVERY TERRAN IS A TERRAN</span>{/if}
+  {#if data.localPreview}
+    <form method="POST" action={data.localPreview.published ? '/preview/source/samples/' : '/preview/source/published/'}>
+      <button type="submit" style="background: none; color: inherit; border: 0; padding: 0; font: inherit; font-size: .8rem; min-height: 24px; text-decoration: underline; cursor: pointer">
+        {data.localPreview.published ? 'View sample site' : 'View published site'}
+      </button>
+    </form>
+    <a href={data.localPreview.editorSignIn} rel="external noreferrer" style="font-size: .8rem; line-height: 24px; text-decoration: underline">Editor sign-in</a>
+  {:else}
+    <span>62 WASHINGTON ROAD · PRINCETON, NJ</span><span>EVERY TERRAN IS A TERRAN</span>
+  {/if}
 </div>
 <header class="site-header">
   <div class="header-inner shell">
