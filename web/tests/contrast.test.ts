@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 const home = readFileSync(new URL('../src/routes/+page.svelte', import.meta.url), 'utf8').split('<style>')[1].split('</style>')[0];
 const eventStyles = ['../src/lib/components/EventCard.svelte', '../src/routes/events/+page.svelte']
   .map(path => readFileSync(new URL(path, import.meta.url), 'utf8').split('<style>')[1].split('</style>')[0]).join('\n');
-const css = (readFileSync(new URL('../src/app.css', import.meta.url), 'utf8') + home + eventStyles).replace(/\/\*[\s\S]*?\*\//g, '');
+const css = (readFileSync(new URL('../src/app.css', import.meta.url), 'utf8') + readFileSync(new URL('../src/lib/interior.css', import.meta.url), 'utf8') + home + eventStyles).replace(/\/\*[\s\S]*?\*\//g, '');
 
 function color(selector: string, property: string): string {
   for (const [, names, declarations] of css.matchAll(/([^{}]+)\{([^{}]+)\}/g)) {
