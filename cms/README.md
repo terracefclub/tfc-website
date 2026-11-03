@@ -91,3 +91,20 @@ The separate `members` collection authenticates only Keycloak access tokens; it 
 Only explicitly approved `current-member` and `alumni` realm roles permit member access. Tokens require the expected issuer, resource audience, authorized client, RS256 signature, expiry, token type, and an issuance age of at most 65 seconds. Every authenticated request also introspects the token; an inactive session or unreachable provider denies access. Configure Keycloak access-token lifetime to 60 seconds: role removal takes effect no later than token expiry, while session revocation is checked on every request. Identity uses a unique hash of issuer plus subject; email changes cannot take over an existing member.
 
 Member identities cannot use editorial accounts, draft versions, or private editorial media. Member collection reads are restricted to the signed-in identity; no member directory is exposed here. Identity keys are hidden from collection reads. The authenticated me endpoint returns only the current identity and approved roles, never a token. Profile/community authoring belongs to separate collections with their own access rules. Tests use an isolated signed-token provider and PostgreSQL to verify the boundary; these tests do not substitute for a real Keycloak browser-login check.
+
+## Reviewing member story reports
+
+An approved member can report a story they can currently read from the **Stories** page. The form explains that submitting it sends Terrace administrators a copy of that story, its author’s displayed name and the selected reason. An administrator can open **Community moderation → Story reports** in Payload, inspect the snapshot and mark it reviewed. Administrators can delete a report when it should no longer be retained. Members and ordinary editors cannot browse reports. Reviewing a report does not grant access to the other stories in its group.
+
+Each member can report a given story once. Its snapshot survives later edits or deletion, so a reviewer sees the content that was reported. Marking a report reviewed records triage only. It does not remove the story, contact anyone or suspend an account. Before inviting real members, Terrace must name reviewers, agree on response times, escalation and a retention/deletion policy. Check the queue manually in the local pilot.
+
+`tools/test-reports-browser.ts` checks the real member Keycloak login and report form, mobile layout, ordinary-editor HTTP rejection, native Payload review/save controls and snapshot retention after story removal. Use owned loopback runtimes and synthetic data only. Its reviewer login uses the local password trial; per-user editorial SSO is covered separately by `test-editorial-browser.ts`. Start the test CMS without `CMS_AUTH_*` settings, while retaining the dedicated realm’s `MEMBER_AUTH_*` settings. Apply migrations and run the synthetic bootstrap before starting it; the website must target that same CMS. Never reuse a shared preview’s database for this test.
+
+From `cms/`, install the test browser and run against your owned runtimes (replace the origins and fixture-state path as needed):
+
+```sh
+direnv exec . env PLAYWRIGHT_BROWSERS_PATH=.state/browsers bun node_modules/playwright/cli.js install chromium
+direnv exec . tools/with-local env CMS_ORIGIN=http://127.0.0.1:3042 MEMBER_AUTH_ORIGIN=http://127.0.0.1:4240 TERRACE_TEST_IDENTITY_STATE=../identity/.state PLAYWRIGHT_BROWSERS_PATH=.state/browsers bun tools/test-reports-browser.ts
+```
+
+Screenshots are written to ignored `.state/report-member.png` and `.state/report-reviewer.png`. Test content and the temporary editor are removed. The report migration’s rollback deletes stored snapshots; use it only on an empty synthetic database or after verifying backup and recovery for retained data.

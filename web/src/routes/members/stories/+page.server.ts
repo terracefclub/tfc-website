@@ -22,6 +22,15 @@ export const actions: Actions = {
     try { await change(locals, 'member-stories', 'POST', storyData(await request.formData())); return { success: 'Your story is shared.' }; }
     catch (error) { return formFailure(error); }
   },
+  report: async ({ locals, request }) => {
+    try {
+      const form = await request.formData();
+      const reason = field(form, 'reason', 20);
+      if (!['privacy', 'harassment', 'other'].includes(reason)) throw new Error('Choose a reason.');
+      await change(locals, 'story-reports', 'POST', { storyId: idField(form, 'id'), reason });
+      return { success: 'Your report was sent to the Terrace administrators.' };
+    } catch (error) { return formFailure(error); }
+  },
   edit: async ({ locals, request }) => {
     try { const form = await request.formData(); await change(locals, 'member-stories', 'PATCH', storyData(form), idField(form, 'id')); return { success: 'Your story is updated.' }; }
     catch (error) { return formFailure(error); }
