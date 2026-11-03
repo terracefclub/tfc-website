@@ -106,3 +106,15 @@ The sample events are intentionally fictional: Midnight Soup Symposium, Feedback
 Event photos are real archive material, captioned separately from the imagined events. `static/culture/event-media.json` records the pool-room and pie derivatives, their PDF/page sources, hashes, sizes, and original dimensions. Both are uncropped WebP conversions. The existing Solarium Sessions photo is documented with the other archive sources. Cards lazy-load photos; detail pages preserve their original proportions. Anton is bundled locally as a Latin-only display font, with its license at `/fonts/anton-OFL.txt`; body text remains DM Sans. Listing data includes card summaries rather than unused event descriptions, and the homepage sends only the latest newsletter and displayed initiatives to keep its HTML below the existing 45 KB budget.
 
 
+
+## Offline form-definition inventory
+
+From a clean checkout, install the pinned dependencies as above, then run from the repository root:
+
+```sh
+direnv exec web bun web/tools/gravity-forms-inventory.ts < /protected/terrace/forms.json
+```
+
+This read-only command summarizes an authorized Gravity Forms definition export by numeric form/field IDs, allowlisted types, required/conditional status and structural counts. It has no WordPress or network integration. Keep the source export outside the checkout: settings, labels, choices and recipients may contain private information. The report excludes all free text and submissions; unknown field types become `other`. Input is limited to 8 MiB of UTF-8 JSON, eight nested field levels and the supported shapes described in [the migration plan](../docs/wordpress-parity-plan.md#inventory-form-definitions-offline). Errors produce a fixed message, nonzero exit and no partial report. This is an inventory aid, not a complete backup, import or proof of migration parity.
+
+Rerun its synthetic privacy/format/bounds checks with `direnv exec web bun test web/tests/gravity-forms-inventory.test.ts` from the repository root. No real export is required for tests.
