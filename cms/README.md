@@ -1,6 +1,26 @@
 # Terrace CMS trial
 
-Payload 3 and Next.js provide an editorial admin and REST API for the separate SvelteKit website. This preview is **localhost only**. Editorial Keycloak sign-in is available; public deployment still requires TLS, production identity/database configuration, tested recovery and deployment review.
+Payload 3 and Next.js provide an editorial admin and REST API for the separate SvelteKit website. The default preview is **localhost only**. Editorial Keycloak sign-in is available; public deployment requires the explicit runtime policy below, TLS, tested recovery and deployment review.
+
+## Public runtime activation policy
+
+`CMS_PUBLIC_DEPLOYMENT=1` enables HTTPS configuration validation; it does not expose a listener, configure a proxy, create accounts or deploy this application. Every other value retains the loopback-only origin gate. Keep the local preview unchanged. The production host must independently enforce loopback backend binding, trusted TLS proxying, private runtime files, explicit database migrations, persistent upload ownership and backup/restore checks before exposure.
+
+Supply these server-only settings through private runtime environment files, outside the release bundle. Do not prefix them with `NEXT_PUBLIC_` or commit them. Startup rejects invalid settings with fixed messages that omit supplied URLs and secrets.
+
+| Setting | Required public value |
+| --- | --- |
+| `CMS_ORIGIN` | Exact canonical HTTPS origin, such as `https://editor.terrace.example`; no trailing slash, credentials, path, query or fragment. A DNS hostname with at least two labels is required; IP addresses and localhost are rejected. Nondefault HTTPS ports are allowed. |
+| `CMS_AUTH_ISSUER`, `MEMBER_AUTH_ISSUER` | The same canonical HTTPS DNS origin followed by exactly `/realms/terrace`, without a trailing slash. |
+| `CMS_AUTH_CLIENT_ID`, `CMS_AUTH_AUDIENCE`, `CMS_AUTH_INTROSPECTION_CLIENT_ID` | `terrace-cms`, `terrace-editorial`, `terrace-editorial`, respectively. |
+| `MEMBER_AUTH_CLIENT_ID`, `MEMBER_AUTH_AUDIENCE`, `MEMBER_AUTH_INTROSPECTION_CLIENT_ID` | `terrace-web`, `terrace-community`, `terrace-community`, respectively. |
+| `PAYLOAD_SECRET`, `CMS_AUTH_CLIENT_SECRET`, `CMS_AUTH_INTROSPECTION_SECRET`, `MEMBER_AUTH_INTROSPECTION_SECRET` | Four pairwise distinct secrets, each 32–4096 UTF-8 bytes, with no leading/trailing whitespace or control characters. Match the client secrets to the production realm artifact. The website's separate client secret is not consumed by the CMS. |
+| `CMS_MEDIA_DIR` | Explicit normalized absolute persistent directory, outside the component code directory and `/nix/store`; cannot be the filesystem root or an ancestor of the code directory. No trailing slash, `..` or control characters. |
+| `DATABASE_URI` | The dedicated CMS PostgreSQL database; migrations remain an explicit operator action. |
+
+Omit `CMS_LOCAL_BOOTSTRAP` and every `CMS_BOOTSTRAP_*` key entirely. Empty values and `CMS_LOCAL_BOOTSTRAP=0` are rejected in public mode. Do not source the local trial's environment wrapper for production. Public mode requires both complete editorial and member OIDC configurations, so password-only startup is unavailable. Client IDs and audiences match the existing [production realm generator](../identity/README.md); the generator and CMS share pure origin and secret validators, while token verification and role checks retain their existing implementation.
+
+Media path validation is lexical and does not require the directory to exist during a build. The host must make that exact external directory writable only by the CMS service and include it with the database in recovery tests. Run from the release's component root so the code-directory boundary is enforced correctly. Symlink resolution, mount ownership, TLS activation and actual public SSO are host responsibilities; this policy alone is not evidence of a deployed public service.
 
 ## Editorial Keycloak sign-in
 
