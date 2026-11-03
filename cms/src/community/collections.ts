@@ -1,5 +1,6 @@
-import type { CollectionConfig, Field, Where } from 'payload'
+import { APIError, type CollectionConfig, type Field, type Where } from 'payload'
 import { memberId } from '../access/members'
+import { adminOnly, isAdmin } from '../access/rules'
 import { joinedGroups, keepOwner, memberName, membersOnly, never, own, privateOperation, readableStories, relationId, storyAudience } from './access'
 
 const text = (name: string, maxLength: number, required = false, type: 'text' | 'textarea' = 'text'): Field => {
@@ -36,6 +37,42 @@ export const MemberStories: CollectionConfig = {
     member('author'), text('authorName', 100, true), text('title', 140, true), text('body', 10000, true, 'textarea'),
     { name: 'audience', type: 'select', required: true, defaultValue: 'community', options: ['community', 'group'] },
     { name: 'group', type: 'relationship', relationTo: 'member-groups' },
+  ],
+}
+
+const StoryReports: CollectionConfig = {
+  slug: 'story-reports',
+  admin: {
+    group: 'Community moderation', useAsTitle: 'storyTitle', defaultColumns: ['storyTitle', 'reason', 'status', 'createdAt'],
+    hidden: ({ user }) => !isAdmin(user),
+  },
+  access: { create: membersOnly, read: adminOnly, update: adminOnly, delete: adminOnly },
+  hooks: {
+    beforeValidate: [async ({ data, operation, req, originalDoc }) => {
+      if (operation === 'update') return { ...originalDoc, status: data?.status ?? originalDoc?.status }
+      const reporter = memberId(req)
+      const storyId = relationId(data?.storyId)
+      if (!reporter || !storyId) throw new APIError('Choose a story you can read.', 400)
+      const { docs } = await req.payload.find({
+        collection: 'member-stories', where: { id: { equals: storyId } },
+        req, overrideAccess: false, depth: 0, limit: 1,
+      })
+      const story = docs[0]
+      if (!story) throw new APIError('Choose a story you can read.', 404)
+      return {
+        storyId, reason: data?.reason, status: 'open', reportKey: `${storyId}:${reporter}`,
+        storyTitle: story.title, storyBody: story.body, authorName: story.authorName,
+      }
+    }],
+  },
+  fields: [
+    { name: 'storyId', type: 'number', required: true, admin: { readOnly: true } },
+    { name: 'reason', type: 'select', required: true, options: ['privacy', 'harassment', 'other'], admin: { readOnly: true } },
+    { name: 'status', type: 'select', required: true, defaultValue: 'open', options: ['open', 'reviewed'] },
+    { name: 'storyTitle', type: 'text', required: true, maxLength: 140, admin: { readOnly: true } },
+    { name: 'storyBody', type: 'textarea', required: true, maxLength: 10000, admin: { readOnly: true } },
+    { name: 'authorName', type: 'text', required: true, maxLength: 100, admin: { readOnly: true } },
+    { name: 'reportKey', type: 'text', required: true, unique: true, admin: { hidden: true }, access: { read: () => false } },
   ],
 }
 
@@ -125,7 +162,7 @@ export const MentorshipRequests: CollectionConfig = {
   ],
 }
 
-export const communityCollections = [MemberProfiles, MemberStories, MemberGroups, GroupMemberships, MentorshipOffers, MentorshipRequests].map((collection) => ({
+export const communityCollections = [MemberProfiles, MemberStories, StoryReports, MemberGroups, GroupMemberships, MentorshipOffers, MentorshipRequests].map((collection) => ({
   ...collection,
   hooks: { ...collection.hooks, beforeOperation: [privateOperation] },
 }))

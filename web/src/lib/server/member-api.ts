@@ -13,7 +13,7 @@ export function memberCmsOrigin(): string {
 
 export async function memberApi<T>(locals: Pick<App.Locals, 'memberAccessToken'>, path: string, init: RequestInit = {}): Promise<T> {
   if (!locals.memberAccessToken) throw new MemberApiError(401);
-  const allowed = /^\/api\/(members|member-profiles|member-stories|member-groups|group-memberships|mentorship-offers|mentorship-requests)(?:[/?]|$)/;
+  const allowed = /^\/api\/(members|member-profiles|member-stories|story-reports|member-groups|group-memberships|mentorship-offers|mentorship-requests)(?:[/?]|$)/;
   if (!allowed.test(path) || /[\\\u0000-\u001f]/.test(path)) throw new MemberApiError(400);
   const url = new URL(path, memberCmsOrigin());
   if (url.origin !== memberCmsOrigin() || !allowed.test(url.pathname)) throw new MemberApiError(400);

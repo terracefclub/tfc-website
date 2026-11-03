@@ -9,7 +9,7 @@ export interface Membership { id: number; member: number; group: number }
 export interface Offer { id: number; member: number; displayName: string; optIn: boolean; topics?: string; about?: string }
 export interface MentorRequest { id: number; requester: number; mentor: number; requesterName: string; mentorName: string; message: string; reply?: string; status: 'pending' | 'accepted' | 'declined' }
 
-const collections = new Set(['member-profiles', 'member-stories', 'member-groups', 'group-memberships', 'mentorship-offers', 'mentorship-requests']);
+const collections = new Set(['member-profiles', 'member-stories', 'story-reports', 'member-groups', 'group-memberships', 'mentorship-offers', 'mentorship-requests']);
 export function list<T>(locals: App.Locals, collection: string, query: Record<string, string> = {}) {
   if (!collections.has(collection)) throw new Error('Unknown community collection.');
   const params = new URLSearchParams({ depth: '0', limit: '24', sort: '-createdAt', ...query });

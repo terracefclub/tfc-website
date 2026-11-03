@@ -11,6 +11,9 @@ and [CMS boundaries](../../cms/COMMUNITY.md) before enabling the pilot.
   is off by default; turning it off removes the profile from other members' views.
 - Share plain-text stories with the approved community or a joined group, then
   edit or remove their own stories. The audience is explicit on each form.
+- Report another member’s readable story once. The form explains that CMS
+  administrators receive a snapshot, author display name and selected reason.
+  The queue is private to administrators, who can mark reports reviewed.
 - Create and edit their own groups, discover groups, and join or leave them.
   Groups are open to every approved Terran; their stories require membership.
   Founders remain members. Private invitations and group moderation are not yet implemented.
@@ -23,7 +26,7 @@ Profiles and mentorship offers contain no dedicated contact fields. Members can
 choose to include details in their own text, so forms explain who can read it.
 No private media uploads, custom HTML/CSS, public member profiles, or arbitrary
 external embeds are supported. These are text-first community tools, not a
-moderated production social network. Reporting, moderator procedures, account
+moderated production social network. Reviewer procedures, account
 erasure/export, and upload safety need a separate release before a broad launch.
 
 ## Look and feel

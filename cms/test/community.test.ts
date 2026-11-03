@@ -118,6 +118,36 @@ test('mentorship is opt-in, can be withdrawn, and requests are private to their 
   await payload.delete({ collection: 'mentorship-requests', id: request.id, user: current, overrideAccess: false })
 })
 
+test('a report preserves only the selected story for administrators and cannot bypass group privacy', async () => {
+  const readers = [null, alumni, current, { id: current.id, role: 'admin', collection: 'members' }, { id: current.id, role: 'editor', collection: 'users' }]
+  const admin = { id: current.id, role: 'admin', collection: 'users' } as any
+  const room = await create('member-groups', { name: 'Private test room', description: 'Only its members see these stories.' }, current)
+  const story = await create('member-stories', { title: 'Original title', body: 'A group-only story.', audience: 'group', group: room.id }, current)
+  const reportData = { storyId: story.id, reason: 'privacy', reportKey: 'forged', storyTitle: 'Spoof', authorName: 'Spoof', storyBody: 'Spoof', status: 'reviewed' }
+  for (const user of [null, alumni, admin]) await expect(create('story-reports', reportData, user)).rejects.toThrow()
+  await create('group-memberships', { group: room.id }, alumni)
+  const report = await create('story-reports', reportData, alumni)
+  expect(report.status).toBe('open')
+  expect(report).toMatchObject({ storyId: story.id, storyTitle: 'Original title', storyBody: 'A group-only story.', authorName: 'Current Terran', reason: 'privacy' })
+  await expect(create('story-reports', { ...reportData, reportKey: 'another' }, alumni)).rejects.toThrow()
+  await expect(create('story-reports', { storyId: story.id, reason: 'invented' }, current)).rejects.toThrow()
+  for (const user of readers) {
+    await expect(payload.find({ collection: 'story-reports', user: user as any, overrideAccess: false })).rejects.toThrow()
+    await expect(payload.update({ collection: 'story-reports', id: report.id, user: user as any, data: { status: 'reviewed' }, overrideAccess: false })).rejects.toThrow()
+    await expect(payload.delete({ collection: 'story-reports', id: report.id, user: user as any, overrideAccess: false })).rejects.toThrow()
+  }
+  await payload.update({ collection: 'member-stories', id: story.id, user: current, data: { title: 'Changed title', body: 'Changed story' }, overrideAccess: false })
+  const snapshot = await payload.findByID({ collection: 'story-reports', id: report.id, user: admin, overrideAccess: false })
+  expect(snapshot.storyTitle).toBe('Original title')
+  expect(snapshot.storyBody).toBe('A group-only story.')
+  await payload.delete({ collection: 'member-stories', id: story.id, user: current, overrideAccess: false })
+  await expect(payload.findByID({ collection: 'member-stories', id: groupStory.id, user: admin, overrideAccess: false })).rejects.toThrow()
+  const reviewed = await payload.update({ collection: 'story-reports', id: report.id, user: admin, data: { ...reportData, reason: 'other', storyId: 999 }, overrideAccess: false })
+  expect(reviewed).toMatchObject({ storyId: story.id, storyTitle: 'Original title', storyBody: 'A group-only story.', authorName: 'Current Terran', reason: 'privacy', status: 'reviewed' })
+  expect(reviewed).not.toHaveProperty('reportKey')
+  await payload.delete({ collection: 'story-reports', id: report.id, user: admin, overrideAccess: false })
+})
+
 test('excessive writes are rejected without applying another change', async () => {
   const record = await payload.create({ collection: 'members', overrideAccess: true, data: { identityKey: `${suffix}-rate`, issuer: 'http://127.0.0.1:8080/realms/test', subject: `${suffix}-rate`, displayName: 'Rate test member', roles: ['alumni'] } })
   created.push({ collection: 'members', id: record.id })
@@ -130,7 +160,7 @@ test('excessive writes are rejected without applying another change', async () =
 
 const httpTest = process.env.CMS_HTTP_URL ? test : test.skip
 httpTest('community REST endpoints deny anonymous and forged identities without cacheable private responses', async () => {
-  for (const collection of ['member-profiles', 'member-stories', 'member-groups', 'group-memberships', 'mentorship-offers', 'mentorship-requests']) {
+  for (const collection of ['member-profiles', 'member-stories', 'story-reports', 'member-groups', 'group-memberships', 'mentorship-offers', 'mentorship-requests']) {
     for (const headers of [{}, { authorization: 'Bearer not-a-valid-token' }]) {
       const response = await fetch(new URL(`/api/${collection}?depth=999&limit=0`, process.env.CMS_HTTP_URL), { headers })
       expect([401, 403]).toContain(response.status)

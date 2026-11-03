@@ -72,6 +72,33 @@ test('story form validates audience and forwards only the selected fields', asyn
   expect(calls).toHaveLength(0);
 });
 
+test('reporting sends only the selected story and reason, never a client-written snapshot or reviewer decision', async () => {
+  const { actions } = await vite.ssrLoadModule('/src/routes/members/stories/+page.server.ts');
+  const submit = (values: Record<string, string>) => actions.report({
+    locals: { member, memberAccessToken: 'synthetic-access' },
+    request: new Request('http://127.0.0.1/members/stories/', { method: 'POST', body: new URLSearchParams(values) })
+  });
+  calls.length = 0;
+  expect((await submit({ id: '5', reason: 'privacy', storyBody: 'Forged', status: 'reviewed' })).success).toBeDefined();
+  expect(calls).toEqual([{ path: '/api/story-reports', method: 'POST', body: { storyId: 5, reason: 'privacy' } }]);
+  calls.length = 0;
+  expect((await submit({ id: '5', reason: 'unknown' })).status).toBe(400);
+  expect((await submit({ id: '-2', reason: 'privacy' })).status).toBe(400);
+  expect(calls).toHaveLength(0);
+});
+
+test('story reporting names the disclosure recipients and keeps the selected story attached to its form', async () => {
+  const component = (await vite.ssrLoadModule('/src/routes/members/stories/+page.svelte')).default;
+  const story = { id: 51, author: 22, authorName: 'Another Terran', title: 'Test story', body: 'Synthetic only', audience: 'group', createdAt: '2026-01-01T00:00:00Z' };
+  const html = render(component, { props: { data: { member, group: null, groups: [], stories: list([story]) }, form: null } }).body;
+  const { document } = parseHTML(html);
+  const form = document.querySelector('form[action="?/report"]');
+  expect(form?.querySelector('input[name="id"]')?.getAttribute('value')).toBe('51');
+  expect(form?.textContent).toContain('Terrace administrators will receive a copy of this story');
+  expect(form?.textContent).toContain('author’s name and your reason');
+  expect(form?.querySelector('button')?.textContent).toBe('Send report');
+});
+
 test('mentorship preferences default to off and an incoming response cannot change participants', async () => {
   const { actions } = await vite.ssrLoadModule('/src/routes/members/mentorship/+page.server.ts');
   const locals = { member, memberAccessToken: 'synthetic-access' };
