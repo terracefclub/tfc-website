@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { clientSettings, realmSettings, webOrigins } from '../tools/realm-config'
+import { clientSettings, cmsOrigins, editorialRoleNames, keycloakOrigin, memberRoleNames, realmSettings, roleScopeMappings, syntheticIdentityRoles, webOrigins } from '../tools/realm-config'
 
 test('local realm requires approval and uses short, rotating sessions', () => {
   expect(realmSettings.registrationAllowed).toBe(false)
@@ -8,8 +8,8 @@ test('local realm requires approval and uses short, rotating sessions', () => {
   expect(realmSettings.revokeRefreshToken).toBe(true)
   expect(realmSettings.refreshTokenMaxReuse).toBe(0)
 })
-test('browser client is PKCE only with exact loopback returns and a separate resource audience', () => {
-  const [web, resource] = clientSettings({ webSecret: 'synthetic-web', introspectionSecret: 'synthetic-resource' })
+test('member browser client is PKCE only with its own exact callbacks, audience, and roles', () => {
+  const [web, resource] = clientSettings({ webSecret: 'synthetic-web', introspectionSecret: 'synthetic-resource', cmsSecret: 'synthetic-cms', editorialSecret: 'synthetic-editorial' })
   expect(web.attributes?.['pkce.code.challenge.method']).toBe('S256')
   expect(web.directAccessGrantsEnabled).toBe(false)
   expect(web.defaultClientScopes).toContain('basic')
@@ -21,4 +21,37 @@ test('browser client is PKCE only with exact loopback returns and a separate res
   expect(resource.standardFlowEnabled).toBe(false)
   expect(resource.serviceAccountsEnabled).toBe(false)
   expect(resource.redirectUris).toEqual([])
+})
+
+test('editorial browser and resource clients use isolated exact callbacks and audience', () => {
+  const [, , cms, editorial] = clientSettings({ webSecret: 'synthetic-web', introspectionSecret: 'synthetic-resource', cmsSecret: 'synthetic-cms', editorialSecret: 'synthetic-editorial' })
+  expect(cms.clientId).toBe('terrace-cms')
+  expect(cms.secret).toBe('synthetic-cms')
+  expect(cms.standardFlowEnabled).toBe(true)
+  expect(cms.directAccessGrantsEnabled).toBe(false)
+  expect(cms.attributes?.['pkce.code.challenge.method']).toBe('S256')
+  expect(cms.redirectUris).toEqual(cmsOrigins.map(value => `${value}/api/editorial/callback`))
+  expect(cms.webOrigins).toEqual(cmsOrigins)
+  expect(cms.attributes?.['post.logout.redirect.uris']).toBe(cmsOrigins.map(value => `${value}/admin/login`).join('##'))
+  expect(cms.protocolMappers?.[0].config['included.custom.audience']).toBe('terrace-editorial')
+  expect(cms.protocolMappers?.[0].config['id.token.claim']).toBe('false')
+  expect(editorial.clientId).toBe('terrace-editorial')
+  expect(editorial.standardFlowEnabled).toBe(false)
+  expect(editorial.directAccessGrantsEnabled).toBe(false)
+  expect(editorial.serviceAccountsEnabled).toBe(false)
+  expect(editorial.redirectUris).toEqual([])
+  expect(cmsOrigins.every(value => new URL(value).hostname === '127.0.0.1' && !value.includes('*'))).toBe(true)
+})
+
+test('member and editorial clients receive disjoint role scopes and synthetic identities', () => {
+  expect(roleScopeMappings['terrace-web']).toEqual(memberRoleNames)
+  expect(roleScopeMappings['terrace-cms']).toEqual(editorialRoleNames)
+  expect(roleScopeMappings['terrace-cms'].some(role => memberRoleNames.includes(role as typeof memberRoleNames[number]))).toBe(false)
+  expect(roleScopeMappings['terrace-web'].some(role => editorialRoleNames.includes(role as typeof editorialRoleNames[number]))).toBe(false)
+  expect(syntheticIdentityRoles.find(user => user.username === 'local-member')?.roles).toEqual(['current-member'])
+  expect(syntheticIdentityRoles.find(user => user.username === 'local-alumni')?.roles).toEqual(['alumni'])
+  expect(syntheticIdentityRoles.find(user => user.username === 'local-unapproved')?.roles).toEqual([])
+  expect(syntheticIdentityRoles.find(user => user.username === 'local-editorial-editor')?.roles).toEqual(['editorial-editor'])
+  expect(syntheticIdentityRoles.find(user => user.username === 'local-editorial-admin')?.roles).toEqual(['editorial-admin'])
+  expect(keycloakOrigin(8186)).toBe('http://127.0.0.1:8186')
 })
