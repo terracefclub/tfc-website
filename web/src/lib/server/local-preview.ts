@@ -10,7 +10,8 @@ export function localCmsOrigin(value: string): string | null {
 }
 
 export function previewEditorLink(requestOrigin: string, env: Record<string, string | undefined>) {
-  if (requestOrigin !== previewOrigin || env.TERRACE_LOCAL_PREVIEW !== '1' || !env.CMS_ORIGIN) return null;
+  const origin = localCmsOrigin(env.TERRACE_LOCAL_PREVIEW_ORIGIN || previewOrigin);
+  if (!origin || requestOrigin !== origin || env.TERRACE_LOCAL_PREVIEW !== '1' || !env.CMS_ORIGIN) return null;
   const cms = localCmsOrigin(env.CMS_ORIGIN);
   return cms && cms !== requestOrigin ? `${cms}/admin/login` : null;
 }

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+umask 077
+mkdir -p "$root/identity/.state"
+chmod 700 "$root/identity/.state"
+cd "$root"
+if ! direnv exec "$root/identity" bun "$root/tools/local-stack.ts" "$@" 2>> "$root/identity/.state/local-stack-entry.log"; then
+  if [[ "${1:-start}" != status ]]; then printf 'Local stack command failed. Check component .state/local-stack logs; credentials are never printed.\n' >&2; fi
+  exit 1
+fi

@@ -1,4 +1,12 @@
 
+# Terrace local preview
+
+From this checkout, approve the component shells once with `direnv allow identity`,
+`direnv allow cms`, and `direnv allow web`, then run `./tools/local-stack start`.
+Use `./tools/local-stack status` to check the identity, CMS and website together.
+See [local preview setup](docs/local-preview.md) for URLs, synthetic sign-in
+references, isolated ports and the development-only release boundary.
+
 # Flabyrinth
 
 The boiler room of the FUTURE at Womb HQ, managed by Forkman, grower of sheets, stoker of peeps. This is a mongo monorepo magoo. May you find your way as you lose yourself in the flabyrinthian tunnels of metromomma. Main quest: TBA. Guidelines? Turn back or read further:

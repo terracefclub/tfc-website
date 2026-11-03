@@ -4,7 +4,7 @@ import { execFileSync, spawn } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
-import { keycloakOrigin, realm, realmSettings, clientSettings, clientSecuritySettings, realmRoleNames, roleScopeMappings, syntheticIdentityRoles } from './realm-config'
+import { keycloakOrigin, realm, realmSettings, clientSettings, localClientOrigins, clientSecuritySettings, realmRoleNames, roleScopeMappings, syntheticIdentityRoles } from './realm-config'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const state = resolve(root, '.state')
@@ -16,7 +16,15 @@ if (!existsSync(settingsPath)) writeFileSync(settingsPath, JSON.stringify({
   memberPassword: randomBytes(24).toString('hex'), alumniPassword: randomBytes(24).toString('hex'), outsiderPassword: randomBytes(24).toString('hex'), editorialEditorPassword: randomBytes(24).toString('hex'), editorialAdminPassword: randomBytes(24).toString('hex'),
 }), { mode: 0o600, flag: 'wx' })
 chmodSync(settingsPath, 0o600)
-const credentials = JSON.parse(readFileSync(settingsPath, 'utf8'))
+let credentials: Record<string, string>
+try {
+  credentials = JSON.parse(readFileSync(settingsPath, 'utf8'))
+  if (!credentials || typeof credentials !== 'object' || Array.isArray(credentials)) throw new Error()
+  for (const name of ['adminPassword', 'webSecret', 'introspectionSecret', 'memberPassword', 'alumniPassword', 'outsiderPassword']) {
+    if (typeof credentials[name] !== 'string' || !credentials[name]) throw new Error()
+  }
+} catch { throw new Error('Local Keycloak fixture credentials are unavailable or invalid.') }
+const clientOrigins = localClientOrigins(process.env.TERRACE_LOCAL_WEB_ORIGIN, process.env.TERRACE_LOCAL_CMS_ORIGIN)
 let credentialsUpdated = false
 for (const [key, size] of Object.entries({ cmsSecret: 32, editorialSecret: 32, editorialEditorPassword: 24, editorialAdminPassword: 24 })) {
   if (!credentials[key]) {
@@ -52,6 +60,7 @@ if (!await isReady()) {
   })
   child.unref()
   writeFileSync(resolve(state, 'keycloak.pid'), String(child.pid), { mode: 0o600 })
+  if (process.env.TERRACE_LOCAL_STACK_RUN) writeFileSync(resolve(state, 'local-stack-start.json'), JSON.stringify({ run: process.env.TERRACE_LOCAL_STACK_RUN, pid: child.pid }), { mode: 0o600 })
 }
 let ready = false
 for (let attempt = 0; attempt < 120; attempt++) {
@@ -76,7 +85,7 @@ else await api(`realms/${realm}`, 'PUT', realmSettings)
 for (const name of realmRoleNames) {
   if ((await api(`realms/${realm}/roles/${name}`)).status === 404) await api(`realms/${realm}/roles`, 'POST', { name })
 }
-for (const client of clientSettings(credentials)) {
+for (const client of clientSettings({ webSecret: credentials.webSecret, introspectionSecret: credentials.introspectionSecret, cmsSecret: credentials.cmsSecret, editorialSecret: credentials.editorialSecret }, clientOrigins)) {
   const matches = await (await api(`realms/${realm}/clients?clientId=${client.clientId}`)).json() as { id: string }[]
   const body = { ...client, ...clientSecuritySettings }
   if (matches[0]) await api(`realms/${realm}/clients/${matches[0].id}`, 'PUT', body)
@@ -119,7 +128,7 @@ for (const { username, roles } of syntheticIdentityRoles) {
 const env = {
   MEMBER_AUTH_ISSUER: `${origin}/realms/${realm}`, MEMBER_AUTH_AUDIENCE: 'terrace-community', MEMBER_AUTH_CLIENT_ID: 'terrace-web', MEMBER_AUTH_CLIENT_SECRET: credentials.webSecret,
   MEMBER_AUTH_INTROSPECTION_CLIENT_ID: 'terrace-community', MEMBER_AUTH_INTROSPECTION_SECRET: credentials.introspectionSecret,
-  MEMBER_AUTH_ORIGIN: 'http://127.0.0.1:4194',
+  MEMBER_AUTH_ORIGIN: process.env.TERRACE_LOCAL_WEB_ORIGIN ? clientOrigins.webOrigins[0] : 'http://127.0.0.1:4194',
   CMS_AUTH_ISSUER: `${origin}/realms/${realm}`, CMS_AUTH_AUDIENCE: 'terrace-editorial', CMS_AUTH_CLIENT_ID: 'terrace-cms', CMS_AUTH_CLIENT_SECRET: credentials.cmsSecret,
   CMS_AUTH_INTROSPECTION_CLIENT_ID: 'terrace-editorial', CMS_AUTH_INTROSPECTION_SECRET: credentials.editorialSecret,
 }

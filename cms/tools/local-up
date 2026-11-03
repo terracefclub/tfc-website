@@ -13,6 +13,9 @@ if [[ ! -f "$state/postgres/PG_VERSION" ]]; then
 fi
 if ! pg_ctl -D "$state/postgres" status >/dev/null 2>&1; then
   pg_ctl -D "$state/postgres" -l "$state/postgres.log" start >/dev/null
+  if [[ -n "${TERRACE_LOCAL_STACK_RUN:-}" ]]; then
+    bun -e 'import {readFileSync,writeFileSync} from "node:fs"; writeFileSync(".state/local-stack-db-start.json",JSON.stringify({run:process.env.TERRACE_LOCAL_STACK_RUN,pid:Number(readFileSync(".state/postgres/postmaster.pid","utf8").split("\n")[0])}),{mode:0o600});'
+  fi
 fi
 if ! PGHOST="$state/postgres-socket" PGPORT=55432 psql -d postgres -Atqc "SELECT 1 FROM pg_database WHERE datname='terrace_cms'" | grep -qx 1; then
   PGHOST="$state/postgres-socket" PGPORT=55432 createdb terrace_cms

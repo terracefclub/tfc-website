@@ -30,6 +30,14 @@ test('local preview refuses missing identity and unsafe CMS origins', () => {
   }
 });
 
+test('an isolated stack uses its exact configured local preview origin', () => {
+  const env = previewEnvironment({ ...identity, TERRACE_LOCAL_PREVIEW_ORIGIN: 'http://127.0.0.1:4252', CMS_ORIGIN: 'http://127.0.0.1:3046' });
+  expect(env.MEMBER_AUTH_ORIGIN).toBe('http://127.0.0.1:4252');
+  expect(previewEditorLink('http://127.0.0.1:4252', env)).toBe('http://127.0.0.1:3046/admin/login');
+  expect(previewEditorLink(previewOrigin, env)).toBeNull();
+  for (const origin of ['https://external.invalid', 'http://u:p@127.0.0.1:4252', 'http://127.0.0.1:4252/admin']) expect(() => previewEnvironment({ ...identity, TERRACE_LOCAL_PREVIEW_ORIGIN: origin })).toThrow();
+});
+
 test('occupied ports are refused without stopping the listener', async () => {
   const server = createServer();
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
