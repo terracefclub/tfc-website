@@ -7,11 +7,12 @@
       "dependencies": {
         "@fontsource-variable/dm-sans": "^5.2.8",
         "@fontsource-variable/fraunces": "^5.2.8",
+        "@fontsource/anton": "5.3.0",
         "jose": "^6.2.13",
         "openid-client": "^6.8.8",
-        "@fontsource/anton": "5.3.0",
       },
       "devDependencies": {
+        "@rgrove/parse-xml": "5.0.0",
         "@sveltejs/adapter-node": "^5.5.7",
         "@sveltejs/kit": "^2.68.0",
         "@sveltejs/vite-plugin-svelte": "^5.1.1",
@@ -99,6 +100,8 @@
     "@napi-rs/lzma-linux-x64-gnu": ["@napi-rs/lzma-linux-x64-gnu@1.5.1", "", { "os": "linux", "cpu": "x64" }, "sha512-oTXEIha4SsuXdTA4Iyskj0kpdx2yVXdhd75c2v3xGrHFfVMsbhTPZU/nMPL4sWKo4pBHm3aucLaqGlF696dTyQ=="],
 
     "@polka/url": ["@polka/url@1.0.0-next.29", "", {}, "sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww=="],
+
+    "@rgrove/parse-xml": ["@rgrove/parse-xml@5.0.0", "", {}, "sha512-SgHFyisNAkS2ZbM8SCriUm1N0bxLiz0POKvpDeAtrnLrXaYG1PawNwu1rSjmE/vcVHbZzYWNgVP6xkep6R4uXg=="],
 
     "@rollup/plugin-commonjs": ["@rollup/plugin-commonjs@29.0.3", "", { "dependencies": { "@rollup/pluginutils": "^5.0.1", "commondir": "^1.0.1", "estree-walker": "^2.0.2", "fdir": "^6.2.0", "is-reference": "1.2.1", "magic-string": "^0.30.3", "picomatch": "^4.0.2" }, "peerDependencies": { "rollup": "^2.68.0||^3.0.0||^4.0.0" }, "optionalPeers": ["rollup"] }, "sha512-ZaOxZceP7SOUW7Lqw5IRVweSQYWaeIPnXIGLiB690EBA3FGJTO40EEr2L5yZplJWsgTCogILRSpcAe7+U0Otdg=="],
 
