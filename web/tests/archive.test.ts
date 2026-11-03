@@ -103,7 +103,7 @@ describe('curated archive provenance', () => {
       }
       expect(html.length).toBeLessThan(300_000);
     }
-  });
+  }, 20_000); // Includes Vite's cold compilation before the four issue reads.
 
   test('reading position ignores the previous page behind the sticky controls', () => {
     const pages = [{ page: 27, bottom: 80 }, { page: 28, bottom: 1380 }, { page: 29, bottom: 2700 }];

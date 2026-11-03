@@ -1,5 +1,7 @@
 <script lang="ts">
   import '../app.css';
+  import type { LayoutData } from './$types';
+  export let data: LayoutData;
   let menuOpen = false;
   let menuButton: HTMLButtonElement;
   function handleKeydown(event: KeyboardEvent) {
@@ -26,7 +28,11 @@
 </svelte:head>
 
 <a class="skip-link" href="#main">Skip to content</a>
-<div class="topline"><span>62 WASHINGTON ROAD · PRINCETON, NJ</span><span>EVERY TERRAN IS A TERRAN</span></div>
+<div class="topline">
+  <span>62 WASHINGTON ROAD · PRINCETON, NJ</span>
+  {#if data.editorSignIn}<a href={data.editorSignIn} rel="external noreferrer" style="font-size: .8rem; line-height: 24px; text-decoration: underline">Editor sign-in</a>
+  {:else}<span>EVERY TERRAN IS A TERRAN</span>{/if}
+</div>
 <header class="site-header">
   <div class="header-inner shell">
     <a class="brand" href="/" aria-label="Terrace F. Club home" onclick={() => menuOpen = false}>
