@@ -4,6 +4,11 @@ The repository owns one loopback-only identity, CMS and website stack. It uses
 the existing component launchers and pinned devenv tools; nothing is installed
 in a user profile or dotfiles. The legacy apps are not started.
 
+Run local compute only during an actively supervised task and stop it when the
+task ends. `start` still launches detached services in this increment; it does
+not provide a finite supervised session. Bounded `run` supervision is a separate
+follow-up. Do not leave a preview running unattended.
+
 From a clean checkout with Nix, devenv and direnv available, approve each checked-in
 shell once, then use one command:
 
@@ -33,7 +38,7 @@ separate set before the first start:
 ```sh
 ./tools/local-stack start --identity-port 8190 --cms-port 3046 --web-port 4252
 ./tools/local-stack status
-./tools/local-stack start
+./tools/local-stack stop
 ```
 
 Chosen ports are retained in `identity/.state/local-stack-config.json`; later
@@ -79,12 +84,37 @@ that invocation, in reverse order. Pre-existing services and all database/media
 files are retained. Component output stays in private `.state/local-stack.log`
 files; the entry shell has `identity/.state/local-stack-entry.log`.
 
-A startup lock prevents concurrent invocations in the same checkout. Normal
+A lifecycle lock serializes startup and stop in the same checkout. Normal
 failure and handled interrupts release it. After a forced kill, inspect the
 recorded owner in `identity/.state/local-stack.lock/owner.json` before removing a
-stale lock. This increment provides startup/status only; stopping or replacing a
-running stack requires checking its recorded process identities first. Never
-stop a shared preview or clear a component's data to free a port.
+stale lock. Stop refuses an active or uncertain lock; interrupt the active startup
+and verify its exit before retrying. Never stop a shared preview or clear a
+component's data to free a port.
+
+## Stop and preserve local data
+
+From this checkout, run `./tools/local-stack stop` (with the same optional port
+flags if needed). It verifies the saved checkout, component, port, PID, start/argv/
+working-directory fingerprint and process group before acting. It requests
+graceful shutdown in website → CMS → identity → database order. PostgreSQL is
+stopped with `pg_ctl -m fast` only when its PID file matches the verified process.
+Credentials, database files, uploaded media, ownership records and logs remain.
+Repeated stop is harmless once those recorded processes and listeners are gone.
+
+A reused PID, unavailable inspection, mismatched record, unrelated listener,
+or surviving child produces a nonzero result without authorizing a signal to an
+uncertain process. Other verified components are still stopped. An absent group
+leader does not authorize killing its orphan process group. Successful stop
+verifies the service groups and TCP listeners are gone; a nonzero result requires
+active inspection before leaving the task idle. No broad process-pattern kill is
+used and stop does not create replacement accounts, services or data.
+
+Legacy records created before group recording are deliberately refused while
+running; Linux fingerprints also now include kernel start ticks and boot identity.
+They are not silently adopted or rewritten. Verify and stop such old processes
+independently using the owner's recorded identities, then a new startup from the
+retained state will create current ownership records. Old state is never removed
+to bypass this check.
 
 ## Checks and release boundary
 
@@ -94,8 +124,10 @@ From the repository root:
 direnv exec identity bun test identity/test
 ```
 
-The tests cover exact local callbacks, port validation and process identity/PID
-reuse checks when the host provides the inspection tools. From `web/`, run
+The tests cover exact local callbacks, port validation, process identity/PID reuse,
+concurrent lifecycle exclusion, surviving-child detection, inspection failures,
+unrelated listener preservation and retained state. Process checks run when the
+host provides inspection; the CLI listener test also needs `lsof`. From `web/`, run
 `direnv exec . bun run check` and `direnv exec . bun test`. Browser checks in
 `cms/tools/test-editorial-browser.ts` and `test-reports-browser.ts` consume the
 same checkout's identity environment and fixture file; their commands are in

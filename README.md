@@ -4,6 +4,8 @@
 From this checkout, approve the component shells once with `direnv allow identity`,
 `direnv allow cms`, and `direnv allow web`, then run `./tools/local-stack start`.
 Use `./tools/local-stack status` to check the identity, CMS and website together.
+Run `./tools/local-stack stop` when the active task ends; it preserves component
+state and refuses uncertain ownership. Do not leave detached previews unattended.
 See [local preview setup](docs/local-preview.md) for URLs, synthetic sign-in
 references, isolated ports and the development-only release boundary.
 
