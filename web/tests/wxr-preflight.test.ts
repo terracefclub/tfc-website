@@ -1,7 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { maxBytes, preflight } from '../tools/wxr-preflight';
+import { maxBytes, migrationPlan, preflight } from '../tools/wxr-preflight';
 
 const privateText = 'PRIVATE_WXR_FIXTURE_MARKER';
 const wp = 'http://wordpress.org/export/1.2/';
@@ -144,5 +148,62 @@ describe('read-only WXR preflight', () => {
     expect(run.status).toBe(0);
     expect(run.stderr).toBe('');
     expect(JSON.parse(run.stdout).itemCount).toBe(1);
+  });
+
+  test('the review plan accounts for every record without choosing targets or inferring effective access', () => {
+    const xml = wxr(item(1) + item(2, 'page', 'draft') + item(3, 'tribe_events') + item(4, 'attachment', 'inherit') + item(5, privateText, privateText) + item(1, 'post', 'private') + item(6).replace('<wp:post_id>6</wp:post_id>', '<wp:post_id>invalid</wp:post_id>'));
+    const plan = migrationPlan(xml);
+    expect(plan.reconciliation).toEqual({ sourceRecords: 7, planRecords: 7, allSourceRecordsRepresented: true });
+    expect(plan.summary).toEqual(preflight(xml));
+    expect(plan.sourceSha256).toBe(createHash('sha256').update(xml).digest('hex'));
+    expect(plan.records.map(row => row.sourceOrdinal)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(plan.records.map(row => row.identity)).toEqual(['duplicate', 'unique', 'unique', 'unique', 'unique', 'duplicate', 'missing-or-invalid']);
+    expect(plan.records[0].contentScope).toBe('publish-status-candidate-access-unknown');
+    expect(plan.records[1].contentScope).toBe('withheld');
+    expect(plan.records[3].contentScope).toBe('not-post-page-event');
+    expect(plan.records[4]).toMatchObject({ type: 'other', status: 'other', nextReview: 'preserve-unmapped-source-record' });
+    expect(plan.records.every(row => row.target === null)).toBe(true);
+    expect(plan.records.every(row => row.sourceId === null || Number.isSafeInteger(row.sourceId) && row.sourceId > 0)).toBe(true);
+    expect(migrationPlan(wxr(item(Number.MAX_SAFE_INTEGER + 1))).records[0].sourceId).toBeNull();
+    expect(plan.policy).toMatchObject({ effectiveAccess: 'unknown-requires-plugin-and-source-review', targetWrites: 0, publicationApproved: false, historicalGravityEntries: 'excluded' });
+    expect(JSON.stringify(plan)).not.toContain(privateText);
+    expect(migrationPlan(xml)).toEqual(plan);
+    expect(migrationPlan(xml + '\n').sourceSha256).not.toBe(plan.sourceSha256);
+  });
+
+  test('plan output is exclusive, private and outside Git, with static stdout/errors and no source values', () => {
+    const directory = mkdtempSync(join(realpathSync(tmpdir()), 'wxr-plan-'));
+    try {
+      chmodSync(directory, 0o700);
+      const destination = join(directory, 'plan.json'), xml = '\uFEFF' + wxr(item(1));
+      const run = cli(xml, ['--plan', destination]);
+      expect(run.status).toBe(0);
+      expect(run.stdout).toBe('Migration review plan written. No CMS data or redirects changed.\n');
+      expect(run.stderr).toBe('');
+      expect(statSync(destination).mode & 0o777).toBe(0o600);
+      const written = readFileSync(destination, 'utf8');
+      expect(written).not.toContain(privateText);
+      expect(JSON.parse(written).sourceSha256).toBe(createHash('sha256').update(xml).digest('hex'));
+      expect(JSON.parse(written).sourceBytes).toBe(Buffer.byteLength(xml));
+      const git = join(directory, 'checkout'); mkdirSync(git, { mode: 0o700 }); mkdirSync(join(git, '.git'));
+      const publicDir = join(directory, 'public'); mkdirSync(publicDir, { mode: 0o755 }); chmodSync(publicDir, 0o755);
+      const link = join(directory, 'symlink.json'); symlinkSync(destination, link);
+      const alias = join(directory, 'alias'); symlinkSync(git, alias);
+      for (const output of [destination, link, join(git, 'plan.json'), join(alias, 'plan.json'), join(publicDir, 'plan.json'), join(directory, privateText, 'plan.json'), 'relative.json']) {
+        const rejected = cli(xml, ['--plan', output]);
+        expect(rejected.status).toBe(1);
+        expect(rejected.stdout).toBe('');
+        expect(rejected.stderr).toBe('Plan failed. Supply supported UTF-8 WXR and a new absolute JSON path in a private directory outside Git checkouts. No CMS data or redirects changed.\n');
+        expect(rejected.stderr).not.toContain(privateText);
+      }
+      expect(readFileSync(destination, 'utf8')).toBe(written);
+      expect(existsSync(join(git, 'plan.json'))).toBe(false);
+      const malformed = join(directory, 'malformed.json');
+      expect(cli(`<bad>${privateText}`, ['--plan', malformed]).status).toBe(1);
+      expect(existsSync(malformed)).toBe(false);
+      const original = join(directory, 'preserved.json'); writeFileSync(original, privateText, { mode: 0o600 });
+      expect(cli(xml, ['--plan', original]).status).toBe(1);
+      expect(readFileSync(original, 'utf8')).toBe(privateText);
+    } finally { rmSync(directory, { recursive: true, force: true }); }
   });
 });
