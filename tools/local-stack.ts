@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
-import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -8,7 +8,7 @@ import { createServer } from 'node:net'
 
 type Kind = 'identity' | 'cms' | 'web' | 'db'
 type Ports = { identity: number; cms: number; web: number }
-type Record = { pid: number; fingerprint: string; root: string; kind: Kind; port: number }
+type Record = { pid: number; fingerprint: string; group: number; root: string; kind: Kind; port: number }
 const root = realpathSync(fileURLToPath(new URL('../', import.meta.url)))
 const component = (kind: Kind) => resolve(root, kind === 'db' ? 'cms' : kind)
 const state = (kind: Kind) => resolve(component(kind), '.state')
@@ -19,9 +19,9 @@ class StackError extends Error {}
 let interrupted = false
 let foreground: ChildProcess | undefined
 
-export function stackPorts(args: string[], saved?: Ports): { mode: 'start' | 'status'; ports: Ports } {
+export function stackPorts(args: string[], saved?: Ports): { mode: 'start' | 'status' | 'stop'; ports: Ports } {
   const mode = args[0] === undefined || args[0].startsWith('--') ? 'start' : args.shift()
-  if (mode !== 'start' && mode !== 'status') throw new StackError('Use tools/local-stack start or status, with optional --identity-port, --cms-port and --web-port.')
+  if (mode !== 'start' && mode !== 'status' && mode !== 'stop') throw new StackError('Use tools/local-stack start, status or stop, with optional --identity-port, --cms-port and --web-port.')
   const ports = { ...(saved || { identity: 8186, cms: 3040, web: 4194 }) }
   for (let i = 0; i < args.length; i += 2) {
     const name = ({ '--identity-port': 'identity', '--cms-port': 'cms', '--web-port': 'web' } as const)[args[i] as '--identity-port']
@@ -40,18 +40,88 @@ function save(path: string, data: unknown) {
   writeFileSync(path, JSON.stringify(data), { mode: 0o600 })
   chmodSync(path, 0o600)
 }
+function acquireLifecycleLock() {
+  mkdirSync(state('identity'), { recursive: true, mode: 0o700 })
+  const lock = resolve(state('identity'), 'local-stack.lock'), token = randomUUID()
+  try { mkdirSync(lock, { mode: 0o700 }) } catch { throw new StackError('Another lifecycle command may be running; inspect identity/.state/local-stack.lock before retrying.') }
+  save(resolve(lock, 'owner.json'), { pid: process.pid, fingerprint: processIdentity(process.pid)?.fingerprint, token })
+  return () => {
+    if (json(resolve(lock, 'owner.json'))?.token !== token) throw new StackError('The lifecycle lock changed; it was left untouched.')
+    rmSync(lock, { recursive: true })
+  }
+}
 function command(program: string, args: string[]): string {
   return execFileSync(program, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
 }
 export function processIdentity(pid: number): { cwd: string; argv: string; fingerprint: string; group: number } | null {
   if (!Number.isSafeInteger(pid) || pid < 2) return null
   try {
+    if (process.platform === 'linux') {
+      const fields = procStat(pid)
+      if (fields[0] === 'Z') return null
+      const argv = readFileSync(`/proc/${pid}/cmdline`, 'utf8').replaceAll('\0', ' ').trim()
+      const cwd = realpathSync(`/proc/${pid}/cwd`)
+      if (!argv) return null
+      const boot = readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim()
+      return { cwd, argv, group: Number(fields[2]), fingerprint: createHash('sha256').update(`${boot}\0${fields[19]}\0${cwd}\0${argv}`).digest('hex') }
+    }
     const argv = command('ps', ['-p', String(pid), '-o', 'lstart=', '-o', 'args='])
     const cwd = command('lsof', ['-a', '-p', String(pid), '-d', 'cwd', '-Fn']).split('\n').find(line => line.startsWith('n'))?.slice(1)
     if (!cwd || !argv) return null
     const realCwd = realpathSync(cwd)
     return { cwd: realCwd, argv, group: Number(command('ps', ['-p', String(pid), '-o', 'pgid='])), fingerprint: createHash('sha256').update(`${realCwd}\0${argv}`).digest('hex') }
   } catch { return null }
+}
+export function processStat(value: string) {
+  const boundary = value.lastIndexOf(') ')
+  const fields = value.slice(boundary + 2).trim().split(/\s+/)
+  if (boundary < 2 || fields.length < 20 || !/^[a-z]$/i.test(fields[0]) || !/^\d+$/.test(fields[2]) || !Number.isSafeInteger(Number(fields[2])) || !/^\d+$/.test(fields[19])) throw new StackError('Process inspection data is invalid.')
+  return fields
+}
+function procStat(pid: number) {
+  return processStat(readFileSync(`/proc/${pid}/stat`, 'utf8'))
+}
+function running(pid: number) {
+  if (!Number.isSafeInteger(pid) || pid < 2) return false
+  try { process.kill(pid, 0); return true } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ESRCH') return false
+    return true // Permission/inspection failures never prove a process is gone.
+  }
+}
+export function groupProcesses(group: number, inspect = procStat): number[] {
+  if (!Number.isSafeInteger(group) || group < 2) throw new StackError('The recorded process group cannot be verified.')
+  if (process.platform === 'linux') {
+    return readdirSync('/proc').filter(name => /^\d+$/.test(name)).flatMap(name => {
+      try { const fields = inspect(Number(name)); return Number(fields[2]) === group && fields[0] !== 'Z' ? [Number(name)] : [] } catch (error) {
+        if (['ENOENT', 'ESRCH'].includes((error as NodeJS.ErrnoException).code || '')) return []
+        throw new StackError('Process group inspection failed; absence was not inferred.')
+      }
+    })
+  }
+  return command('ps', ['-ax', '-o', 'pid=', '-o', 'pgid=', '-o', 'stat=']).split('\n').flatMap(line => {
+    const [pid, pgid, status] = line.trim().split(/\s+/)
+    // Some macOS process states are blank; that is not evidence of absence.
+    return Number(pgid) === group && !(status || '').startsWith('Z') ? [Number(pid)] : []
+  })
+}
+export async function stopProcessGroup(record: Pick<Record, 'pid' | 'fingerprint' | 'group'>, graceMs = 10_000) {
+  if (!Number.isSafeInteger(record.pid) || record.pid < 2 || record.group !== record.pid || !/^[a-f0-9]{64}$/.test(record.fingerprint)) throw new StackError('The recorded process identity or group cannot be verified.')
+  const info = processIdentity(record.pid)
+  if (!info) {
+    if (running(record.pid) || groupProcesses(record.group).length) throw new StackError('The recorded process is unavailable or has surviving children; no signal was sent.')
+    return
+  }
+  if (info.fingerprint !== record.fingerprint || info.group !== record.group) throw new StackError('The recorded process identity changed; no signal was sent.')
+  // The verified detached group leader still exists, preventing its group ID
+  // from being reused while the signal is delivered. Never signal an orphan group.
+  const verified = processIdentity(record.pid)
+  if (!verified || verified.fingerprint !== record.fingerprint || verified.group !== record.group) throw new StackError('The recorded process identity changed; no signal was sent.')
+  try { process.kill(-record.group, 'SIGTERM') } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error }
+  const deadline = Date.now() + graceMs
+  while (groupProcesses(record.group).length) {
+    if (Date.now() >= deadline) throw new StackError('A managed process group still has surviving children after graceful shutdown.')
+    await delay(50)
+  }
 }
 function matches(kind: Kind, info: NonNullable<ReturnType<typeof processIdentity>>) {
   const base = component(kind)
@@ -67,7 +137,7 @@ function owned(kind: Kind, port: number): Record | null {
   const record = json(recordPath(kind)) as Record | null
   if (!record || record.root !== root || record.kind !== kind || record.port !== port) return null
   const info = processIdentity(record.pid)
-  return info && matches(kind, info) && info.fingerprint === record.fingerprint ? record : null
+  return info && matches(kind, info) && info.fingerprint === record.fingerprint && (record.group === undefined || info.group === record.group) ? record : null
 }
 function listeners(port: number): number[] {
   try { return command('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-Fp']).split('\n').filter(line => /^p\d+$/.test(line)).map(line => Number(line.slice(1))) }
@@ -129,11 +199,52 @@ async function printStatus(ports: Ports) {
   return ready
 }
 
+async function stopStack(ports: Ports) {
+  const release = acquireLifecycleLock()
+  try {
+    let failed = false
+    for (const kind of ['web', 'cms', 'identity', 'db'] as const) {
+      try {
+        const port = kind === 'db' ? 55432 : ports[kind]
+        const record = json(recordPath(kind)) as Record | null
+        const relevantPorts = kind === 'db' ? [] : kind === 'identity' ? [port, port + 1000] : [port]
+        if (!record) {
+          if (existsSync(recordPath(kind))) throw new StackError('A component record is invalid.')
+          for (const value of relevantPorts) if (listeners(value).length || !await portAvailable(value)) throw new StackError('An unrelated listener exists.')
+          if (kind === 'db' && existsSync(resolve(state('db'), 'postgres/postmaster.pid'))) throw new StackError('An unrecorded database may be running.')
+        } else {
+          if (record.root !== root || record.kind !== kind || record.port !== port || !Number.isSafeInteger(record.pid) || record.pid < 2 || !/^[a-f0-9]{64}$/.test(record.fingerprint) || !Number.isSafeInteger(record.group) || record.group < 2) throw new StackError('The component ownership record does not match this checkout, kind, port or group.')
+          const info = processIdentity(record.pid)
+          if (info && (!matches(kind, info) || info.fingerprint !== record.fingerprint || info.group !== record.group)) throw new StackError('The component process identity changed.')
+          if (kind === 'db') {
+            const pidPath = resolve(state('db'), 'postgres/postmaster.pid')
+            if (info) {
+              if (!existsSync(pidPath) || Number(readFileSync(pidPath, 'utf8').split('\n')[0]) !== record.pid) throw new StackError('The database PID file does not match the recorded process.')
+              execFileSync('direnv', ['exec', component('cms'), 'pg_ctl', '-D', resolve(state('db'), 'postgres'), 'stop', '-m', 'fast', '-w', '-t', '20'], { timeout: 25_000, stdio: 'ignore' })
+            } else if (running(record.pid)) throw new StackError('The recorded database cannot be inspected.')
+            if (running(record.pid) || groupProcesses(record.group).length || existsSync(pidPath)) throw new StackError('Database shutdown could not be verified.')
+          } else {
+            if (relevantPorts.some(value => listeners(value).some(pid => processIdentity(pid)?.group !== record.group))) throw new StackError('An unrelated listener exists; it was left running.')
+            await stopProcessGroup(record)
+            for (const value of relevantPorts) if (!await portAvailable(value) || listeners(value).length) throw new StackError('A listener survived shutdown; it was left running.')
+          }
+        }
+        console.log(`Managed ${kind} stopped; state retained.`)
+      } catch {
+        failed = true
+        console.log(`Managed ${kind} shutdown could not be verified; uncertain processes were left alone. Inspect its private ownership record and log.`)
+      }
+    }
+    if (failed) throw new StackError('Local stop was incomplete. Other verified components were stopped; all persistent state was retained.')
+  } finally { release() }
+}
+
 async function main() {
   const saved = existsSync(configPath) ? json(configPath) : undefined
   if (saved === null) throw new StackError('Local stack settings are invalid; existing processes were left running.')
   const { mode, ports } = stackPorts(process.argv.slice(2), saved)
   if (mode === 'status') { process.exitCode = await printStatus(ports) ? 0 : 1; return }
+  if (mode === 'stop') { await stopStack(ports); return }
   let complete = true
   for (const kind of ['identity', 'cms', 'web'] as const) {
     const record = json(recordPath(kind)) as Record | null
@@ -149,9 +260,7 @@ async function main() {
   }
   if (complete) { if (!await printStatus(ports)) process.exitCode = 1; return }
   for (const kind of ['identity', 'cms', 'web'] as const) { mkdirSync(state(kind), { recursive: true, mode: 0o700 }); chmodSync(state(kind), 0o700) }
-  const lock = resolve(state('identity'), 'local-stack.lock')
-  try { mkdirSync(lock, { mode: 0o700 }) } catch { throw new StackError('Another startup may be running; inspect identity/.state/local-stack.lock before retrying.') }
-  save(resolve(lock, 'owner.json'), { pid: process.pid, fingerprint: processIdentity(process.pid)?.fingerprint })
+  const release = acquireLifecycleLock()
   const runId = randomUUID()
   const started: Record[] = []
   const extra = { KEYCLOAK_HTTP_PORT: String(ports.identity), TERRACE_LOCAL_WEB_ORIGIN: `http://127.0.0.1:${ports.web}`, TERRACE_LOCAL_CMS_ORIGIN: `http://127.0.0.1:${ports.cms}`, TERRACE_LOCAL_STACK_RUN: runId }
@@ -161,7 +270,7 @@ async function main() {
       if (marker?.run !== runId || started.some(record => record.kind === kind)) continue
       const info = processIdentity(marker.pid)
       if (!info || !matches(kind, info)) continue
-      const record: Record = { pid: marker.pid, fingerprint: info.fingerprint, root, kind, port: kind === 'db' ? 55432 : ports[kind] }
+      const record: Record = { pid: marker.pid, fingerprint: info.fingerprint, group: info.group, root, kind, port: kind === 'db' ? 55432 : ports[kind] }
       started.push(record)
       save(recordPath(kind), record)
     }
@@ -204,7 +313,7 @@ async function main() {
       }
     }
     throw error
-  } finally { rmSync(lock, { recursive: true, force: true }) }
+  } finally { release() }
 }
 
 if (import.meta.main) {
