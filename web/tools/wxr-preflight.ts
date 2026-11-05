@@ -1,4 +1,7 @@
 import { stdin } from 'node:process';
+import { createHash } from 'node:crypto';
+import { constants, closeSync, existsSync, fstatSync, lstatSync, openSync, realpathSync, writeFileSync } from 'node:fs';
+import { basename, dirname, isAbsolute, join } from 'node:path';
 import { parseXml, XmlElement, type XmlNode } from '@rgrove/parse-xml';
 
 export const maxBytes = 16 * 1024 * 1024;
@@ -121,7 +124,23 @@ function timezone(value = ''): 'runtimeRecognized' | 'wordpressFixedOffset' | 'o
 }
 
 export function preflight(xml: string) {
-  try { return analyze(xml); } catch { return fail(); }
+  try { return analyze(xml).report; } catch { return fail(); }
+}
+
+export function migrationPlan(xml: string) {
+  try {
+    const { report, records } = analyze(xml);
+    return {
+      schemaVersion: 1, kind: 'wxr-migration-review-plan',
+      sourceSha256: createHash('sha256').update(xml, 'utf8').digest('hex'),
+      sourceBytes: Buffer.byteLength(xml),
+      reconciliation: { sourceRecords: report.itemCount, planRecords: records.length, allSourceRecordsRepresented: records.length === report.itemCount },
+      policy: { effectiveAccess: 'unknown-requires-plugin-and-source-review', targetWrites: 0, publicationApproved: false, historicalGravityEntries: 'excluded', authorAccounts: 'no-automatic-provisioning' },
+      reviewState: 'all-records-pending-no-decisions-applied',
+      summary: report,
+      records,
+    };
+  } catch { return fail(); }
 }
 function analyze(xml: string) {
   bounded(xml);
@@ -236,7 +255,7 @@ function analyze(xml: string) {
   }
   const routes = publicCandidates.map(item => url(item.link)).filter((value): value is URL => value !== null);
   const uriKeys = routes.map(value => value.origin + value.pathname + value.search), pathKeys = routes.map(value => value.origin + value.pathname);
-  return {
+  const report = {
     schemaVersion: 1, itemCount: items.length, authorRecordCount: children(channel, 'author', wp).length, commentCount: comments,
     byType, sourceIds: { missingOrInvalid: items.filter(item => !item.id).length, duplicateRecords: [...ids.values()].reduce((sum, group) => sum + Math.max(0, group.length - 1), 0) },
     scope: { publishStatusContentWithoutPassword: publicCandidates.length, otherOrPasswordProtectedContent: content.length - publicCandidates.length, attachmentVisibility: 'not-inferred-from-inherit-status', effectiveAccessControls: 'requires-source-review', historicalGravityEntries: 'excluded' },
@@ -248,18 +267,50 @@ function analyze(xml: string) {
     gates: ['full-database-and-files-backup', 'media-file-and-checksum-reconciliation', 'editorial-and-effective-access-review', 'shortcode-and-plugin-conversion-review', 'event-timezone-and-relationship-review', 'private-source-uri-redirect-ledger', 'no-wordpress-user-to-keycloak-auto-mapping'],
     importsPerformed: 0
   };
+  const records = items.map((item, index) => ({
+    sourceOrdinal: index + 1, sourceId: item.id,
+    identity: !item.id ? 'missing-or-invalid' : ids.get(item.id)!.length > 1 ? 'duplicate' : 'unique',
+    type: item.type, status: item.status, passwordProtected: item.protected,
+    contentScope: !['post', 'page', 'tribe_events'].includes(item.type) ? 'not-post-page-event' : item.status === 'publish' && !item.protected ? 'publish-status-candidate-access-unknown' : 'withheld',
+    nextReview: item.type === 'post' ? 'post-destination-model-and-newsletter-evidence' : item.type === 'page' ? 'page-destination-model-and-layout' : item.type === 'tribe_events' ? 'event-timezone-fields-and-relationships' : item.type === 'attachment' ? 'media-bytes-hashes-and-visibility' : ['tribe_venue', 'tribe_organizer'].includes(item.type) ? 'event-reference-and-public-contact-scope' : ['nav_menu_item', 'et_pb_layout', 'custom_css', 'wp_global_styles'].includes(item.type) ? 'navigation-layout-and-style-mapping' : 'preserve-unmapped-source-record',
+    sourceUri: { present: Boolean(item.link), validWithoutCredentials: Boolean(url(item.link)), queryOrFragment: Boolean(url(item.link)?.search || url(item.link)?.hash) },
+    target: null,
+  }));
+  return { report, records };
+}
+
+// Require an existing owner-only directory outside every Git checkout. Exclusive
+// creation refuses old plans and final symlinks; diagnostics never quote paths.
+function writePlan(output: string, contents: string) {
+  if (!isAbsolute(output) || !output.endsWith('.json')) fail();
+  const parent = realpathSync(dirname(output)), directory = lstatSync(parent), uid = process.getuid?.();
+  if (uid === undefined || !directory.isDirectory() || directory.uid !== uid || (directory.mode & 0o077) !== 0) fail();
+  for (let ancestor = parent; ; ancestor = dirname(ancestor)) {
+    if (existsSync(join(ancestor, '.git'))) fail();
+    if (dirname(ancestor) === ancestor) break;
+  }
+  const fd = openSync(join(parent, basename(output)), constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+  try {
+    const file = fstatSync(fd);
+    if (!file.isFile() || file.uid !== uid || (file.mode & 0o777) !== 0o600) fail();
+    writeFileSync(fd, contents);
+  } finally { closeSync(fd); }
 }
 
 if (import.meta.main) {
+  const planning = process.argv[2] === '--plan';
   try {
-    if (process.argv.length !== 2 || stdin.isTTY) fail();
+    if ((planning ? process.argv.length !== 4 : process.argv.length !== 2) || stdin.isTTY) fail();
     const chunks: Buffer[] = [];
     let size = 0;
     for await (const chunk of stdin) { size += chunk.length; if (size > maxBytes) fail(); chunks.push(chunk); }
-    const input = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks));
-    console.log(JSON.stringify(preflight(input), null, 2));
+    const input = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(Buffer.concat(chunks));
+    if (planning) {
+      writePlan(process.argv[3], JSON.stringify(migrationPlan(input), null, 2) + '\n');
+      console.log('Migration review plan written. No CMS data or redirects changed.');
+    } else console.log(JSON.stringify(preflight(input), null, 2));
   } catch {
-    console.error('Preflight failed. Supply a supported UTF-8 WordPress WXR export (up to 16 MiB) on standard input. No report was emitted.');
+    console.error(planning ? 'Plan failed. Supply supported UTF-8 WXR and a new absolute JSON path in a private directory outside Git checkouts. No CMS data or redirects changed.' : 'Preflight failed. Supply a supported UTF-8 WordPress WXR export (up to 16 MiB) on standard input. No report was emitted.');
     process.exitCode = 1;
   }
 }
