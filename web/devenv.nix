@@ -13,8 +13,21 @@ in {
   };
   languages.typescript.enable = true;
 
-  packages = [ pkgs.git pkgs.glab pkgs.gitleaks tesseractEnglish ]
+  packages = [ pkgs.git pkgs.gh pkgs.glab pkgs.gitleaks tesseractEnglish ]
     ++ lib.optional pkgs.stdenv.hostPlatform.isLinux pkgs.git-filter-repo;
+
+  scripts.check-shell.exec = ''
+    set -eu
+    command -v git >/dev/null
+    command -v bun >/dev/null
+    command -v glab >/dev/null
+    command -v gitleaks >/dev/null
+    test "$(command -v gh)" -ef "${pkgs.gh}/bin/gh"
+    gh --version >/dev/null
+    test -e "${config.devenv.root}/.pre-commit-config.yaml"
+    echo "PASS: pinned GitHub CLI, development tools and hooks are available"
+  '';
+  enterTest = config.scripts.check-shell.exec;
 
   # The repo's common Git directory is bare and shared by worktrees. Standard
   # hook installation would mutate every checkout's hooks, so install locally.

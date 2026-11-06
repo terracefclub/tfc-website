@@ -1,3 +1,25 @@
+# Terrace Friend Club
+
+[GitHub is the primary repository](https://github.com/terracefclub/tfc-website).
+Develop against `dev` through reviewed pull requests with all three Actions jobs
+green; `prod` and `dev-post-vanilla` remain separate preserved branches.
+
+```sh
+git clone git@github.com:terracefclub/tfc-website.git
+cd tfc-website
+direnv allow web
+direnv exec web check-shell
+direnv exec web git switch -c codex/my-change origin/dev
+# Edit and validate through the component dev shells.
+direnv exec web gh pr create --base dev
+```
+
+Nix/devenv/direnv provide the declared tools, including `gh`; a user-profile
+GitHub CLI installation is unnecessary. See [migration and mirror operations](docs/github-migration.md)
+for original-history preservation, the one-way `github/*` GitLab mirror and
+verification commands. The original GitLab issues/MRs remain the historical
+audit trail. The old private `tfc-website-v1-wagtail` repository is separate.
+
 
 # Terrace local preview
 
@@ -8,6 +30,11 @@ Run `./tools/local-stack stop` when the active task ends; it preserves component
 state and refuses uncertain ownership. Do not leave detached previews unattended.
 See [local preview setup](docs/local-preview.md) for URLs, synthetic sign-in
 references, isolated ports and the development-only release boundary.
+
+# Historical legacy notes
+
+The notes below are retained for historical context. Use the current component
+shells and preview instructions above rather than the old scripts/runner example.
 
 # Flabyrinth
 

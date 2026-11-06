@@ -61,3 +61,42 @@ Require all three green Actions jobs and independent exact-source review before
 merging the CI PR. The original GitLab CI file remains unchanged until the separate
 mirror decision; a mirror must use a new project or nonconflicting namespaced
 refs so the original GitLab branch history cannot be rewritten.
+
+
+## Contributor tools and one-way mirror
+
+From a fresh checkout with Nix/devenv/direnv available, run `direnv allow web`
+then `direnv exec web check-shell`. The check requires the resolved `gh` binary
+to be the declared `pkgs.gh` file, not an incidental user-profile executable;
+it checks versions/tool availability only, without login or service startup.
+`web/AGENTS.md` and the README describe GitHub `dev` pull requests and the three
+required hosted checks.
+
+The separate `GitLab mirror` workflow runs after published `dev`, `prod`,
+`dev-post-vanilla` and tag pushes, or explicit dispatch. It checks out trusted
+`dev`, uses the exact reviewed shared mirror script, pins the GitLab SSH host key,
+and reads only the repository-scoped `GITLAB_MIRROR_KEY` secret. The workflow does
+not run for pull requests. The write key is project-scoped and explicitly allowed on the new
+`github/*` protected namespace. The script selects only that namespace; the
+original branches/default and historical records retain their existing policy.
+
+Source branch `dev` maps to GitLab branch `github/dev` (likewise the other two);
+source tag `NAME` maps to `github/NAME`. Pushes are atomic, non-forcing and never
+delete refs. `ci.skip` prevents duplicate GitLab pipeline spending. Every pushed
+ref is read back and compared with the source SHA. A divergent destination fails
+closed rather than rewriting either history. The original public GitLab refs
+remain unchanged; retain the protected original/derivative commit map and bundle.
+Original signed-commit verification remains available in that original archive.
+
+Verify the hosted mirror with:
+
+```sh
+direnv exec web gh workflow run gitlab-mirror.yml --ref dev
+direnv exec web gh run list --workflow gitlab-mirror.yml --limit 5
+```
+
+A successful run reports three verified branches and the published tag count.
+Confirm `git ls-remote` on both endpoints: compare GitHub `refs/heads/dev` with
+GitLab `refs/heads/github/dev`, the other two mapped heads and namespaced tags.
+This is source/audit mirroring, not an application deployment or a backup of
+runtime member data. Retain the original GitLab commit/MR/issue links.
