@@ -13,7 +13,8 @@ in {
   };
   languages.typescript.enable = true;
 
-  packages = [ pkgs.git pkgs.glab pkgs.gitleaks tesseractEnglish ];
+  packages = [ pkgs.git pkgs.glab pkgs.gitleaks tesseractEnglish ]
+    ++ lib.optional pkgs.stdenv.hostPlatform.isLinux pkgs.git-filter-repo;
 
   # The repo's common Git directory is bare and shared by worktrees. Standard
   # hook installation would mutate every checkout's hooks, so install locally.
@@ -26,7 +27,7 @@ in {
       entry = "web/tools/hook-check";
       language = "system";
       pass_filenames = false;
-      files = "^(web/|\\.gitlab-ci\\.yml$|\\.gitlab/legacy-ci\\.yml$|\\.gitignore$)";
+      files = "^(web/|\\.github/workflows/|\\.gitlab-ci\\.yml$|\\.gitlab/legacy-ci\\.yml$|\\.gitignore$)";
     };
     web-staged-secrets = {
       enable = true;

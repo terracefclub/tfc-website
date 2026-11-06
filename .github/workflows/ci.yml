@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, prod]
+  pull_request:
+    branches: [dev, prod]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container:
+      image: node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+    steps:
+      - name: Install checkout prerequisites
+        run: |
+          apt-get update -qq
+          apt-get install --yes --no-install-recommends git ca-certificates
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Prepare pinned Bun and release metadata
+        run: |
+          npm install --prefix /tmp/terrace-bun --no-save bun@1.4.4
+          echo "/tmp/terrace-bun/node_modules/.bin" >> "$GITHUB_PATH"
+          revision=$(git rev-parse HEAD)
+          timestamp=$(git show -s --format=%cI HEAD)
+          printf 'CI_COMMIT_SHA=%s\nCI_COMMIT_TIMESTAMP=%s\n' "$revision" "$timestamp" >> "$GITHUB_ENV"
+      - name: Check, test, build and package web
+        run: |
+          cd web
+          bun install --frozen-lockfile
+          bun run check
+          bun test
+          bun run build
+          cd ..
+          bun tools/release/pack.ts web .state/releases/web
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: web-release
+          retention-days: 7
+          if-no-files-found: error
+          include-hidden-files: true
+          path: |
+            .state/releases/web/*.tar.gz
+            .state/releases/web/*.sha256
+            .state/releases/web/*.release.json
+            .state/releases/web/SHA256SUMS
+
+  cms:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container:
+      image: node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+    services:
+      postgres:
+        image: postgres:17.11-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+        env:
+          POSTGRES_DB: terrace_cms
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        options: >-
+          --health-cmd "pg_isready -U postgres -d terrace_cms"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      NPM_CONFIG_CACHE: /tmp/terrace-npm-cache
+      BUN_INSTALL_CACHE_DIR: /tmp/terrace-bun-cache
+    steps:
+      - name: Install checkout prerequisites
+        run: |
+          apt-get update -qq
+          apt-get install --yes --no-install-recommends git ca-certificates
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Prepare pinned Bun and release metadata
+        run: |
+          npm install --prefix /tmp/terrace-bun --no-save bun@1.4.4
+          echo "/tmp/terrace-bun/node_modules/.bin" >> "$GITHUB_PATH"
+          revision=$(git rev-parse HEAD)
+          timestamp=$(git show -s --format=%cI HEAD)
+          printf 'CI_COMMIT_SHA=%s\nCI_COMMIT_TIMESTAMP=%s\n' "$revision" "$timestamp" >> "$GITHUB_ENV"
+      - name: Check migrations, release build and real PostgreSQL tests
+        run: |
+          cd cms
+          bun install --frozen-lockfile
+          bun tools/ci.ts
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: cms-release
+          retention-days: 7
+          if-no-files-found: error
+          include-hidden-files: true
+          path: |
+            .state/releases/cms/*.tar.gz
+            .state/releases/cms/*.sha256
+            .state/releases/cms/*.release.json
+            .state/releases/cms/SHA256SUMS
+
+  identity-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      # Run the original Alpine/Bun image after host checkout: JavaScript
+      # checkout actions require glibc and cannot execute inside Alpine.
+      - name: Test identity policy in the pinned Bun image
+        run: >-
+          docker run --rm
+          --mount type=bind,src="$GITHUB_WORKSPACE",dst=/workspace
+          --workdir /workspace
+          oven/bun:1.4.4-alpine@sha256:4cf82f5686b196504fe119db3fcd9185b191f82ece82c40680e597228ec6070a
+          bun test identity/test
