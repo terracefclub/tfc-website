@@ -32,8 +32,8 @@ jobs:
         run: |
           npm install --prefix /tmp/terrace-bun --no-save bun@1.4.4
           echo "/tmp/terrace-bun/node_modules/.bin" >> "$GITHUB_PATH"
-          revision=$(git rev-parse HEAD)
-          timestamp=$(git show -s --format=%cI HEAD)
+          revision=$(git -c safe.directory="$GITHUB_WORKSPACE" rev-parse HEAD)
+          timestamp=$(git -c safe.directory="$GITHUB_WORKSPACE" show -s --format=%cI HEAD)
           printf 'CI_COMMIT_SHA=%s\nCI_COMMIT_TIMESTAMP=%s\n' "$revision" "$timestamp" >> "$GITHUB_ENV"
       - name: Check, test, build and package web
         run: |
@@ -88,8 +88,8 @@ jobs:
         run: |
           npm install --prefix /tmp/terrace-bun --no-save bun@1.4.4
           echo "/tmp/terrace-bun/node_modules/.bin" >> "$GITHUB_PATH"
-          revision=$(git rev-parse HEAD)
-          timestamp=$(git show -s --format=%cI HEAD)
+          revision=$(git -c safe.directory="$GITHUB_WORKSPACE" rev-parse HEAD)
+          timestamp=$(git -c safe.directory="$GITHUB_WORKSPACE" show -s --format=%cI HEAD)
           printf 'CI_COMMIT_SHA=%s\nCI_COMMIT_TIMESTAMP=%s\n' "$revision" "$timestamp" >> "$GITHUB_ENV"
       - name: Check migrations, release build and real PostgreSQL tests
         run: |
