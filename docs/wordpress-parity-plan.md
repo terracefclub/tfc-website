@@ -87,6 +87,20 @@ The following is our preservation/verification checklist, not evidence that thes
 
 A database backup can retain historical Gravity Forms entries and personal data even though **entry import remains excluded**. Preserve and restrict the recovery copy; do not purge source/archive entries as part of this content migration. Backup preservation, content import and future retention decisions are separate tasks.
 
+### Check a downloaded ZIP before recovery
+
+Keep the ZIP in an owner-only directory outside Git with no group or other file permissions. From the repository root:
+
+```sh
+direnv allow web
+direnv exec web python3 -B web/tools/kinsta-backup-preflight.py /protected/terrace/kinsta-backup.zip
+direnv exec web python3 -B -m unittest discover -s web/tests -p test_kinsta_backup_preflight.py
+```
+
+The check recognizes Kinsta's documented ZIP layout with a nonempty SQL file beside the WordPress `public/` directory, optionally inside one enclosing folder. It requires a nonempty `public/wp-load.php` and reports the count of files under `public/wp-content/uploads/`; reconcile that count against the expected media inventory. It streams each member for CRC and size verification, hashes the archive, and verifies the file identity and metadata stayed stable. Only counts, byte sizes and the archive SHA256 are printed. Keep that receipt with the protected backup. Input files stay untouched, and no files are extracted or executed.
+
+The check accepts regular files and directories with stored or deflated ZIP members. It rejects ambiguous layouts, duplicate or conflicting paths, links, encrypted entries and unsafe path names. Limits are 64 GiB archive size, 128 GiB declared expanded data, 8 MiB ZIP directory, 100,000 entries and ten minutes. A rejected or larger archive stays preserved for separate private review. A successful report verifies archive intake, while SQL consistency, file completeness, historical entry exclusions and isolated restore still need their own checks.
+
 ### Import and redirect gates
 
 | Source | Next reviewed mapping/gate |

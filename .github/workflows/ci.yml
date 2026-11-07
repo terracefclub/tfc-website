@@ -24,7 +24,7 @@ jobs:
       - name: Install checkout prerequisites
         run: |
           apt-get update -qq
-          apt-get install --yes --no-install-recommends git ca-certificates
+          apt-get install --yes --no-install-recommends git ca-certificates python3
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
@@ -35,6 +35,8 @@ jobs:
           revision=$(git -c safe.directory="$GITHUB_WORKSPACE" rev-parse HEAD)
           timestamp=$(git -c safe.directory="$GITHUB_WORKSPACE" show -s --format=%cI HEAD)
           printf 'CI_COMMIT_SHA=%s\nCI_COMMIT_TIMESTAMP=%s\n' "$revision" "$timestamp" >> "$GITHUB_ENV"
+      - name: Test offline backup intake
+        run: python3 -B -m unittest discover -s web/tests -p test_kinsta_backup_preflight.py
       - name: Check, test, build and package web
         run: |
           cd web
