@@ -13,7 +13,7 @@ in {
   };
   languages.typescript.enable = true;
 
-  packages = [ pkgs.git pkgs.gh pkgs.glab pkgs.gitleaks tesseractEnglish ]
+  packages = [ pkgs.git pkgs.gh pkgs.glab pkgs.gitleaks pkgs.python3 tesseractEnglish ]
     ++ lib.optional pkgs.stdenv.hostPlatform.isLinux pkgs.git-filter-repo;
 
   scripts.check-shell.exec = ''
