@@ -432,3 +432,16 @@ test('the sweep expires stale invitations, reports content past its grace period
   expect((await sweep(payload, { purgeModerated: true })).moderatedPurged).toBeGreaterThanOrEqual(1)
   expect(await payload.findByID({ collection: 'member-stories', id: old.id, overrideAccess: true }).catch(() => null)).toBeNull()
 })
+
+test('approving without choosing the role to grant is refused with a clear message and changes nothing', async () => {
+  const email = `no-role-${suffix}@terrace.invalid`
+  expect((await apply(valid({ contactEmail: email, name: `No Role ${suffix}` }))).status).toBe(202)
+  const application = (await payload.find({ collection: 'member-applications', where: { contactEmail: { equals: email } }, overrideAccess: true })).docs[0]
+  await expect(payload.update({ collection: 'member-applications', id: application.id, data: { status: 'approved' }, user: editor, overrideAccess: false })).rejects.toThrow('Choose the role to grant before approving.')
+  const after = await payload.findByID({ collection: 'member-applications', id: application.id, overrideAccess: true })
+  expect(after.status).toBe('pending')
+  expect((await payload.find({ collection: 'member-invitations', where: { application: { equals: application.id } }, overrideAccess: true })).totalDocs).toBe(0)
+  // With a role it goes through.
+  await payload.update({ collection: 'member-applications', id: application.id, data: { status: 'approved', grantRole: 'alumni' }, user: editor, overrideAccess: false })
+  expect((await payload.findByID({ collection: 'member-applications', id: application.id, overrideAccess: true })).status).toBe('approved')
+})

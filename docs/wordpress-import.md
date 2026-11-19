@@ -62,6 +62,23 @@ direnv exec . tools/with-local bun tools/wp-import.ts rollback --run wpimport-YY
 non-local `DATABASE_URI` (Unix socket or loopback only) unless `--allow-nonlocal-database` is passed for an approved
 target. "Local" means a Unix-socket `host=` path or loopback host; an empty host does not count (libpq would fall back to `PGHOST`), `PGHOST` must itself be unset or local, and loopback also admits an SSH tunnel to a remote database, so the flag guards intent rather than topology. Terminal output is always aggregate counts and fixed error text, never record contents, paths or URLs.
 
+### Trying the synthetic fixture
+
+The committed plan `cms/test/fixtures/wp-import-plan.synthetic.json` is checked out by Git with mode `0644`, and the CMS tool refuses any plan that
+group or others can read (the mode check is deliberately not relaxed for fixtures). To try it, copy it into your private directory first:
+
+```sh
+PRIV=~/.terrace-private   # mkdir -m 700 $PRIV once; outside every Git checkout
+cp cms/test/fixtures/wp-import-plan.synthetic.json $PRIV/fixture-plan.json && chmod 600 $PRIV/fixture-plan.json
+cd cms
+direnv exec . tools/with-local bun tools/wp-import.ts dry-run --plan $PRIV/fixture-plan.json --report $PRIV/fixture-dryrun.json
+direnv exec . tools/with-local bun tools/wp-import.ts apply   --plan $PRIV/fixture-plan.json --report $PRIV/fixture-apply.json --run-id wpimport-fixture-1
+direnv exec . tools/with-local bun tools/wp-import.ts rollback --run wpimport-fixture-1
+```
+
+Without the `chmod`, the tool prints that the plan file must be readable only by its owner and should be copied outside the checkout with mode 0600; it never prints the path or any content.
+`cms/test/wp-import-fixture-cli.test.ts` runs these steps (and the refusals) so the documented path cannot rot.
+
 Regenerate the committed synthetic plan used by the CMS tests: `direnv exec web bun web/tools/wp-import/write-fixture-plan.ts`.
 
 ## Identity and idempotency

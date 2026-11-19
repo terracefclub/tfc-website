@@ -10,6 +10,10 @@ direnv allow cms
 ./tools/release/build /absolute/private/output
 ```
 
+Keep the checkout path short (for example `~/rc/<short-name>`, not a directory named by a full 40-character commit SHA). The
+build database listens on a Unix socket under `.state/release-build-*` inside the checkout, and the full socket path must stay under the
+PostgreSQL limit of 107 bytes; a long checkout path makes the cluster fail to start.
+
 Each invocation creates its own private Unix-socket-only PostgreSQL cluster and
 empty upload directory under `.state/release-build-*`, applies
 explicit migrations, builds both applications and stops its database. It does not
