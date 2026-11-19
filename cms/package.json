@@ -8,13 +8,14 @@
     "build": "next build",
     "start": "next start --hostname 127.0.0.1 --port 3010",
     "check": "tsc --noEmit",
-    "check:release": "tsc --noEmit -p tsconfig.release.json && tsc --noEmit -p tsconfig.migrate.json",
+    "check:release": "tsc --noEmit -p tsconfig.release.json && tsc --noEmit -p tsconfig.migrate.json && tsc --noEmit -p tsconfig.import.json",
     "test": "bun test",
     "migrate": "payload migrate",
     "migrate:create": "payload migrate:create",
     "generate:types": "payload generate:types",
     "generate:importmap": "payload generate:importmap",
     "bootstrap:local": "bun src/scripts/bootstrap-local.ts",
+    "import:wordpress": "bun tools/wp-import.ts",
     "lifecycle:sweep": "bun src/scripts/lifecycle-sweep.ts"
   },
   "dependencies": {

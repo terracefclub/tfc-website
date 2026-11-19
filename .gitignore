@@ -39,3 +39,5 @@ node_modules/
 kubernetes/**/charts/
 docs/_build/
 terraform/.terraform
+
+.vite/

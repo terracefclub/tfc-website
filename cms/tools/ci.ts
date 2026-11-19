@@ -63,7 +63,7 @@ try {
   const migrated = new pg.Pool({ connectionString: migrationURI.href })
   try {
     const first = await migrated.query('SELECT name,batch FROM payload_migrations ORDER BY id')
-    if (first.rows.length !== 7) throw new Error('Extracted release migration ledger is incomplete.')
+    if (first.rows.length !== 8) throw new Error('Extracted release migration ledger is incomplete.')
     await run(resolve(unpacked, 'bin/migrate'), [], migrationEnv, 90000)
     const second = await migrated.query('SELECT name,batch FROM payload_migrations ORDER BY id')
     if (JSON.stringify(first.rows) !== JSON.stringify(second.rows)) throw new Error('Repeated release migration was not a no-op.')

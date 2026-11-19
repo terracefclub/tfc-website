@@ -8,7 +8,9 @@ import { Initiatives } from './collections/Initiatives'
 import { Media } from './collections/Media'
 import { Newsletters } from './collections/Newsletters'
 import { Redirects } from './collections/Redirects'
+import { Pages, Posts } from './collections/Posts'
 import { Users } from './collections/Users'
+import { WpImportJournal, WpImportRuns } from './collections/WpImport'
 import { Members } from './collections/Members'
 import { communityCollections } from './community/collections'
 import { editorialEndpoints } from './auth/editorial'
@@ -34,7 +36,7 @@ export default buildConfig({
   endpoints: [...editorialEndpoints, ...lifecycleEndpoints],
   editor: lexicalEditor(),
   db: postgresAdapter({ pool: { connectionString: process.env.DATABASE_URI }, push: false }),
-  collections: [Users, Members, Media, Events, Newsletters, Initiatives, Redirects, ...communityCollections, ...lifecycleCollections],
+  collections: [Users, Members, Media, Events, Newsletters, Initiatives, Redirects, Posts, Pages, WpImportRuns, WpImportJournal, ...communityCollections, ...lifecycleCollections],
   typescript: { outputFile: path.resolve(dirname, '../payload-types.ts') },
   cors: [origin],
   csrf: [origin],

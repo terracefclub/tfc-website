@@ -1,8 +1,7 @@
 import { stdin } from 'node:process';
 import { createHash } from 'node:crypto';
-import { constants, closeSync, existsSync, fstatSync, lstatSync, openSync, realpathSync, writeFileSync } from 'node:fs';
-import { basename, dirname, isAbsolute, join } from 'node:path';
 import { parseXml, XmlElement, type XmlNode } from '@rgrove/parse-xml';
+import { writePrivateJson } from './private-output';
 
 export const maxBytes = 16 * 1024 * 1024;
 const types = ['post', 'page', 'tribe_events', 'attachment', 'nav_menu_item', 'et_pb_layout', 'tribe_organizer', 'tribe_venue', 'custom_css', 'wp_global_styles', 'project', 'revision', 'other'] as const;
@@ -142,7 +141,9 @@ export function migrationPlan(xml: string) {
     };
   } catch { return fail(); }
 }
-function analyze(xml: string) {
+// Shared strict front end for the preflight and the import job: one bounded, validated
+// parse, so no second WXR parser exists. Returns the helpers bound to this document.
+export function loadWxr(xml: string) {
   bounded(xml);
   const document = parseXml(xml, { preserveXmlDeclaration: true });
   const declaration = document.children.find(node => node.type === 'xmldecl') as XmlNode & { version: string; encoding?: string } | undefined;
@@ -173,6 +174,11 @@ function analyze(xml: string) {
     }
   };
   checkItems(root);
+  return { root, channel, wp, is, children, field, rawItems };
+}
+
+function analyze(xml: string) {
+  const { channel, wp, is, children, field, rawItems } = loadWxr(xml);
   let comments = 0, otherMeta = 0;
   const items: Item[] = rawItems.map(node => {
     const rawType = field(node, 'post_type', wp), rawStatus = field(node, 'status', wp);
@@ -279,23 +285,54 @@ function analyze(xml: string) {
   return { report, records };
 }
 
-// Require an existing owner-only directory outside every Git checkout. Exclusive
-// creation refuses old plans and final symlinks; diagnostics never quote paths.
-function writePlan(output: string, contents: string) {
-  if (!isAbsolute(output) || !output.endsWith('.json')) fail();
-  const parent = realpathSync(dirname(output)), directory = lstatSync(parent), uid = process.getuid?.();
-  if (uid === undefined || !directory.isDirectory() || directory.uid !== uid || (directory.mode & 0o077) !== 0) fail();
-  for (let ancestor = parent; ; ancestor = dirname(ancestor)) {
-    if (existsSync(join(ancestor, '.git'))) fail();
-    if (dirname(ancestor) === ancestor) break;
-  }
-  const fd = openSync(join(parent, basename(output)), constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+export type WxrType = typeof types[number];
+export type WxrStatus = typeof statuses[number];
+export type WxrRecord = {
+  ordinal: number; id: number | null; duplicateId: boolean; parent: number | null; type: WxrType; status: WxrStatus; protected: boolean;
+  title: string; slug: string; link: string; guid: string; date: string; dateGmt: string; excerpt: string; body: string; attachmentUrl: string;
+  menuOrder: number; creator: string; terms: { domain: string; nicename: string }[]; meta: Map<string, string>;
+};
+
+// Full record reader for the import job. It reuses the preflight's bounded strict parse and
+// the same duplicate-field rejection; `metaKeys` is the caller's allowlist of postmeta to keep.
+export function readWxr(xml: string, metaKeys: ReadonlySet<string>) {
   try {
-    const file = fstatSync(fd);
-    if (!file.isFile() || file.uid !== uid || (file.mode & 0o777) !== 0o600) fail();
-    writeFileSync(fd, contents);
-  } finally { closeSync(fd); }
+    const { channel, wp, children, field, rawItems } = loadWxr(xml);
+    const dc = 'http://purl.org/dc/elements/1.1/', excerptUri = wp.replace(/[^/]*\/?$/, '') + wp.split('/').at(-2) + '/excerpt/';
+    const authors: Record<string, string> = {};
+    for (const author of children(channel, 'author', wp)) {
+      const login = field(author, 'author_login', wp), name = field(author, 'author_display_name', wp);
+      if (login && name) authors[login] = name;
+    }
+    const counts = new Map<number, number>();
+    const parsed = rawItems.map((node, index): WxrRecord => {
+      const rawType = field(node, 'post_type', wp), rawStatus = field(node, 'status', wp), postId = id(field(node, 'post_id', wp));
+      const meta = new Map<string, string>();
+      for (const entry of children(node, 'postmeta', wp)) {
+        const key = field(entry, 'meta_key', wp);
+        if (!metaKeys.has(key)) continue;
+        if (meta.has(key)) fail();
+        meta.set(key, field(entry, 'meta_value', wp));
+      }
+      if (postId) counts.set(postId, (counts.get(postId) || 0) + 1);
+      return {
+        ordinal: index + 1, id: postId, duplicateId: false, parent: id(field(node, 'post_parent', wp)),
+        type: types.includes(rawType as WxrType) ? rawType as WxrType : 'other', status: statuses.includes(rawStatus as WxrStatus) ? rawStatus as WxrStatus : 'other',
+        protected: Boolean(field(node, 'post_password', wp, false)),
+        title: field(node, 'title'), slug: field(node, 'post_name', wp), link: field(node, 'link'), guid: field(node, 'guid'),
+        date: field(node, 'post_date', wp), dateGmt: field(node, 'post_date_gmt', wp), excerpt: field(node, 'encoded', excerptUri), body: field(node, 'encoded', contentUri),
+        attachmentUrl: field(node, 'attachment_url', wp), menuOrder: Number.parseInt(field(node, 'menu_order', wp), 10) || 0, creator: field(node, 'creator', dc),
+        terms: children(node, 'category').map(term => ({ domain: term.attributes.domain || '', nicename: term.attributes.nicename || '' })), meta,
+      };
+    });
+    for (const record of parsed) record.duplicateId = record.id !== null && (counts.get(record.id) || 0) > 1;
+    const origin = [field(channel, 'base_site_url', wp), field(channel, 'base_blog_url', wp), field(channel, 'link')].map(value => url(value)).find(Boolean)?.origin ?? null;
+    return { records: parsed, authors, siteOrigin: origin, sourceSha256: createHash('sha256').update(xml, 'utf8').digest('hex'), sourceBytes: Buffer.byteLength(xml), safeHosts };
+  } catch { return fail(); }
 }
+
+// Exclusive, private output lives in a shared module; it throws the same generic failure.
+const writePlan = (output: string, contents: string) => writePrivateJson(output, contents);
 
 if (import.meta.main) {
   const planning = process.argv[2] === '--plan';
