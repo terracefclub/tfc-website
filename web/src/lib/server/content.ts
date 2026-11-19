@@ -1,20 +1,30 @@
 import { env } from '$env/dynamic/private';
 import { fixtureContent, getEvent } from '$lib/content';
-import { ContentUnavailable, createPayloadClient } from './payload';
+import { ContentUnavailable, createPayloadClient, type ContentDocument, type ContentPage, type PostView } from './payload';
 import { error } from '@sveltejs/kit';
 import { getRequestEvent } from '$app/server';
 
+type PreviewState = App.Locals['localPreview'];
+
+export function contentMode(localPreview: PreviewState, settings: Record<string, string | undefined>) {
+  return localPreview
+    ? (localPreview.published ? 'cms' : 'preview')
+    : settings.CONTENT_SOURCE ?? (settings.CMS_ORIGIN ? 'cms' : 'preview');
+}
+
 export function contentSource() {
   const { localPreview } = getRequestEvent().locals;
-  const mode = localPreview
-    ? (localPreview.published ? 'cms' : 'preview')
-    : env.CONTENT_SOURCE ?? (env.CMS_ORIGIN ? 'cms' : 'preview');
+  const mode = contentMode(localPreview, env);
   if (mode === 'preview') return {
     preview: true,
     events: async () => fixtureContent.events,
     event: async (slug: string) => getEvent(slug),
     newsletters: async () => fixtureContent.newsletters,
-    initiatives: async () => []
+    initiatives: async () => [],
+    // Imported WordPress content has no sample fixtures: the sample site shows the empty states.
+    posts: async (_page: number): Promise<ContentPage> => ({ docs: [], page: 1, totalPages: 1 }),
+    post: async (_slug: string): Promise<PostView | undefined> => undefined,
+    page: async (_slug: string): Promise<ContentDocument | undefined> => undefined
   };
   if (mode !== 'cms' || !env.CMS_ORIGIN) throw new ContentUnavailable();
   return { preview: false, ...createPayloadClient({ origin: env.CMS_ORIGIN, publicOrigin: env.CMS_PUBLIC_ORIGIN }) };

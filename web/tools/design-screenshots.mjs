@@ -1,5 +1,5 @@
 // Full-page screenshots of public pages at desktop, tablet and phone widths.
-//   node tools/design-screenshots.mjs <base-url> <output-dir> <prefix> [browser-binary]
+//   [SHOT_PAGES=name=/path,...] node tools/design-screenshots.mjs <base-url> <output-dir> <prefix> [browser-binary]
 // Uses a headless Chromium-family browser over the DevTools protocol (Node's built-in
 // WebSocket); nothing is installed. Example:
 //   direnv exec web node web/tools/design-screenshots.mjs http://127.0.0.1:4191 previews design-pass-before
@@ -16,7 +16,15 @@ if (origin.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes
     origin.username || origin.password || origin.pathname !== '/' || origin.search || origin.hash ||
     !/^[a-zA-Z0-9_-]+$/.test(prefix)) throw new Error('Use a plain loopback HTTP origin and a filename-safe prefix.');
 
-const pages = { home: '/', events: '/events/', newsletter: '/newsletter/', archive: '/shows-archive/', shop: '/merchandise/', donate: '/donate/' };
+let pages = { home: '/', events: '/events/', newsletter: '/newsletter/', archive: '/shows-archive/', shop: '/merchandise/', donate: '/donate/' };
+// SHOT_PAGES="news=/news/,post=/news/some-slug/" replaces the page list (names are filename-safe, paths start with one slash).
+if (process.env.SHOT_PAGES) {
+  pages = Object.fromEntries(process.env.SHOT_PAGES.split(',').map(entry => {
+    const [name, path, ...extra] = entry.split('=');
+    if (extra.length || !/^[a-zA-Z0-9_-]+$/.test(name ?? '') || !/^\/(?!\/)[a-zA-Z0-9/_?=&.-]*$/.test(path ?? '')) throw new Error('SHOT_PAGES needs name=/path pairs.');
+    return [name, path];
+  }));
+}
 const widths = { desktop: 1280, tablet: 901, mobile: 375, narrow: 320 };
 const profile = mkdtempSync(join(tmpdir(), 'terrace-shots-'));
 mkdirSync(outDir, { recursive: true });
