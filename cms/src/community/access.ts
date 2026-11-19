@@ -64,14 +64,19 @@ export async function joinedGroups(req: PayloadRequest): Promise<number[]> {
     where: { member: { equals: id } }, limit: 101,
   })
   if (result.totalDocs > 100) throw new Error('Group membership limit exceeded.')
-  return result.docs.map((doc) => relationId(doc.group)).filter((value): value is number => value !== null)
+  const ids = result.docs.map((doc) => relationId(doc.group)).filter((value): value is number => value !== null)
+  if (!ids.length) return ids
+  // A group hidden by moderation or offboarding no longer opens its stories to members.
+  const open = await req.payload.find({ collection: 'member-groups', req, overrideAccess: true, depth: 0, pagination: false, where: { and: [{ id: { in: ids } }, visible] } })
+  return open.docs.map((doc) => Number(doc.id))
 }
 
 export const readableStories: Access = async ({ req }) => {
   const id = memberId(req)
   if (!id) return false
   const groups = await joinedGroups(req)
-  const or: Where[] = [{ audience: { equals: 'community' } }, { author: { equals: id } }]
+  // An author keeps their own community stories; group stories need the group to be open and joined.
+  const or: Where[] = [{ audience: { equals: 'community' } }]
   if (groups.length) or.push({ group: { in: groups } })
   return { and: [visible, { or }] }
 }

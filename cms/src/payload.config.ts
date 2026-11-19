@@ -26,6 +26,8 @@ if (!process.env.PAYLOAD_SECRET || !process.env.DATABASE_URI) {
 export default buildConfig({
   secret: process.env.PAYLOAD_SECRET,
   serverURL: origin,
+  // Defense in depth: nothing here uses GraphQL, and the REST routes carry the access rules we test.
+  graphQL: { disable: true },
   admin: { user: Users.slug, importMap: { baseDir: path.resolve(dirname) }, components: {
     beforeLogin: ['/components/EditorialLogin#EditorialLogin'], logout: { Button: '/components/EditorialLogin#EditorialLogout' },
   } },

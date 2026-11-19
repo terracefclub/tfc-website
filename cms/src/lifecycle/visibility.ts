@@ -1,15 +1,18 @@
-import type { Field, Payload, Where } from 'payload'
+import type { Field, Payload, PayloadRequest, Where } from 'payload'
 import { isMember as isStaff } from '../access/rules'
 
 /**
- * Hidden content is retained but excluded from every member view. `hiddenReason` is set only by
- * lifecycle code (moderation hide, offboarding); members and editors cannot write it directly.
+ * Content can be hidden for two independent reasons that never interfere: its owner was offboarded
+ * (`offboardHiddenAt`) or a moderator hid it (`moderationHiddenAt`). It is visible to members only
+ * when both are empty, so clearing one reason can never expose content still hidden for the other.
+ * Only lifecycle code writes these fields.
  */
-export const visible: Where = { hiddenReason: { exists: false } }
+export const visible: Where = { and: [{ offboardHiddenAt: { exists: false } }, { moderationHiddenAt: { exists: false } }] }
 
+const staffOnly = { create: () => false, update: () => false, read: ({ req }: { req: { user?: unknown } }) => isStaff(req.user) }
 export const hiddenFields: Field[] = [
-  { name: 'hiddenReason', type: 'select', options: ['moderation', 'offboarded'], admin: { readOnly: true, position: 'sidebar' }, access: { create: () => false, update: () => false, read: ({ req }) => isStaff(req.user) } },
-  { name: 'hiddenAt', type: 'date', admin: { readOnly: true, position: 'sidebar' }, access: { create: () => false, update: () => false, read: ({ req }) => isStaff(req.user) } },
+  { name: 'offboardHiddenAt', type: 'date', admin: { readOnly: true, position: 'sidebar' }, access: staffOnly },
+  { name: 'moderationHiddenAt', type: 'date', admin: { readOnly: true, position: 'sidebar' }, access: staffOnly },
 ]
 
 export const hideTargets = {
@@ -22,38 +25,45 @@ export const hideTargets = {
 export type HideCollection = keyof typeof hideTargets
 
 type Pool = { query: (text: string, values?: unknown[]) => Promise<{ rowCount: number | null; rows: Array<Record<string, unknown>> }> }
-export const pool = (payload: Payload): Pool => (payload.db as unknown as { pool: Pool }).pool
+/**
+ * Raw SQL on the connection that belongs to `req`'s transaction when there is one, so lifecycle
+ * changes commit or roll back together with the Payload operations around them.
+ */
+export function pool(payload: Payload, req?: Pick<PayloadRequest, 'transactionID'>): Pool {
+  const db = payload.db as unknown as { pool: Pool; sessions?: Record<string, { db: { session: { client: Pool } } }> }
+  const session = req?.transactionID ? db.sessions?.[String(req.transactionID)] : undefined
+  return session ? session.db.session.client : db.pool
+}
 
-/** Hide everything a member owns. Rows already hidden for another reason keep that reason. */
-export async function hideMemberContent(payload: Payload, memberId: number): Promise<number> {
+const owned = (owners: readonly string[]) => owners.map((column) => `${column} = $1`).join(' OR ')
+
+/** Hide everything a member owns because they were offboarded. */
+export async function hideMemberContent(payload: Payload, memberId: number, req?: PayloadRequest): Promise<number> {
   let count = 0
   for (const { table, owners } of Object.values(hideTargets)) {
-    const owned = owners.map((column) => `${column} = $1`).join(' OR ')
-    const result = await pool(payload).query(`UPDATE ${table} SET hidden_reason = 'offboarded', hidden_at = now() WHERE (${owned}) AND hidden_reason IS NULL`, [memberId])
-    count += result.rowCount ?? 0
+    count += (await pool(payload, req).query(`UPDATE ${table} SET offboard_hidden_at = now() WHERE (${owned(owners)}) AND offboard_hidden_at IS NULL`, [memberId])).rowCount ?? 0
   }
   return count
 }
 
-/** Undo only the offboarding hide. Moderation hides stay in force. */
-export async function restoreMemberContent(payload: Payload, memberId: number): Promise<number> {
+/** Undo only the offboarding reason. Anything a moderator hid stays hidden. */
+export async function restoreMemberContent(payload: Payload, memberId: number, req?: PayloadRequest): Promise<number> {
   let count = 0
   for (const { table, owners } of Object.values(hideTargets)) {
-    const owned = owners.map((column) => `${column} = $1`).join(' OR ')
-    const result = await pool(payload).query(`UPDATE ${table} SET hidden_reason = NULL, hidden_at = NULL WHERE (${owned}) AND hidden_reason = 'offboarded'`, [memberId])
-    count += result.rowCount ?? 0
+    // A conversation with another offboarded member stays hidden.
+    const other = table === 'mentorship_requests' ? ` AND NOT EXISTS (SELECT 1 FROM members m WHERE m.id IN (requester_id, mentor_id) AND m.id <> $1 AND m.status <> 'active')` : ''
+    count += (await pool(payload, req).query(`UPDATE ${table} SET offboard_hidden_at = NULL WHERE (${owned(owners)}) AND offboard_hidden_at IS NOT NULL${other}`, [memberId])).rowCount ?? 0
   }
   return count
 }
 
-export async function hideTarget(payload: Payload, collection: HideCollection, id: number): Promise<boolean> {
+export async function hideTarget(payload: Payload, collection: HideCollection, id: number, req?: PayloadRequest): Promise<boolean> {
   const { table } = hideTargets[collection]
-  const result = await pool(payload).query(`UPDATE ${table} SET hidden_reason = 'moderation', hidden_at = now() WHERE id = $1 AND hidden_reason IS NULL`, [id])
-  return (result.rowCount ?? 0) > 0
+  return ((await pool(payload, req).query(`UPDATE ${table} SET moderation_hidden_at = now() WHERE id = $1 AND moderation_hidden_at IS NULL`, [id])).rowCount ?? 0) > 0
 }
 
-export async function unhideTarget(payload: Payload, collection: HideCollection, id: number): Promise<boolean> {
+/** Undo only the moderation reason; an offboarded owner's content stays hidden. */
+export async function unhideTarget(payload: Payload, collection: HideCollection, id: number, req?: PayloadRequest): Promise<boolean> {
   const { table } = hideTargets[collection]
-  const result = await pool(payload).query(`UPDATE ${table} SET hidden_reason = NULL, hidden_at = NULL WHERE id = $1 AND hidden_reason = 'moderation'`, [id])
-  return (result.rowCount ?? 0) > 0
+  return ((await pool(payload, req).query(`UPDATE ${table} SET moderation_hidden_at = NULL WHERE id = $1 AND moderation_hidden_at IS NOT NULL`, [id])).rowCount ?? 0) > 0
 }

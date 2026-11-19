@@ -6,7 +6,7 @@ export type MemberRole = typeof memberRoles[number]
 export function isMember(req: Pick<PayloadRequest, 'user'>): boolean {
   const user = req.user as unknown as { collection?: string; id?: unknown; roles?: unknown; status?: unknown } | null
   const status = user?.status
-  return user?.collection === 'members' && (status === undefined || status === 'active') && Number.isSafeInteger(user.id) && Number(user.id) > 0 &&
+  return user?.collection === 'members' && status === 'active' && Number.isSafeInteger(user.id) && Number(user.id) > 0 &&
     Array.isArray(user.roles) && user.roles.some((role) => memberRoles.includes(role))
 }
 

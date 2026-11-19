@@ -84,3 +84,8 @@ test('Keycloak failures surface without request details', async () => {
   expect(failure).toBeInstanceOf(Error)
   expect((failure as Error).message).toBe('Keycloak request failed (500).')
 })
+
+test('the operator CLI never follows redirects when it authenticates or calls the admin API', async () => {
+  const source = await Bun.file(new URL('../tools/provision-member.ts', import.meta.url)).text()
+  expect(source.match(/redirect: 'error'/g)?.length).toBe(2)
+})

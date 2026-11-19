@@ -9,7 +9,7 @@ import { hideMemberContent, restoreMemberContent } from './visibility'
  */
 export async function offboardMember(payload: Payload, memberId: number, notice: { email?: string | null; reason?: string | null; graceEndsAt: string }, req?: PayloadRequest) {
   await payload.update({ collection: 'members', id: memberId, data: { status: 'offboarded', statusChangedAt: new Date().toISOString() }, overrideAccess: true, req })
-  const hidden = await hideMemberContent(payload, memberId)
+  const hidden = await hideMemberContent(payload, memberId, req)
   await enqueueMessage(payload, {
     kind: 'offboarding', recipientEmail: notice.email, recipientLabel: `Member #${memberId}`,
     subject: 'Your Terrace membership has ended',
@@ -20,5 +20,5 @@ export async function offboardMember(payload: Payload, memberId: number, notice:
 
 export async function restoreMember(payload: Payload, memberId: number, req?: PayloadRequest) {
   await payload.update({ collection: 'members', id: memberId, data: { status: 'active', statusChangedAt: new Date().toISOString() }, overrideAccess: true, req })
-  return { restored: await restoreMemberContent(payload, memberId) }
+  return { restored: await restoreMemberContent(payload, memberId, req) }
 }

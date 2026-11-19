@@ -1,5 +1,5 @@
 import type { Payload, PayloadRequest } from 'payload'
-import { enqueueMessage, publicOrigin } from './outbox'
+import { deliveryConfig, enqueueMessage } from './outbox'
 import { invitationTtlMs, type GrantRole } from './policy'
 import { hashToken, newToken, tokenShape } from './tokens'
 import { pool } from './visibility'
@@ -13,6 +13,7 @@ type Application = { id: number | string; name: string; contactEmail: string; gr
  */
 export async function issueInvitation(payload: Payload, application: Application, req?: PayloadRequest): Promise<{ token: string; invitationId: number }> {
   if (application.grantRole !== 'current-member' && application.grantRole !== 'alumni') throw new Error('Choose the role this invitation grants.')
+  const { origin } = deliveryConfig()
   const token = newToken()
   const expiresAt = new Date(Date.now() + invitationTtlMs())
   const invitation = await payload.create({
@@ -23,7 +24,7 @@ export async function issueInvitation(payload: Payload, application: Application
     kind: 'invitation', recipientEmail: application.contactEmail, recipientLabel: application.name,
     subject: 'Your Terrace invitation',
     body: `Your Terrace application was approved. An invitation was issued and expires ${expiresAt.toISOString().slice(0, 10)}. The one-time link is delivered separately by a Terrace operator; it is not stored in this record.`,
-    mirrorBody: `Your Terrace application was approved.\nOpen this one-time link before ${expiresAt.toISOString().slice(0, 10)}:\n${publicOrigin()}/join/${token}\n`,
+    mirrorBody: `Your Terrace application was approved.\nOpen this one-time link before ${expiresAt.toISOString().slice(0, 10)}:\n${origin}/join/#${token}\n`,
   }, req)
   return { token, invitationId: Number(invitation.id) }
 }

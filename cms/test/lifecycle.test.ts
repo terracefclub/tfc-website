@@ -128,7 +128,7 @@ test('approval records the reviewer, needs a role, and issues a hashed single-us
   const messages = mirror().slice(before)
   expect(messages).toHaveLength(1)
   expect(messages[0].kind).toBe('invitation')
-  token = /\/join\/([A-Za-z0-9_-]{43})/.exec(messages[0].body)![1]
+  token = /\/join\/#([A-Za-z0-9_-]{43})/.exec(messages[0].body)![1]
   const row = (await q(`SELECT token_hash FROM member_invitations WHERE id = $1`, [invitationId])).rows[0]
   expect(row.token_hash).toBe(createHash('sha256').update(token).digest('hex'))
   expect(row.token_hash).toHaveLength(64)
@@ -264,7 +264,7 @@ test('only administrators can offboard; offboarding hides content, blocks access
   expect(await view('mentorship-offers')).not.toContain(offer.id)
   expect(await view('mentorship-requests')).not.toContain(mentorRequest.id)
   await expect(payload.findByID({ collection: 'member-stories', id: story.id, user: alice, overrideAccess: false })).rejects.toThrow()
-  expect((await payload.findByID({ collection: 'member-stories', id: story.id, overrideAccess: true })).hiddenReason).toBe('offboarded')
+  expect((await payload.findByID({ collection: 'member-stories', id: story.id, overrideAccess: true })).offboardHiddenAt).toBeTruthy()
   // A second offboarding of an inactive member is refused.
   await expect(payload.create({ collection: 'member-offboardings', data: { member: bob.id }, user: admin, overrideAccess: false })).rejects.toThrow()
   // Restoring inside the grace period reverses it.
@@ -315,12 +315,12 @@ test('hiding removes content from member views but retains it; dismissing restor
   }
   await expect(payload.findByID({ collection: 'member-stories', id: story.id, user: bob, overrideAccess: false })).rejects.toThrow()
   await expect(payload.update({ collection: 'member-stories', id: story.id, data: { body: 'Edited while hidden.' }, user: bob, overrideAccess: false })).rejects.toThrow()
-  expect((await payload.findByID({ collection: 'member-stories', id: story.id, overrideAccess: true })).hiddenReason).toBe('moderation')
+  expect((await payload.findByID({ collection: 'member-stories', id: story.id, overrideAccess: true })).moderationHiddenAt).toBeTruthy()
   // Offboarding then restoring Bob must not un-hide moderation-hidden content.
   const offboarding = await payload.create({ collection: 'member-offboardings', data: { member: bob.id }, user: admin, overrideAccess: false })
   trash.unshift({ collection: 'member-offboardings', id: offboarding.id } as any)
   await payload.update({ collection: 'member-offboardings', id: offboarding.id, data: { state: 'restored' }, user: admin, overrideAccess: false })
-  expect((await payload.findByID({ collection: 'member-stories', id: story.id, overrideAccess: true })).hiddenReason).toBe('moderation')
+  expect((await payload.findByID({ collection: 'member-stories', id: story.id, overrideAccess: true })).moderationHiddenAt).toBeTruthy()
   await expect(payload.update({ collection: 'moderation-reports', id: report.id, data: { status: 'resolved' }, user: editor, overrideAccess: false })).rejects.toThrow()
   await payload.update({ collection: 'moderation-reports', id: report.id, data: { status: 'dismissed' }, user: editor, overrideAccess: false })
   expect((await payload.find({ collection: 'member-stories', user: alice, overrideAccess: false })).docs.map((doc) => doc.id)).toContain(story.id)
@@ -422,7 +422,7 @@ test('the sweep expires stale invitations, reports content past its grace period
   const { invitationId: staleId } = await issueInvitation(payload, application as any)
   await q(`UPDATE member_invitations SET expires_at = now() - interval '1 hour' WHERE id = $1`, [staleId])
   const old = await as('member-stories', { title: 'Old hidden', body: 'x', audience: 'community' }, bob)
-  await q(`UPDATE member_stories SET hidden_reason = 'moderation', hidden_at = now() - interval '400 days' WHERE id = $1`, [old.id])
+  await q(`UPDATE member_stories SET moderation_hidden_at = now() - interval '400 days' WHERE id = $1`, [old.id])
   const first = await sweep(payload)
   expect(first.invitationsExpired).toBeGreaterThanOrEqual(1)
   expect((await payload.findByID({ collection: 'member-invitations', id: staleId, overrideAccess: true })).status).toBe('expired')

@@ -6,7 +6,7 @@ import { issueInvitation } from './invitations'
 import { eraseMember } from './erasure'
 import { graceMs } from './policy'
 import { offboardMember, restoreMember } from './offboarding'
-import { hideTarget, unhideTarget, type HideCollection } from './visibility'
+import { hideTarget, pool, unhideTarget, type HideCollection } from './visibility'
 
 const staff: Access = ({ req }) => isStaff(req.user)
 const never: Access = () => false
@@ -41,8 +41,15 @@ export const MemberApplications: CollectionConfig = {
       if (status === 'approved' && grantRole !== 'current-member' && grantRole !== 'alumni') throw new APIError('Choose the role to grant before approving.', 400)
       return { ...originalDoc, status, grantRole, decisionNote: data?.decisionNote ?? originalDoc.decisionNote, member: data?.member ?? originalDoc.member }
     }],
-    beforeChange: [({ data, operation, originalDoc, req }) => {
-      if (operation === 'update' && originalDoc.status === 'pending' && data.status !== 'pending') return { ...data, reviewer: reviewer(req), decidedAt: new Date().toISOString() }
+    beforeChange: [async ({ data, operation, originalDoc, req }) => {
+      if (operation === 'update' && originalDoc.status === 'pending' && data.status !== 'pending') {
+        const by = reviewer(req)
+        // Take the row lock and re-check the status. A concurrent decision waits here, then finds the
+        // application already decided and is refused, so one application never yields two outcomes.
+        const claimed = await pool(req.payload, req).query(`UPDATE member_applications SET updated_at = updated_at WHERE id = $1 AND status = 'pending' RETURNING id`, [originalDoc.id])
+        if (!claimed.rows.length) throw new APIError('This application was already decided.', 409)
+        return { ...data, reviewer: by, decidedAt: new Date().toISOString() }
+      }
       return data
     }],
     afterChange: [async ({ doc, previousDoc, operation, req }) => {
@@ -65,8 +72,8 @@ export const MemberApplications: CollectionConfig = {
     { name: 'note', type: 'textarea', maxLength: 1000, admin: readOnly },
     { name: 'status', type: 'select', required: true, defaultValue: 'pending', options: ['pending', 'approved', 'denied', 'withdrawn'], admin: { ...sidebar, description: 'Approving issues an invitation; it does not create a sign-in account.' } },
     { name: 'grantRole', type: 'select', options: ['current-member', 'alumni'], admin: { ...sidebar, description: 'Required to approve.' } },
-    { name: 'decisionNote', type: 'textarea', maxLength: 500 },
-    { name: 'reviewer', type: 'relationship', relationTo: 'users', admin: { ...readOnly, ...sidebar } },
+    { name: 'decisionNote', type: 'textarea', maxLength: 500, access: { read: ({ req }) => isStaff(req.user) } },
+    { name: 'reviewer', type: 'relationship', relationTo: 'users', admin: { ...readOnly, ...sidebar }, access: { read: ({ req }) => isStaff(req.user) } },
     { name: 'decidedAt', type: 'date', admin: { ...readOnly, ...sidebar } },
     { name: 'member', type: 'relationship', relationTo: 'members', admin: { ...sidebar, description: 'Optional link to the applicant\'s member record after first sign-in. Lets the member read this application.' }, access: { read: ({ req }) => isAdmin(req.user), create: fieldNever, update: ({ req }) => isAdmin(req.user) } },
   ],
@@ -102,7 +109,7 @@ export const MessageOutbox: CollectionConfig = {
   access: { create: fieldNever, read: adminOnly, update: adminOnly, delete: fieldNever },
   hooks: { beforeValidate: [({ data, operation, originalDoc }) => operation === 'update' ? { ...originalDoc, status: data?.status ?? originalDoc.status } : data] },
   fields: [
-    { name: 'kind', type: 'select', required: true, options: ['invitation', 'denial', 'offboarding', 'erasure-confirmation'], admin: readOnly },
+    { name: 'kind', type: 'select', required: true, options: ['invitation', 'denial', 'offboarding', 'erasure-confirmation', 'staff-notice'], admin: readOnly },
     { name: 'recipientLabel', type: 'text', required: true, admin: readOnly },
     { name: 'recipientEmail', type: 'email', admin: readOnly },
     { name: 'subject', type: 'text', required: true, admin: readOnly },
@@ -174,6 +181,10 @@ export const ModerationReports: CollectionConfig = {
         return { ...originalDoc, status: to, resolutionNote: data?.resolutionNote ?? originalDoc.resolutionNote }
       }
       const reporter = memberId(req)
+      if (reporter) {
+        const recent = await req.payload.count({ collection: 'moderation-reports', where: { and: [{ reporter: { equals: reporter } }, { createdAt: { greater_than: new Date(Date.now() - 3_600_000).toISOString() } }] }, overrideAccess: true })
+        if (recent.totalDocs >= 20) throw new APIError('Please wait before sending more reports.', 429)
+      }
       const type = data?.targetType as keyof typeof targets
       const target = targets[type]
       const targetId = Number(data?.targetId)
@@ -188,12 +199,12 @@ export const ModerationReports: CollectionConfig = {
         reportKey: `${type}:${targetId}:${reporter}`, authorName: doc[target.authorName], snapshotTitle: String(target.title(doc)).slice(0, 140), snapshotBody: String(target.body(doc)).slice(0, 10000),
       }
     }],
-    beforeChange: [({ data, operation, req }) => operation === 'update' && data.status !== 'open' ? { ...data, resolver: reviewer(req), resolvedAt: new Date().toISOString() } : data],
+    beforeChange: [({ data, operation, originalDoc, req }) => operation === 'update' && data.status !== originalDoc.status ? { ...data, resolver: reviewer(req), resolvedAt: new Date().toISOString() } : data],
     afterChange: [async ({ doc, previousDoc, operation, req }) => {
       if (operation !== 'update') return doc
       const target = targets[doc.targetType as keyof typeof targets]
-      if (previousDoc?.status === 'open' && doc.status === 'hidden') await hideTarget(req.payload, target.collection as HideCollection, doc.targetId)
-      if (previousDoc?.status === 'hidden' && doc.status === 'dismissed') await unhideTarget(req.payload, target.collection as HideCollection, doc.targetId)
+      if (previousDoc?.status === 'open' && doc.status === 'hidden') await hideTarget(req.payload, target.collection as HideCollection, doc.targetId, req)
+      if (previousDoc?.status === 'hidden' && doc.status === 'dismissed') await unhideTarget(req.payload, target.collection as HideCollection, doc.targetId, req)
       return doc
     }],
   },

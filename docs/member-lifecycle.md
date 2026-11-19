@@ -25,8 +25,10 @@ bootstrap; never print or commit them):
 | Variable | Purpose |
 | --- | --- |
 | `LIFECYCLE_INTAKE_SECRET` | Shared website-to-CMS secret for apply/redeem (32+ chars). Unset means the endpoints answer 503 and `/apply/` shows "not open". |
-| `LIFECYCLE_OUTBOX_DIR` | Directory for the local file mirror of the outbox (`cms/.state/outbox`). Files are mode 0600. |
-| `LIFECYCLE_PUBLIC_ORIGIN` | Origin used in invitation links (default `http://127.0.0.1:4194`). |
+| `LIFECYCLE_OUTBOX_DIR` | **Required to approve anyone.** Directory for the file mirror of the outbox (`cms/.state/outbox` locally). It is forced to mode 0700 and files are 0600. If unset, approval fails (503) and rolls back rather than issuing an invitation nobody can see. |
+| `LIFECYCLE_PUBLIC_ORIGIN` | Origin used in invitation links. Default `http://127.0.0.1:4194` outside production; when `NODE_ENV=production` it must be an explicit public `https` origin or approval fails (503). |
+| `LIFECYCLE_APPLICATION_DAYS` | Pending applications older than this are withdrawn automatically, default 60. **[OWNER]** placeholder. |
+| `ADDRESS_HEADER`, `XFF_DEPTH` (website) | Required in production behind a proxy so the rate limit sees real client addresses (see below). Without them `/apply/` stays closed, unless `LIFECYCLE_DIRECT_CLIENTS=1` states there is no proxy. |
 | `LIFECYCLE_INVITATION_DAYS` | Invitation lifetime, default 7. **[OWNER]** placeholder. |
 | `LIFECYCLE_GRACE_DAYS` | Offboarding and moderation grace period, default 30. **[OWNER]** placeholder. |
 
@@ -35,11 +37,20 @@ bootstrap; never print or commit them):
 A visitor opens `/apply/` and gives a name, whether they are a current member or alumnus/alumna, an
 optional class year, a contact email and an optional note (1000 characters). That is all that is
 stored: no IP address, user agent or timing. The form is protected by a hidden honeypot field, a signed
-start-time token (submissions faster than 3 seconds or older than 2 hours are rejected), and an
+start-time token (submissions faster than 3 seconds or older than 30 minutes are rejected; the token is
+bound to the client address and cannot be replayed once a submission is accepted), and an
 in-memory rate limit (5 per client and 60 overall per hour; only a salted hash of the client address
 is held, for the window). A tripped honeypot looks like success; a repeat of a pending email looks
 identical to a first submission so the form cannot be used to learn who applied. The CMS caps pending
-applications at 500.
+applications at 500, withdraws pending ones nobody reviewed within `LIFECYCLE_APPLICATION_DAYS`, and adds a
+`staff-notice` to the outbox (at most one a day) when the queue passes 400 so reviewers see it filling.
+
+**Deploy requirement.** The rate limit uses the address SvelteKit's adapter-node reports. Behind a reverse
+proxy that is the proxy's address unless the website runs with `ADDRESS_HEADER=X-Forwarded-For` and
+`XFF_DEPTH` set to the number of trusted proxies (for example `1`). The application never reads
+forwarded headers itself, so a client-supplied `X-Forwarded-For` cannot choose its own bucket. In production
+the form refuses to open until `ADDRESS_HEADER` is set (or `LIFECYCLE_DIRECT_CLIENTS=1` says the server faces
+clients directly). Add these to the production environment for the website.
 
 The website calls `POST /api/lifecycle/apply` with `X-Terrace-Intake`. Applications can be created no
 other way: the collection has no create access, even for staff.
@@ -71,10 +82,12 @@ reads the mirror file and passes the link to the applicant.
 
 ## 4. Redeem and create the sign-in account
 
-The applicant opens `/join/<token>`. The page checks the token without using it up (so link scanners
-cannot burn it), then they press **Accept invitation**, which consumes it exactly once. Unknown,
-malformed, expired, revoked and already-used tokens all look the same. The page sends
-`Referrer-Policy: no-referrer` and is never cached or indexed.
+The invitation link is `/join/#<token>`. The token sits in the URL **fragment**, which browsers never send to
+the server, so it stays out of access logs, proxies and referrers; the page reads it in the browser, removes
+it from the address bar and posts it in a request body when the applicant presses **Accept invitation**
+(without script there is a field to paste it). Opening the page, as a link scanner does, uses nothing up.
+Redemption consumes the token exactly once. Unknown, malformed, expired, revoked and already-used tokens
+all look the same. The page sends `Referrer-Policy: no-referrer` and is never cached or indexed.
 
 Redeeming does not create the Keycloak user and does not weaken the approval gate: a signed-in
 account still needs a realm role. The operator creates it, repeatably:
@@ -116,9 +129,13 @@ KEYCLOAK_HTTP_PORT=8190 direnv exec identity bun identity/tools/provision-member
 
 This removes member roles, disables the account and ends live sessions. It is safe to repeat.
 
+Offboarding and moderation hide content for two **independent** reasons (`offboardHiddenAt`,
+`moderationHiddenAt`). Content is visible only when neither is set, so restoring a member never reveals
+something a moderator hid, and dismissing a report never reveals an offboarded member's content. A
+conversation with another offboarded member stays hidden until both are restored.
+
 **Grace period.** The record carries `graceEndsAt` (`LIFECYCLE_GRACE_DAYS`, default 30, **[OWNER]**).
-Within it, setting the state to `restored` re-activates the member and un-hides only what offboarding
-hid (content hidden by moderation stays hidden); then re-run `provision` for the realm. After it, restore
+Within it, setting the state to `restored` re-activates the member and clears only the offboarding reason; then re-run `provision` for the realm. After it, restore
 is refused. Nothing is deleted automatically; see Erase.
 
 ## 6. Moderation
@@ -131,7 +148,9 @@ editors and administrators, and the reporter's identity is not exposed to editor
 
 In **Moderation reports**, an editor or administrator sets the status: `hidden` removes the content from
 every member view (including the author's) but keeps it; `dismissed` (from `hidden`) restores it;
-`resolved` records review with no visibility change. The resolver and time are recorded.
+`resolved` records review with no visibility change. The resolver and time are recorded when the status
+changes, not on later edits. A hidden group also stops opening its stories to members, and authors cannot
+delete their own content while it is hidden, so evidence is kept. Members may file at most 20 reports an hour.
 The older `story-reports` collection remains for existing data but the website no longer writes to it.
 
 **[OWNER]** moderation owner and backup, response targets, appeal process.
@@ -142,21 +161,28 @@ On **My data** (`/members/account/`) a signed-in member can download a JSON file
 profile, mentorship offer, stories, founded groups, group memberships, mentorship requests they sent,
 replies they gave, and any application or invitation linked to them. It is built on the server, filtered
 by their member id (not merely by access rules), streamed back over the authenticated session with
-`Cache-Control: no-store`, and **never emailed or stored**. It excludes identity fields, other people's
-writing and hidden content. The CMS records only that an export happened (an audit row without content).
+`Cache-Control: no-store`, and **never emailed or stored**. It includes content a moderator hid (flagged `hiddenByModeration`), and excludes identity fields and other
+people's writing. Each list is capped at 2000 records; a longer list is cut and named in `truncated` rather
+than silently shortened. At most 5 exports an hour; the POST also checks its `Origin` header. The CMS records only that an export happened (an audit row without content).
 
 ## 8. Erase
 
 * **Member-initiated, two steps.** *Start erasure* issues a single-use 15-minute confirmation code (only its
   hash is stored); the member then types "erase my data" to confirm. Nothing changes before step two.
-  On success the session ends.
+  Step two runs in **one database transaction** that also claims the code: if anything fails, everything
+  rolls back, nothing is erased and the code still works. On success the session ends.
 * **Administrator-initiated.** Only for a member who is already offboarded: create a **Data requests**
   record of kind `erasure`.
 
 Policy applied by `cms/src/lifecycle/erasure.ts`: deleted are the profile, mentorship offer, group
 memberships and authored stories. Anonymised in place (so other people's conversations stay coherent) are
-mentorship requests sent or received and the founder name on groups they founded; moderation snapshots of
-their content are blanked; a linked application is anonymised. The member row becomes a tombstone (status
+mentorship requests sent or received and the founder name on groups they founded. Scrubbed: moderation
+snapshots, reporter text and resolution notes about them; legacy story reports about their stories; the
+reports they filed; the offboarding reason and notice address; applications and decision notes, found by
+member link, through their invitations and by contact email; and the recipient columns of outbox messages
+addressed to them (rows stay, the personal columns are redacted, and matching local mirror files are
+rewritten). Because applications are found through those links, **link the application or invitation to the
+member before erasing** when you can; an unlinked, never-invited application cannot be tied to a person. The member row becomes a tombstone (status
 `erased`, no roles, name and OIDC subject wiped) keeping only the one-way identity hash so a still-live
 realm account cannot re-enter. A confirmation is appended to the outbox. The operator then runs
 `provision-member.ts offboard` for the realm user. **[OWNER]** whether tombstones, moderation records
@@ -169,8 +195,9 @@ cd cms && direnv exec . tools/with-local bun run lifecycle:sweep               #
 cd cms && direnv exec . tools/with-local bun run lifecycle:sweep -- --purge-moderated
 ```
 
-The sweep expires stale invitations and reports content past its grace period. It deletes
-moderation-hidden content only with `--purge-moderated`; offboarded members are never erased
+The sweep expires stale invitations, withdraws unreviewed applications and reports content past its grace period. It deletes
+moderation-hidden content only with `--purge-moderated` (in one transaction, memberships and stories of a
+purged group first); offboarded members are never erased
 automatically. **[OWNER]** retention periods before a scheduled run is added.
 
 ## Permissions summary

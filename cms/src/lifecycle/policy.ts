@@ -10,6 +10,8 @@ function days(name: string, fallback: number): number {
 
 const DAY = 86_400_000
 export const invitationTtlMs = () => days('LIFECYCLE_INVITATION_DAYS', 7) * DAY
+/** Pending applications older than this are withdrawn automatically so the queue cannot be filled and left full. */
+export const applicationTtlMs = () => days('LIFECYCLE_APPLICATION_DAYS', 60) * DAY
 export const graceMs = () => days('LIFECYCLE_GRACE_DAYS', 30) * DAY
 /** The in-session erasure confirmation window. A security timeout, not a retention period. */
 export const erasureConfirmMs = 15 * 60_000

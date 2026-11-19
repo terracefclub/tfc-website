@@ -2163,15 +2163,14 @@
           "notNull": true,
           "default": false
         },
-        "hidden_reason": {
-          "name": "hidden_reason",
-          "type": "enum_member_profiles_hidden_reason",
-          "typeSchema": "public",
+        "offboard_hidden_at": {
+          "name": "offboard_hidden_at",
+          "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
-        "hidden_at": {
-          "name": "hidden_at",
+        "moderation_hidden_at": {
+          "name": "moderation_hidden_at",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": false
@@ -2307,15 +2306,14 @@
           "primaryKey": false,
           "notNull": false
         },
-        "hidden_reason": {
-          "name": "hidden_reason",
-          "type": "enum_member_stories_hidden_reason",
-          "typeSchema": "public",
+        "offboard_hidden_at": {
+          "name": "offboard_hidden_at",
+          "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
-        "hidden_at": {
-          "name": "hidden_at",
+        "moderation_hidden_at": {
+          "name": "moderation_hidden_at",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": false
@@ -2589,15 +2587,14 @@
           "primaryKey": false,
           "notNull": true
         },
-        "hidden_reason": {
-          "name": "hidden_reason",
-          "type": "enum_member_groups_hidden_reason",
-          "typeSchema": "public",
+        "offboard_hidden_at": {
+          "name": "offboard_hidden_at",
+          "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
-        "hidden_at": {
-          "name": "hidden_at",
+        "moderation_hidden_at": {
+          "name": "moderation_hidden_at",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": false
@@ -2880,15 +2877,14 @@
           "primaryKey": false,
           "notNull": false
         },
-        "hidden_reason": {
-          "name": "hidden_reason",
-          "type": "enum_mentorship_offers_hidden_reason",
-          "typeSchema": "public",
+        "offboard_hidden_at": {
+          "name": "offboard_hidden_at",
+          "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
-        "hidden_at": {
-          "name": "hidden_at",
+        "moderation_hidden_at": {
+          "name": "moderation_hidden_at",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": false
@@ -3036,15 +3032,14 @@
           "primaryKey": false,
           "notNull": true
         },
-        "hidden_reason": {
-          "name": "hidden_reason",
-          "type": "enum_mentorship_requests_hidden_reason",
-          "typeSchema": "public",
+        "offboard_hidden_at": {
+          "name": "offboard_hidden_at",
+          "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
-        "hidden_at": {
-          "name": "hidden_at",
+        "moderation_hidden_at": {
+          "name": "moderation_hidden_at",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": false
@@ -5589,28 +5584,12 @@
         "302"
       ]
     },
-    "public.enum_member_profiles_hidden_reason": {
-      "name": "enum_member_profiles_hidden_reason",
-      "schema": "public",
-      "values": [
-        "moderation",
-        "offboarded"
-      ]
-    },
     "public.enum_member_stories_audience": {
       "name": "enum_member_stories_audience",
       "schema": "public",
       "values": [
         "community",
         "group"
-      ]
-    },
-    "public.enum_member_stories_hidden_reason": {
-      "name": "enum_member_stories_hidden_reason",
-      "schema": "public",
-      "values": [
-        "moderation",
-        "offboarded"
       ]
     },
     "public.enum_story_reports_reason": {
@@ -5630,22 +5609,6 @@
         "reviewed"
       ]
     },
-    "public.enum_member_groups_hidden_reason": {
-      "name": "enum_member_groups_hidden_reason",
-      "schema": "public",
-      "values": [
-        "moderation",
-        "offboarded"
-      ]
-    },
-    "public.enum_mentorship_offers_hidden_reason": {
-      "name": "enum_mentorship_offers_hidden_reason",
-      "schema": "public",
-      "values": [
-        "moderation",
-        "offboarded"
-      ]
-    },
     "public.enum_mentorship_requests_status": {
       "name": "enum_mentorship_requests_status",
       "schema": "public",
@@ -5653,14 +5616,6 @@
         "pending",
         "accepted",
         "declined"
-      ]
-    },
-    "public.enum_mentorship_requests_hidden_reason": {
-      "name": "enum_mentorship_requests_hidden_reason",
-      "schema": "public",
-      "values": [
-        "moderation",
-        "offboarded"
       ]
     },
     "public.enum_member_applications_affiliation": {
@@ -5714,7 +5669,8 @@
         "invitation",
         "denial",
         "offboarding",
-        "erasure-confirmation"
+        "erasure-confirmation",
+        "staff-notice"
       ]
     },
     "public.enum_message_outbox_status": {
@@ -5799,6 +5755,6 @@
     "tables": {},
     "columns": {}
   },
-  "id": "9895b2b2-0383-4776-9de0-5dd08e7aac60",
+  "id": "5bdaa2a8-cf68-4fcf-8aed-a715388b4cb4",
   "prevId": "00000000-0000-0000-0000-000000000000"
 }

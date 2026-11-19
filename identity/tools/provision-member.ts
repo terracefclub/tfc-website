@@ -26,7 +26,7 @@ const port = Number(args.port ?? process.env.KEYCLOAK_HTTP_PORT ?? 8184)
 const origin = assertLoopbackOrigin(keycloakOrigin(port))
 
 const login = await fetch(`${origin}/realms/master/protocol/openid-connect/token`, {
-  method: 'POST', body: new URLSearchParams({ grant_type: 'password', client_id: 'admin-cli', username: 'terrace-local-admin', password: adminPassword }), signal: AbortSignal.timeout(5000),
+  method: 'POST', redirect: 'error', body: new URLSearchParams({ grant_type: 'password', client_id: 'admin-cli', username: 'terrace-local-admin', password: adminPassword }), signal: AbortSignal.timeout(5000),
 })
 if (!login.ok) throw new Error('Could not authenticate to the local Keycloak; nothing was changed.')
 const { access_token: token } = await login.json() as { access_token: string }

@@ -19,7 +19,7 @@ export const MemberProfiles: CollectionConfig = {
       const id = memberId(req)
       return id ? { and: [visible, { or: [{ member: { equals: id } }, { directoryVisible: { equals: true } }] }] } : false
     },
-    update: ownVisible('member'), delete: own('member'),
+    update: ownVisible('member'), delete: ownVisible('member'),
   },
   hooks: { beforeValidate: [keepOwner('member')] },
   fields: [
@@ -33,7 +33,7 @@ export const MemberProfiles: CollectionConfig = {
 
 export const MemberStories: CollectionConfig = {
   slug: 'member-stories', admin: hiddenAdmin,
-  access: { create: membersOnly, read: readableStories, update: ownVisible('author'), delete: own('author') },
+  access: { create: membersOnly, read: readableStories, update: ownVisible('author'), delete: ownVisible('author') },
   hooks: { beforeValidate: [keepOwner('author'), ({ data, req, operation, originalDoc }) => ({ ...data, authorName: operation === 'create' ? memberName(req) : originalDoc?.authorName })], beforeChange: [storyAudience] },
   fields: [
     member('author'), text('authorName', 100, true), text('title', 140, true), text('body', 10000, true, 'textarea'),
@@ -126,7 +126,7 @@ export const MentorshipOffers: CollectionConfig = {
       const id = memberId(req)
       return id ? { and: [visible, { or: [{ member: { equals: id } }, { optIn: { equals: true } }] }] } : false
     },
-    update: ownVisible('member'), delete: own('member'),
+    update: ownVisible('member'), delete: ownVisible('member'),
   },
   hooks: { beforeValidate: [keepOwner('member')] },
   fields: [
@@ -144,7 +144,7 @@ export const MentorshipRequests: CollectionConfig = {
       const id = memberId(req)
       return id ? { and: [visible, { or: [{ requester: { equals: id } }, { mentor: { equals: id } }] }] } : false
     },
-    update: ownVisible('mentor'), delete: own('requester'),
+    update: ownVisible('mentor'), delete: ownVisible('requester'),
   },
   hooks: { beforeValidate: [keepOwner('requester'), async ({ data, req, operation, originalDoc }) => {
     if (operation === 'update') {
