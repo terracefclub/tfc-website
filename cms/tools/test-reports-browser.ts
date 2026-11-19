@@ -107,7 +107,20 @@ try {
   const snapshot = (await queued.json()).docs[0]
   reportId = snapshot?.id
   assert(snapshot?.snapshotTitle === title && snapshot?.reason === 'privacy' && snapshot?.status === 'open', 'Wrong report snapshot')
-  assert(!snapshot.reportKey && !('reporter' in snapshot), 'Reporter identity exposed')
+  assert(!snapshot.reportKey && !('reporter' in snapshot) && !('targetAuthor' in snapshot), 'Reporter or target author identity exposed')
+
+  stage = 'member and anonymous queue denial'
+  // The reporter's browser context holds a website session, not a CMS one: the CMS must treat it, like a fresh client, as not staff.
+  const anonymous = await browser.newContext(); contexts.push(anonymous)
+  for (const [who, client] of [['reporter', reader.context().request], ['anonymous', anonymous.request]] as const) {
+    for (const path of ['/api/moderation-reports', `/api/moderation-reports/${reportId}`]) {
+      const denied = await client.get(`${cms}${path}`, { headers: { origin: cms } })
+      assert([401, 403].includes(denied.status()), `${who} could read ${path.replace(/\d+$/, ':id')} (HTTP ${denied.status()})`)
+    }
+  }
+  // The report went to the moderation queue only: no legacy story-reports row was created for this story.
+  const legacy = await admin.request.get(`${cms}/api/story-reports?where[storyId][equals]=${storyId}`, { headers: { origin: cms } })
+  assert(legacy.ok() && (await legacy.json()).totalDocs === 0, 'A legacy story-reports row was created')
 
   stage = 'ordinary editor moderation access'
   const editorContext = await browser.newContext(); contexts.push(editorContext)
@@ -125,19 +138,28 @@ try {
   const editorRead = await editorContext.request.get(`${cms}/api/moderation-reports/${reportId}`, { headers: { origin: cms } })
   assert(editorRead.ok(), `Editor could not read the moderation queue (HTTP ${editorRead.status()})`)
   const editorView = await editorRead.json()
-  assert(editorView.snapshotTitle === title && !('reporter' in editorView) && !editorView.reportKey, 'Editor sees reporter identity')
+  assert(editorView.snapshotTitle === title && !('reporter' in editorView) && !('targetAuthor' in editorView) && !editorView.reportKey, 'Editor sees reporter or target author identity')
+  // Staff may move an open report to resolved or dismissed; only the status and resolution note are writable, and a final state stays final.
+  const resolveNote = 'Reviewed by the editor.'
+  const resolved = await editorContext.request.patch(`${cms}/api/moderation-reports/${reportId}`, { headers: { origin: cms }, data: { status: 'resolved', resolutionNote: resolveNote, snapshotTitle: 'Tampered title', reason: 'other' } })
+  const resolvedBody = await resolved.json().catch(() => ({}))
+  assert(resolved.ok() && resolvedBody.doc?.status === 'resolved' && resolvedBody.doc?.resolutionNote === resolveNote, `Editor could not resolve the report (HTTP ${resolved.status()})`)
+  assert(resolvedBody.doc.snapshotTitle === title && resolvedBody.doc.reason === 'privacy', 'Editor changed a read-only report field')
+  assert(!('reporter' in resolvedBody.doc) && !('targetAuthor' in resolvedBody.doc) && !resolvedBody.doc.reportKey, 'Editor update response exposes reporter identity')
+  assert((await editorContext.request.patch(`${cms}/api/moderation-reports/${reportId}`, { headers: { origin: cms }, data: { status: 'dismissed' } })).status() === 409, 'A resolved report was moved to another state')
   assert((await editorContext.request.delete(`${cms}/api/moderation-reports/${reportId}`, { headers: { origin: cms } })).status() === 403, 'Editor delete was not denied')
   assert((await editorContext.request.get(`${cms}/api/story-reports`, { headers: { origin: cms } })).status() === 403, 'Editor listed the legacy report queue')
 
   stage = 'native reviewer interface'
   await admin.goto(`${cms}/admin/collections/moderation-reports`)
   await admin.getByRole('link', { name: title, exact: true }).click()
-  await admin.locator('#field-status').click()
-  await admin.getByRole('option', { name: 'resolved', exact: true }).click()
+  assert((await admin.locator('#field-status').textContent())?.includes('resolved'), 'Reviewer interface did not show the resolved status')
+  await admin.locator('#field-resolutionNote').fill('Confirmed in the reviewer interface.')
   await admin.getByRole('button', { name: /^save$/i }).click()
   await admin.waitForFunction(async ({ cms, id }) => {
     const response = await fetch(`${cms}/api/moderation-reports/${id}`)
-    return response.ok && (await response.json()).status === 'resolved'
+    const body = response.ok ? await response.json() : {}
+    return body.status === 'resolved' && body.resolutionNote === 'Confirmed in the reviewer interface.'
   }, { cms, id: reportId }, { timeout: 20_000 })
   count++
   await admin.reload({ waitUntil: 'networkidle' })
@@ -159,7 +181,7 @@ try {
   storyId = undefined
   const retained = await admin.request.get(`${cms}/api/moderation-reports/${reportId}`, { headers: { origin: cms } })
   assert(retained.ok() && (await retained.json()).snapshotTitle === title, 'Deleted story lost its report context')
-  console.log(`Reporting browser checks passed: ${count} assertions; member Keycloak login, ${editorialSSO ? 'editorial Keycloak SSO' : 'local password trial'}, disclosure, submission, editor moderation access without reporter identity, native reviewer UI and retained snapshot.`)
+  console.log(`Reporting browser checks passed: ${count} assertions; member Keycloak login, ${editorialSSO ? 'editorial Keycloak SSO' : 'local password trial'}, disclosure, submission, editor resolution and moderation access without reporter identity, member/anonymous denial, no legacy report row, native reviewer UI and retained snapshot.`)
 } catch (error) {
   console.error(`Reporting browser check failed at ${stage}. ${error instanceof CheckFailure ? error.message : 'Browser operation did not complete.'} Raw browser/auth errors suppressed.`)
   process.exitCode = 1

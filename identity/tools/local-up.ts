@@ -4,6 +4,7 @@ import { execFileSync, spawn } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
+import type { AppEnv } from './app-env-keys'
 import { restrictEmailEdit, type UserProfile, keycloakOrigin, realm, realmSettings, clientSettings, localClientOrigins, clientSecuritySettings, realmRoleNames, roleScopeMappings, syntheticIdentityRoles } from './realm-config'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -132,7 +133,7 @@ for (const { username, roles } of syntheticIdentityRoles) {
     await api(`realms/${realm}/users/${found[0].id}/role-mappings/realm`, 'POST', [definition])
   }
 }
-const env = {
+const env: AppEnv = {
   MEMBER_AUTH_ISSUER: `${origin}/realms/${realm}`, MEMBER_AUTH_AUDIENCE: 'terrace-community', MEMBER_AUTH_CLIENT_ID: 'terrace-web', MEMBER_AUTH_CLIENT_SECRET: credentials.webSecret,
   MEMBER_AUTH_INTROSPECTION_CLIENT_ID: 'terrace-community', MEMBER_AUTH_INTROSPECTION_SECRET: credentials.introspectionSecret,
   MEMBER_AUTH_ORIGIN: process.env.TERRACE_LOCAL_WEB_ORIGIN ? clientOrigins.webOrigins[0] : 'http://127.0.0.1:4194',

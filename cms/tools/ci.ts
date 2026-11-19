@@ -7,6 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import pg from 'pg'
 import { stopOwnedGroup } from '../../tools/release/child'
 import { expectedMigrationNames, ledgerMatches } from '../../tools/release/migrations'
+import { assertSweepSummary } from '../../tools/release/sweep-summary'
 
 const env: NodeJS.ProcessEnv = {
   PATH: process.env.PATH,
@@ -26,13 +27,16 @@ const env: NodeJS.ProcessEnv = {
 }
 mkdirSync('.state/media', { recursive: true })
 
-async function run(command: string, args: string[], extraEnv: Record<string, string> = {}, timeout = 900000) {
-  const child = spawn(command, args, { stdio: 'inherit', env: { ...env, ...extraEnv }, detached: true })
+async function run(command: string, args: string[], extraEnv: Record<string, string> = {}, timeout = 900000, capture = false): Promise<string> {
+  const child = spawn(command, args, { stdio: ['inherit', capture ? 'pipe' : 'inherit', 'inherit'], env: { ...env, ...extraEnv }, detached: true })
+  let output = ''
+  child.stdout?.on('data', data => { if (output.length < 65536) output += data })
   let timedOut = false
   const timer = setTimeout(() => { timedOut = true; if (child.pid) void stopOwnedGroup(child.pid) }, timeout)
   try {
     const code = await new Promise<number | null>((resolve, reject) => { child.once('exit', resolve); child.once('error', reject) })
     if (code !== 0 || timedOut) throw new Error('CI release command failed or timed out.')
+    return output.trim()
   } finally { clearTimeout(timer); if (child.pid) await stopOwnedGroup(child.pid) }
 }
 
@@ -46,6 +50,8 @@ if (!ready) throw new Error('CI PostgreSQL service did not become ready.')
 
 await run('bun', ['run', 'check'])
 await run('bun', ['run', 'check:release'])
+// The Linux-only release proof (tools/release/smoke.ts, tools/test-*.ts) cannot run here, so fail early when it goes stale against the code it exercises.
+await run('bun', ['test', 'test/release-proof.test.ts'])
 await run('bun', ['run', 'migrate'])
 await run('bun', ['run', 'bootstrap:local'])
 await run('bun', ['run', 'build'])
@@ -68,11 +74,18 @@ try {
     await run(resolve(unpacked, 'bin/migrate'), [], migrationEnv, 90000)
     const second = await migrated.query('SELECT name,batch FROM payload_migrations ORDER BY id')
     if (JSON.stringify(first.rows) !== JSON.stringify(second.rows)) throw new Error('Repeated release migration was not a no-op.')
-    // The packaged sweep (bin/sweep) writes a pending outbox file copy, then redacts it after an erasure, without a source checkout.
+    // The sweep entry, first in source form and then as the packaged bin/sweep (no source checkout), writes a pending outbox copy and
+    // prints a counts-only summary; the same check the release smoke applies must accept both.
+    const synthetic = async (label: string) => (await migrated.query(`INSERT INTO message_outbox (kind, recipient_label, recipient_email, subject, body) VALUES ('denial', 'Synthetic Applicant', $1, 'Synthetic subject', 'Synthetic body') RETURNING id`, [`ci-${label}@terrace.invalid`])).rows[0].id
+    const sourceOutbox = mkdtempSync(resolve(tmpdir(), 'terrace-ci-source-outbox-'))
+    const sourceRow = await synthetic('source')
+    const sourceSummary = JSON.parse(await run('bun', ['tools/release-sweep.ts'], { ...migrationEnv, LIFECYCLE_OUTBOX_DIR: resolve(sourceOutbox, 'mirror') }, 120000, true))
+    assertSweepSummary(sourceSummary, { written: 1, forbidden: ['ci-source@terrace.invalid'] })
+    if (JSON.parse(readFileSync(resolve(sourceOutbox, 'mirror', `${String(sourceRow).padStart(6, '0')}-denial.json`), 'utf8')).to !== 'ci-source@terrace.invalid') throw new Error('Source sweep did not write the private outbox copy.')
     const outbox = mkdtempSync(resolve(tmpdir(), 'terrace-ci-outbox-'))
     const sweepEnv = { ...migrationEnv, LIFECYCLE_OUTBOX_DIR: resolve(outbox, 'mirror') }
-    const row = await migrated.query(`INSERT INTO message_outbox (kind, recipient_label, recipient_email, subject, body) VALUES ('denial', 'Synthetic Applicant', 'ci-applicant@terrace.invalid', 'Synthetic subject', 'Synthetic body') RETURNING id`)
-    await run(resolve(unpacked, 'bin/sweep'), [], sweepEnv, 90000)
+    const row = { rows: [{ id: await synthetic('applicant') }] }
+    assertSweepSummary(JSON.parse(await run(resolve(unpacked, 'bin/sweep'), [], sweepEnv, 90000, true)), { written: 1, forbidden: ['ci-applicant@terrace.invalid'] })
     const file = resolve(outbox, 'mirror', `${String(row.rows[0].id).padStart(6, '0')}-denial.json`)
     if ((statSync(file).mode & 0o777) !== 0o600 || JSON.parse(readFileSync(file, 'utf8')).to !== 'ci-applicant@terrace.invalid') throw new Error('Packaged sweep did not write the private outbox copy.')
     if ((await migrated.query('SELECT count(*)::int AS n FROM message_outbox WHERE mirrored_at IS NULL')).rows[0].n !== 0) throw new Error('Packaged sweep did not mark the copy written.')

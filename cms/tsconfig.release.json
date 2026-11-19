@@ -3,10 +3,15 @@
   "compilerOptions": { "incremental": false, "types": ["bun"], "allowImportingTsExtensions": true },
   "include": [
     "tools/ci.ts",
+    "tools/copy-media.ts",
+    "tools/local-fixtures.ts",
+    "tools/local-preview.ts",
+    "tools/migrate-media-directory.ts",
     "tools/test-editorial-browser.ts",
     "tools/test-reports-browser.ts",
     "tools/test-release-media.ts",
-    "../tools/release/**/*.ts"
+    "../tools/release/**/*.ts",
+    "../identity/tools/app-env-keys.ts"
   ],
   "exclude": ["node_modules"]
 }
