@@ -29,6 +29,7 @@ export const actions: Actions = {
     // A tripped honeypot gets the same answer as success, so a script learns nothing.
     if (verdict === 'bot') return { received: true };
     if (verdict === 'rate-limited') return fail(429, { error: 'Too many applications from here. Please try again later.' });
+    if (verdict === 'moved') return fail(400, { error: 'Your connection changed while you filled this in. Please reload the page and send your application again.' });
     if (verdict === 'too-fast' || verdict === 'expired') return fail(400, { error: 'Please reload the page and send your application again.' });
     let data: Record<string, unknown>;
     try {

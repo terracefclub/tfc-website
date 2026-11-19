@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
-export type GuardResult = 'ok' | 'bot' | 'too-fast' | 'expired' | 'rate-limited';
+export type GuardResult = 'ok' | 'bot' | 'moved' | 'too-fast' | 'expired' | 'rate-limited';
 export interface GuardOptions {
   now?: () => number;
   /** Attempts per client within the window. */
@@ -21,6 +21,21 @@ export interface GuardOptions {
  * long the form was open. Nothing about the visitor is stored beyond a salted hash held in memory
  * for the length of the window.
  */
+/** The IPv4 /24 or IPv6 /64 a client address belongs to; anything else is used as given. */
+export function network(client: string): string {
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(client);
+  const address = mapped ? mapped[1] : client;
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(address)) return address.split('.').slice(0, 3).join('.') + '.0/24';
+  if (address.includes(':') && /^[0-9a-f:]+$/i.test(address)) {
+    const [head, tail = ''] = address.split('::');
+    const first = head ? head.split(':') : [];
+    const last = address.includes('::') && tail ? tail.split(':') : [];
+    const groups = address.includes('::') ? [...first, ...Array(Math.max(0, 8 - first.length - last.length)).fill('0'), ...last] : first;
+    return groups.slice(0, 4).map((group) => group.padStart(4, '0').toLowerCase()).join(':') + '::/64';
+  }
+  return address;
+}
+
 export function createApplyGuard(secret: () => string, options: GuardOptions = {}) {
   const now = options.now ?? Date.now;
   const limit = options.limit ?? 5;
@@ -34,9 +49,12 @@ export function createApplyGuard(secret: () => string, options: GuardOptions = {
   // Tokens already used, until they would have expired anyway. A token is single use.
   const used = new Map<string, number>();
   const key = () => createHash('sha256').update(`apply-form\0${secret()}`).digest();
-  // The signature covers the client too, so a token issued to one visitor is useless to another.
-  const bind = (client: string) => createHash('sha256').update(client).digest('base64url').slice(0, 22);
+  // One signature covers the client network (see `network`), so a token issued to one visitor is of no
+  // use to another; a second covers only stamp and nonce, so a visitor whose address merely changed
+  // can be told to reload instead of being dropped without a word.
+  const bind = (client: string) => createHash('sha256').update(network(client)).digest('base64url').slice(0, 22);
   const mac = (stamp: string, nonce: string, client: string) => createHmac('sha256', key()).update(`${stamp}.${nonce}.${bind(client)}`).digest('base64url');
+  const plain = (stamp: string, nonce: string) => createHmac('sha256', key()).update(`plain.${stamp}.${nonce}`).digest('base64url');
 
   function limited(client: string): boolean {
     const time = now();
@@ -54,7 +72,7 @@ export function createApplyGuard(secret: () => string, options: GuardOptions = {
   }
 
   return {
-    issue(client: string): string { const stamp = String(now()); const nonce = randomBytes(12).toString('base64url'); return `${stamp}.${nonce}.${mac(stamp, nonce, client)}`; },
+    issue(client: string): string { const stamp = String(now()); const nonce = randomBytes(12).toString('base64url'); return `${stamp}.${nonce}.${mac(stamp, nonce, client)}.${plain(stamp, nonce)}`; },
     /** Mark a token spent once its submission was accepted, so it cannot be replayed. */
     spend(token: string): void {
       const [stamp, nonce] = token.split('.');
@@ -67,11 +85,16 @@ export function createApplyGuard(secret: () => string, options: GuardOptions = {
       if (limited(input.client)) return 'rate-limited';
       if (typeof input.honeypot === 'string' ? input.honeypot !== '' : input.honeypot != null) return 'bot';
       if (typeof input.token !== 'string') return 'bot';
-      const [stamp, nonce, signature, extra] = input.token.split('.');
-      if (!stamp || !nonce || !signature || extra !== undefined || !/^\d{10,16}$/.test(stamp) || !/^[A-Za-z0-9_-]{16}$/.test(nonce)) return 'bot';
+      const [stamp, nonce, signature, base, extra] = input.token.split('.');
+      if (!stamp || !nonce || !signature || !base || extra !== undefined || !/^\d{10,16}$/.test(stamp) || !/^[A-Za-z0-9_-]{16}$/.test(nonce)) return 'bot';
       const expected = Buffer.from(mac(stamp, nonce, input.client));
       const given = Buffer.from(signature);
-      if (expected.length !== given.length || !timingSafeEqual(expected, given)) return 'bot';
+      if (expected.length !== given.length || !timingSafeEqual(expected, given)) {
+        // A genuine token presented from another network: say so rather than pretend it worked.
+        const basic = Buffer.from(plain(stamp, nonce));
+        const offered = Buffer.from(base);
+        return basic.length === offered.length && timingSafeEqual(basic, offered) ? 'moved' : 'bot';
+      }
       const age = now() - Number(stamp);
       if (age < 0) return 'bot';
       if (used.has(nonce)) return 'bot';

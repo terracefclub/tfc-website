@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from 'bun:test';
 import { createServer, type ViteDevServer } from 'vite';
 import { parseHTML } from 'linkedom';
-import { clientAddressConfigured, createApplyGuard } from '../src/lib/server/apply-guard';
+import { clientAddressConfigured, createApplyGuard, network } from '../src/lib/server/apply-guard';
 
 const secret = `synthetic-intake-secret-${crypto.randomUUID()}`;
 const member = { id: 11, subject: 'synthetic-member', displayName: 'Synthetic Terran', roles: ['alumni'] as const };
@@ -62,12 +62,29 @@ test('the guard enforces a minimum fill time and a short token life', () => {
   expect(instance.check({ token, honeypot: '', client: 'a' })).toBe('expired');
 });
 
-test('a token is bound to the client it was issued to', () => {
+test('a token is bound to the client network; a visitor whose address moved is told, not dropped', () => {
   const { instance, advance } = guard();
-  const token = instance.issue('visitor-1');
+  const token = instance.issue('203.0.113.7');
   advance(10_000);
-  expect(instance.check({ token, honeypot: '', client: 'visitor-2' })).toBe('bot');
-  expect(instance.check({ token, honeypot: '', client: 'visitor-1' })).toBe('ok');
+  expect(instance.check({ token, honeypot: '', client: '203.0.113.200' })).toBe('ok'); // same /24
+  expect(instance.check({ token, honeypot: '', client: '198.51.100.7' })).toBe('moved'); // a genuine token from elsewhere
+  const v6 = instance.issue('2001:db8:1:2:aaaa::1');
+  advance(10_000);
+  expect(instance.check({ token: v6, honeypot: '', client: '2001:db8:1:2:bbbb::9' })).toBe('ok'); // same /64
+  expect(instance.check({ token: v6, honeypot: '', client: '2001:db8:1:3::1' })).toBe('moved');
+  // A forged token is still silently a bot, whatever the client.
+  const [stamp, nonce, mac] = token.split('.');
+  expect(instance.check({ token: `${stamp}.${nonce}.${mac}.${'x'.repeat(43)}`, honeypot: '', client: '198.51.100.7' })).toBe('bot');
+  expect(instance.check({ token: `${stamp}.${nonce}.${'x'.repeat(43)}.${'x'.repeat(43)}`, honeypot: '', client: '203.0.113.7' })).toBe('bot');
+});
+
+test('client networks normalise IPv4, IPv4-mapped and abbreviated IPv6 addresses', () => {
+  expect(network('203.0.113.99')).toBe('203.0.113.0/24');
+  expect(network('::ffff:203.0.113.99')).toBe('203.0.113.0/24');
+  expect(network('2001:db8::1')).toBe('2001:0db8:0000:0000::/64');
+  expect(network('2001:DB8:0:0:1:2:3:4')).toBe('2001:0db8:0000:0000::/64');
+  expect(network('::1')).toBe('0000:0000:0000:0000::/64');
+  expect(network('apply-test-3')).toBe('apply-test-3');
 });
 
 test('a spent token cannot be replayed, but a rejected attempt does not spend it', () => {
@@ -84,9 +101,9 @@ test('forged, tampered, future-dated or missing timing tokens are treated as bot
   const { instance, advance } = guard();
   const token = instance.issue('a');
   advance(10_000);
-  const [stamp, nonce, mac] = token.split('.');
+  const [stamp, nonce, mac, base] = token.split('.');
   const other = createApplyGuard(() => `other-${secret}`, { now: () => 1_800_000_000_000 }).issue('a');
-  for (const bad of [undefined, null, 42, '', 'x', `${stamp}`, `${stamp}.${nonce}`, `${stamp}.${nonce}.`, `${Number(stamp) - 20_000}.${nonce}.${mac}`, `${stamp}.${nonce}.${mac}.extra`, `${stamp}.short.${mac}`, other, `${Number(stamp) + 99_000_000}.${nonce}.${mac}`]) {
+  for (const bad of [undefined, null, 42, '', 'x', `${stamp}`, `${stamp}.${nonce}`, `${stamp}.${nonce}.`, `${Number(stamp) - 20_000}.${nonce}.${mac}.${base}`, `${stamp}.${nonce}.${mac}`, `${stamp}.${nonce}.${mac}.${base}.extra`, `${stamp}.short.${mac}.${base}`, other, `${Number(stamp) + 99_000_000}.${nonce}.${mac}.${base}`]) {
     expect(instance.check({ token: bad, honeypot: '', client: `c-${String(bad)}` })).toBe('bot');
   }
 });
@@ -151,7 +168,7 @@ test('the honeypot, a too-fast submit, a stolen token and invalid input never re
   expect(await run(slots[1], { ...values, website: 'https://spam.invalid' })).toEqual({ received: true }); // silently dropped
   const fresh = (load as any)({ setHeaders: () => undefined, getClientAddress: () => slots[1] }).token;
   expect(((await run(slots[1], { ...values, t: fresh })) as any).status).toBe(400); // too fast
-  expect(await run(slots[2], values)).toEqual({ received: true }); // someone else's token: dropped
+  expect(((await run(slots[2], values)) as any).status).toBe(400); // a genuine token from another network: a visible soft error, not fake success
   for (const bad of [{ name: '' }, { affiliation: 'staff' }, { classYear: '1800' }, { classYear: 'abcd' }, { contactEmail: 'nope' }, { note: 'x'.repeat(1001) }, { name: 'n'.repeat(121) }, { t: 'forged' }]) {
     const result: any = await run(slots[1], { ...values, ...bad });
     expect([400, 429].includes(result.status) || result.received === true).toBe(true); // 429 once this client's allowance is used
@@ -197,8 +214,15 @@ test('an unconfigured or failing CMS fails closed with a generic message and no 
   // Production without a configured client-address header closes the form instead of sharing one bucket.
   const oldEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = 'production';
-  try { expect((load as any)({ setHeaders: () => undefined, getClientAddress: () => slots[5] })).toEqual({ open: false, token: '' }); }
-  finally { process.env.NODE_ENV = oldEnv; }
+  try {
+    expect((load as any)({ setHeaders: () => undefined, getClientAddress: () => slots[5] })).toEqual({ open: false, token: '' });
+    calls.length = 0;
+    const closed: any = await run(slots[5], values);
+    expect(closed.status).toBe(503); // the action refuses too, not only the page
+    expect(calls).toHaveLength(0);
+    process.env.ADDRESS_HEADER = 'X-Forwarded-For';
+    expect((load as any)({ setHeaders: () => undefined, getClientAddress: () => slots[5] }).open).toBe(true);
+  } finally { process.env.NODE_ENV = oldEnv; delete process.env.ADDRESS_HEADER; }
 }, 15_000);
 
 test('the application page renders a hidden honeypot and the page is not indexable or cacheable', async () => {
