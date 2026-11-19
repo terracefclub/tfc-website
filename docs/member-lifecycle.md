@@ -202,7 +202,12 @@ be tied to a person.
 *Files.* The database erasure commits first; local mirror files are rewritten only after the commit (a
 rolled-back erasure never touches them). If that file step fails, the erasure stands, the response says
 `mirror: pending` and `lifecycle:sweep` completes it (it is idempotent). An administrator-initiated erasure runs
-inside the admin save, so its mirror redaction is always completed by the next sweep: run it after erasing.
+inside the admin save, so it cannot redact mirror files or write its confirmation file itself: **run
+`lifecycle:sweep` after every administrator-initiated erasure** (the Data requests admin page says so too). The
+confirmation file is written once and marked, so a copy an operator deletes is not recreated. Staff notices
+(`staff-notice`) have a mirror file only if the directory was writable at the time; otherwise they are visible
+in the admin outbox only. Erasure and offboarding also **revoke any still-pending invitation** for the person,
+so its link answers like any dead token.
 The member row becomes a tombstone (status
 `erased`, no roles, name and OIDC subject wiped) keeping only the one-way identity hash so a still-live
 realm account cannot re-enter. A confirmation is appended to the outbox. The operator then runs

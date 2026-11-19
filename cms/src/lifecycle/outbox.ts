@@ -53,7 +53,8 @@ export async function enqueueMessage(payload: Payload, message: OutboxMessage, r
   return recorded.id
 }
 
-const LOOPBACK = /^(localhost|.*\.localhost|0\.0\.0\.0|127(\.\d{1,3}){3}|\[?::1?\]?|\[::ffff:.*\])$/i
+// Loopback, unspecified, trailing-dot and IPv6-literal hosts are never a valid public origin.
+const LOOPBACK = /^(localhost|.*\.localhost|0\.0\.0\.0|127(\.\d{1,3}){3}|\[.*\]|.*\.)$/i
 const localDevelopment = () => process.env.CMS_LOCAL_BOOTSTRAP === '1' && process.env.NODE_ENV !== 'production'
 
 /**
@@ -97,6 +98,11 @@ export function redactMirrorFiles(ids: Array<number | string>): number {
   return count
 }
 
+/** Record that a message's file copy was written (reusing the otherwise unused dedupe key), so it is not written again. */
+export async function markMirrored(payload: Payload, id: number): Promise<void> {
+  await pool(payload).query(`UPDATE message_outbox SET dedupe_key = $2 WHERE id = $1 AND dedupe_key IS NULL`, [id, `mirrored:${id}`])
+}
+
 /**
  * Finish what the database already decided: redact files of rows that erasure redacted and write
  * missing erasure confirmation files. Safe to repeat; the sweep runs it so a failed file step is retried.
@@ -104,13 +110,15 @@ export function redactMirrorFiles(ids: Array<number | string>): number {
 export async function reconcileMirror(payload: Payload): Promise<{ redacted: number; written: number }> {
   const directory = process.env.LIFECYCLE_OUTBOX_DIR
   if (!directory) return { redacted: 0, written: 0 }
-  const rows = (await pool(payload).query(`SELECT id, kind, recipient_label, subject, body, created_at FROM message_outbox WHERE recipient_label = 'Former member' OR kind = 'erasure-confirmation'`)).rows
+  const rows = (await pool(payload).query(`SELECT id, kind, recipient_label, subject, body, created_at, dedupe_key FROM message_outbox WHERE recipient_label = 'Former member' OR (kind = 'erasure-confirmation' AND dedupe_key IS NULL)`)).rows
   let redacted = 0
   let written = 0
   for (const row of rows) {
     if (row.recipient_label === 'Former member') redacted += redactMirrorFiles([String(row.id)])
-    else if (!existsSync(directory) || !mirrorFiles(directory, [String(row.id)]).length) {
+    else {
+      // Written once: marking the row means a file the operator later deleted is not recreated.
       writeMirror({ id: Number(row.id), createdAt: new Date(String(row.created_at)).toISOString(), message: { kind: 'erasure-confirmation', recipientLabel: String(row.recipient_label), subject: String(row.subject), body: String(row.body) } })
+      await markMirrored(payload, row.id as number)
       written++
     }
   }

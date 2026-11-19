@@ -30,8 +30,14 @@ export function network(client: string): string {
     const [head, tail = ''] = address.split('::');
     const first = head ? head.split(':') : [];
     const last = address.includes('::') && tail ? tail.split(':') : [];
-    const groups = address.includes('::') ? [...first, ...Array(Math.max(0, 8 - first.length - last.length)).fill('0'), ...last] : first;
-    return groups.slice(0, 4).map((group) => group.padStart(4, '0').toLowerCase()).join(':') + '::/64';
+    const groups = (address.includes('::') ? [...first, ...Array(Math.max(0, 8 - first.length - last.length)).fill('0'), ...last] : first).map((group) => group.padStart(4, '0').toLowerCase());
+    // Hex-form IPv4-mapped addresses (::ffff:cb00:7163) bucket as the IPv4 network they stand for.
+    if (groups.length === 8 && groups.slice(0, 5).every((group) => group === '0000') && groups[5] === 'ffff') {
+      const high = parseInt(groups[6], 16);
+      const low = parseInt(groups[7], 16);
+      return network(`${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`);
+    }
+    return groups.slice(0, 4).join(':') + '::/64';
   }
   return address;
 }
@@ -61,7 +67,7 @@ export function createApplyGuard(secret: () => string, options: GuardOptions = {
     if (all.resets <= time) all = { count: 0, resets: time + windowMs };
     if (all.count >= globalLimit) return true;
     for (const [id, entry] of clients) if (entry.resets <= time) clients.delete(id);
-    const id = createHash('sha256').update(`${client}\0${secret()}`).digest('base64url');
+    const id = createHash('sha256').update(`${network(client)}\0${secret()}`).digest('base64url');
     const entry = clients.get(id) ?? { count: 0, resets: time + windowMs };
     if (entry.count >= limit) return true;
     if (!clients.has(id) && clients.size >= maxClients) clients.delete(clients.keys().next().value as string);

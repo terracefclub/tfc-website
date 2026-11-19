@@ -78,11 +78,26 @@ test('a token is bound to the client network; a visitor whose address moved is t
   expect(instance.check({ token: `${stamp}.${nonce}.${'x'.repeat(43)}.${'x'.repeat(43)}`, honeypot: '', client: '203.0.113.7' })).toBe('bot');
 });
 
+test('addresses in one network share a rate-limit bucket, as they share a token', () => {
+  const { instance, advance } = guard({ limit: 2 });
+  const tokens = ['2001:db8:1:2::1', '2001:db8:1:2:ffff::9', '2001:db8:1:2:abcd::5'].map((client) => instance.issue(client));
+  advance(10_000);
+  const send = (index: number, client: string) => instance.check({ token: tokens[index], honeypot: '', client });
+  expect([send(0, '2001:db8:1:2::1'), send(1, '2001:db8:1:2:ffff::9'), send(2, '2001:db8:1:2:abcd::5')]).toEqual(['ok', 'ok', 'rate-limited']);
+  // A different /64 is a different bucket.
+  const other = instance.issue('2001:db8:1:3::1');
+  advance(10_000);
+  expect(instance.check({ token: other, honeypot: '', client: '2001:db8:1:3::1' })).toBe('ok');
+});
+
 test('client networks normalise IPv4, IPv4-mapped and abbreviated IPv6 addresses', () => {
   expect(network('203.0.113.99')).toBe('203.0.113.0/24');
   expect(network('::ffff:203.0.113.99')).toBe('203.0.113.0/24');
   expect(network('2001:db8::1')).toBe('2001:0db8:0000:0000::/64');
   expect(network('2001:DB8:0:0:1:2:3:4')).toBe('2001:0db8:0000:0000::/64');
+  expect(network('::ffff:cb00:7163')).toBe('203.0.113.0/24'); // hex-form IPv4-mapped
+  expect(network('0:0:0:0:0:ffff:cb00:71ff')).toBe('203.0.113.0/24');
+  expect(network('::ffff:cb00:7163')).not.toBe(network('::ffff:c633:6407'));
   expect(network('::1')).toBe('0000:0000:0000:0000::/64');
   expect(network('apply-test-3')).toBe('apply-test-3');
 });

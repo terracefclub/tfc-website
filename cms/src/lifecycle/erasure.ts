@@ -1,5 +1,5 @@
 import type { Payload, PayloadRequest } from 'payload'
-import { recordMessage, redactMirrorFiles, writeMirror, type Recorded } from './outbox'
+import { markMirrored, recordMessage, redactMirrorFiles, writeMirror, type Recorded } from './outbox'
 import { pool } from './visibility'
 
 const REMOVED = 'Removed at the member’s request.'
@@ -56,6 +56,8 @@ export async function eraseMember(payload: Payload, memberId: number, req?: Payl
   counts['applications-anonymised'] = (await q.query(
     `UPDATE member_applications SET name = 'Erased applicant', contact_email = 'erased@terrace.invalid', note = NULL, decision_note = NULL, class_year = NULL
      WHERE id = ANY($1::int[]) OR (member_id IS NULL AND lower(contact_email) = ANY($2::text[]))`, [ids, emails])).rowCount ?? 0
+  // A still-pending invitation must not stay redeemable after its person is erased.
+  counts['invitations-revoked'] = (await q.query(`UPDATE member_invitations SET status = 'revoked' WHERE status = 'pending' AND (member_id = $1 OR application_id = ANY($2::int[]))`, [memberId, ids])).rowCount ?? 0
   const outbox = await q.query(
     `UPDATE message_outbox SET recipient_email = NULL, recipient_label = 'Former member' WHERE lower(recipient_email) = ANY($1::text[]) OR recipient_label = $2 RETURNING id`, [emails, `Member #${memberId}`])
   counts['outbox-rows-redacted'] = outbox.rowCount ?? 0
@@ -77,10 +79,11 @@ export async function eraseMember(payload: Payload, memberId: number, req?: Payl
  * file. The database erasure stands whatever happens here; a failure is reported and the sweep
  * (`reconcileMirror`) completes it later.
  */
-export function finishErasure(result: Erasure): { mirror: 'complete' | 'pending' } {
+export async function finishErasure(payload: Payload, result: Erasure): Promise<{ mirror: 'complete' | 'pending' }> {
   try {
     redactMirrorFiles(result.redactedOutboxIds)
     writeMirror(result.confirmation)
+    await markMirrored(payload, result.confirmation.id)
     return { mirror: 'complete' }
   } catch { return { mirror: 'pending' } }
 }

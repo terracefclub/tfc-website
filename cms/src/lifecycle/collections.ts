@@ -232,7 +232,7 @@ const memberField = (name: string): Field => ({ name, type: 'relationship', rela
 /** Export and erasure requests: an audit trail with no exported content. */
 export const DataRequests: CollectionConfig = {
   slug: 'data-requests',
-  admin: { group, useAsTitle: 'kind', defaultColumns: ['member', 'kind', 'status', 'createdAt'], hidden: ({ user }) => !isAdmin(user), description: 'Create an erasure request here to erase an offboarded member. Members create their own through the website.' },
+  admin: { group, useAsTitle: 'kind', defaultColumns: ['member', 'kind', 'status', 'createdAt'], hidden: ({ user }) => !isAdmin(user), description: 'Create an erasure request here to erase an offboarded member. Then run lifecycle:sweep: this path cannot redact local message files until the sweep. Members create their own through the website.' },
   access: { create: adminOnly, read: ({ req }) => isAdmin(req.user) || ownedByMember({ req } as never), update: never, delete: never },
   hooks: {
     beforeValidate: [async ({ data, req, operation }) => {

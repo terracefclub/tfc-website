@@ -125,7 +125,7 @@ export const own = {
         return json({ error: 'Erasure could not be completed. Nothing was erased; your code still works.' }, 503)
       }
       // Committed: the erasure stands. Files are a separate, retryable step, reported as it is.
-      const { mirror } = finishErasure(erasure)
+      const { mirror } = await finishErasure(req.payload, erasure)
       return json({ erased: true, counts: erasure.counts, mirror, ...(mirror === 'pending' ? { warning: 'Your data was erased. Redacting the local message copies did not finish; an operator will complete it.' } : {}) })
     }
     return json({ error: 'Invalid request.' }, 400)

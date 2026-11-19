@@ -30,7 +30,8 @@ export async function sweep(payload: Payload, options: { purgeModerated?: boolea
     try {
       await client.query('BEGIN')
       await client.query(`DELETE FROM group_memberships WHERE group_id IN (SELECT id FROM member_groups WHERE moderation_hidden_at < $1)`, [cutoff])
-      await client.query(`DELETE FROM member_stories WHERE group_id IN (SELECT id FROM member_groups WHERE moderation_hidden_at < $1)`, [cutoff])
+      const groupStories = await client.query(`DELETE FROM member_stories WHERE group_id IN (SELECT id FROM member_groups WHERE moderation_hidden_at < $1) RETURNING id`, [cutoff])
+      if (groupStories.rowCount) await client.query(`UPDATE moderation_reports SET snapshot_title = 'Purged after the retention period.', snapshot_body = 'Purged after the retention period.', detail = NULL WHERE target_type = 'story' AND target_id = ANY($1::numeric[])`, [groupStories.rows.map((row) => row.id)])
       const types: Record<string, string> = { 'member-stories': 'story', 'member-groups': 'group', 'mentorship-requests': 'mentorship-request' }
       for (const [collection, { table }] of Object.entries(hideTargets)) {
         const gone = await client.query(`DELETE FROM ${table} WHERE moderation_hidden_at < $1 RETURNING id`, [cutoff])

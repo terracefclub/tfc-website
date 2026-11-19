@@ -137,7 +137,8 @@ test('erasure leaves no trace of the member\'s name or email in any table or mir
   // The mentor (Zelda) reports a request addressed to her: the snapshot title carries her name as mentor.
   const toZelda = await as('moderation-reports', { targetType: 'mentorship-request', targetId: received.id, reason: 'other' }, zelda)
   expect(toZelda.snapshotTitle).toContain(name)
-  await payload.update({ collection: 'moderation-reports', id: toZelda.id, data: { status: 'resolved', resolutionNote: `Handled for ${name}` }, user: editor, overrideAccess: false })
+  // Re-attribute it to a different reporter so only the mentor-specific scrub (not "reports they filed") can catch it.
+  await q(`UPDATE moderation_reports SET reporter_id = $2 WHERE id = $1`, [toZelda.id, other.id])
   const off = await payload.create({ collection: 'member-offboardings', data: { member: zelda.id, reason: `Reason for ${name}`, noticeEmail }, user: admin, overrideAccess: false })
   trash.unshift({ collection: 'member-offboardings', id: off.id } as any)
   const needles = [`Zelda Quill ${suffix}`, `zelda-quill-${suffix}`]
@@ -345,7 +346,7 @@ test('the invitation origin must be a bare public https origin everywhere except
     // Production, and anything that is not the local profile, fails closed.
     for (const mode of ['production', 'unset'] as const) {
       if (mode === 'production') (process.env as any).NODE_ENV = 'production'; else { delete process.env.CMS_LOCAL_BOOTSTRAP; delete (process.env as any).NODE_ENV }
-      for (const bad of [undefined, 'http://members.example.org', 'https://localhost', 'https://127.0.0.1', 'https://127.0.0.2', 'https://0.0.0.0', 'https://[::1]', 'https://app.localhost', 'https://user:pw@members.example.org', 'https://members.example.org/path', 'https://members.example.org/', 'https://members.example.org/?x=1', 'https://members.example.org#frag']) {
+      for (const bad of [undefined, 'http://members.example.org', 'https://localhost', 'https://127.0.0.1', 'https://127.0.0.2', 'https://0.0.0.0', 'https://[::1]', 'https://[::7f00:1]', 'https://[::ffff:7f00:1]', 'https://app.localhost', 'https://localhost.', 'https://foo.localhost.', 'https://members.example.org.', 'https://user:pw@members.example.org', 'https://members.example.org/path', 'https://members.example.org/', 'https://members.example.org/?x=1', 'https://members.example.org#frag']) {
         setOrigin(bad)
         await expect(attempt()).rejects.toThrow(/LIFECYCLE_PUBLIC_ORIGIN/)
       }
@@ -560,4 +561,65 @@ test('purging moderated content also blanks its report snapshots', async () => {
 test('raw SQL never silently leaves the request transaction', () => {
   expect(() => pool(payload, { transactionID: 'no-such-session' } as any)).toThrow(/transaction/)
   expect(typeof pool(payload).query).toBe('function')
+})
+
+test('erasure and offboarding revoke a still-pending invitation, so its token stops working', async () => {
+  for (const mode of ['erase', 'offboard'] as const) {
+    const subject = await makeMember(`Invited ${mode} ${suffix}`)
+    const application = await pendingApplication(`Invited ${mode} ${suffix}`, `invited-${mode}-${suffix}@terrace.invalid`)
+    const { token, invitationId } = await issueInvitation(payload, { ...application, grantRole: 'alumni' } as any)
+    await payload.update({ collection: 'member-invitations', id: invitationId, data: { member: subject.id }, user: admin, overrideAccess: false })
+    const redeem = (consume: boolean) => intake.redeem(request(null, { token, consume }, { 'x-terrace-intake': secret }))
+    expect((await redeem(false)).status).toBe(200)
+    if (mode === 'offboard') await offboard(subject)
+    else {
+      const code = (await (await own.erasure(request(subject, { step: 'request' }))).json() as any).confirmationCode
+      expect((await own.erasure(request(subject, { step: 'confirm', token: code }))).status).toBe(200)
+    }
+    const after = await redeem(true)
+    expect(after.status).toBe(404)
+    expect(await after.json()).toEqual({ valid: false }) // the same generic answer as any other dead token
+    expect((await payload.findByID({ collection: 'member-invitations', id: invitationId, overrideAccess: true })).status).toBe('revoked')
+  }
+})
+
+test('story access still hides a hidden group when more than 500 groups are hidden', async () => {
+  const founder = await makeMember(`Many Founder ${suffix}`)
+  await q(`INSERT INTO member_groups (owner_id, owner_name, name, description, moderation_hidden_at, updated_at, created_at) SELECT $1, 'x', 'many ' || g || ' ${suffix}', 'x', now(), now(), now() FROM generate_series(1, 600) g`, [founder.id])
+  const group = await as('member-groups', { name: `Late hidden ${suffix}`, description: 'x' }, founder)
+  const story = await as('member-stories', { title: 'Late group story', body: 'x', audience: 'group', group: group.id }, founder)
+  expect(await storiesFor(founder)).toContain(story.id)
+  await q(`UPDATE member_groups SET moderation_hidden_at = now() WHERE id = $1`, [group.id])
+  expect(await storiesFor(founder)).not.toContain(story.id)
+  await q(`DELETE FROM member_groups WHERE name LIKE $1`, [`many % ${suffix}`])
+})
+
+test('the reconcile step writes a confirmation file once and does not recreate one the operator deleted', async () => {
+  const subject = await makeMember(`Reconcile ${suffix}`)
+  await offboard(subject)
+  await payload.create({ collection: 'data-requests', data: { member: subject.id, kind: 'erasure' }, user: admin, overrideAccess: false })
+  const row = (await q(`SELECT id FROM message_outbox WHERE recipient_label = $1`, [`Former member #${subject.id}`])).rows[0]
+  const file = () => readdirSync(outbox).find((name) => name.startsWith(String(row.id).padStart(6, '0') + '-'))
+  expect(file()).toBeUndefined() // an administrator's erasure writes no file itself
+  expect((await reconcileMirror(payload)).written).toBeGreaterThanOrEqual(1)
+  expect(file()).toBeDefined()
+  rmSync(join(outbox, file()!))
+  await reconcileMirror(payload)
+  expect(file()).toBeUndefined()
+})
+
+test('purging the stories of a hidden group blanks their report snapshots', async () => {
+  const founder = await makeMember(`Group Purge Founder ${suffix}`)
+  const reporter = await makeMember(`Group Purge Reporter ${suffix}`, ['current-member'])
+  const group = await as('member-groups', { name: `Purge group ${suffix}`, description: 'x' }, founder)
+  await as('group-memberships', { group: group.id }, reporter)
+  const story = await as('member-stories', { title: `Group evidence ${suffix}`, body: 'Evidence body', audience: 'group', group: group.id }, founder)
+  const report = await as('moderation-reports', { targetType: 'story', targetId: story.id, reason: 'other' }, reporter)
+  const groupReport = await as('moderation-reports', { targetType: 'group', targetId: group.id, reason: 'other' }, reporter)
+  await payload.update({ collection: 'moderation-reports', id: groupReport.id, data: { status: 'hidden' }, user: editor, overrideAccess: false })
+  await q(`UPDATE member_groups SET moderation_hidden_at = now() - interval '400 days' WHERE id = $1`, [group.id])
+  await sweep(payload, { purgeModerated: true })
+  const row = (await q(`SELECT snapshot_title, snapshot_body FROM moderation_reports WHERE id = $1`, [report.id])).rows[0]
+  expect(row.snapshot_body).not.toContain('Evidence')
+  expect(row.snapshot_title).not.toContain('Group evidence')
 })

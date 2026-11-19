@@ -77,7 +77,7 @@ export const readableStories: Access = async ({ req }) => {
   const groups = await joinedGroups(req)
   // Community stories are open to all members. A group story needs its group joined and open; its
   // author keeps it after leaving the group, unless the group itself has been hidden.
-  const hidden = (await req.payload.find({ collection: 'member-groups', req, overrideAccess: true, depth: 0, pagination: false, limit: 500, where: { or: [{ offboardHiddenAt: { exists: true } }, { moderationHiddenAt: { exists: true } }] } })).docs.map((doc) => Number(doc.id))
+  const hidden = (await req.payload.find({ collection: 'member-groups', req, overrideAccess: true, depth: 0, pagination: false, limit: 0, where: { or: [{ offboardHiddenAt: { exists: true } }, { moderationHiddenAt: { exists: true } }] } })).docs.map((doc) => Number(doc.id))
   const own: Where = hidden.length ? { and: [{ author: { equals: id } }, { or: [{ group: { exists: false } }, { group: { not_in: hidden } }] }] } : { author: { equals: id } }
   const or: Where[] = [{ audience: { equals: 'community' } }, own]
   if (groups.length) or.push({ group: { in: groups } })
