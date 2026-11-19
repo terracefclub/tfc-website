@@ -26,7 +26,7 @@ try {
 } catch { throw new Error('Local Keycloak fixture credentials are unavailable or invalid.') }
 const clientOrigins = localClientOrigins(process.env.TERRACE_LOCAL_WEB_ORIGIN, process.env.TERRACE_LOCAL_CMS_ORIGIN)
 let credentialsUpdated = false
-for (const [key, size] of Object.entries({ cmsSecret: 32, editorialSecret: 32, editorialEditorPassword: 24, editorialAdminPassword: 24 })) {
+for (const [key, size] of Object.entries({ cmsSecret: 32, editorialSecret: 32, lifecycleSecret: 32, editorialEditorPassword: 24, editorialAdminPassword: 24 })) {
   if (!credentials[key]) {
     credentials[key] = randomBytes(size).toString('hex')
     credentialsUpdated = true
@@ -131,6 +131,8 @@ const env = {
   MEMBER_AUTH_ORIGIN: process.env.TERRACE_LOCAL_WEB_ORIGIN ? clientOrigins.webOrigins[0] : 'http://127.0.0.1:4194',
   CMS_AUTH_ISSUER: `${origin}/realms/${realm}`, CMS_AUTH_AUDIENCE: 'terrace-editorial', CMS_AUTH_CLIENT_ID: 'terrace-cms', CMS_AUTH_CLIENT_SECRET: credentials.cmsSecret,
   CMS_AUTH_INTROSPECTION_CLIENT_ID: 'terrace-editorial', CMS_AUTH_INTROSPECTION_SECRET: credentials.editorialSecret,
+  // Member lifecycle: the website-to-CMS intake secret, the invitation link origin, and the local outbox mirror (never mailed).
+  LIFECYCLE_INTAKE_SECRET: credentials.lifecycleSecret, LIFECYCLE_PUBLIC_ORIGIN: process.env.TERRACE_LOCAL_WEB_ORIGIN ? clientOrigins.webOrigins[0] : 'http://127.0.0.1:4194', LIFECYCLE_OUTBOX_DIR: resolve(root, '../cms/.state/outbox'),
 }
 writeFileSync(resolve(state, 'app.env'), Object.entries(env).map(([key, value]) => `${key}=${value}`).join('\n') + '\n', { mode: 0o600 })
 chmodSync(resolve(state, 'app.env'), 0o600)

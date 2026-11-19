@@ -109,3 +109,15 @@ test('Payload provisions the same immutable identity once and keeps it out of ed
   active = false
   try { expect((await payload.auth({ headers: new Headers({ authorization: `Bearer ${signed}` }) })).user).toBeNull() } finally { active = true }
 })
+
+test('an offboarded or erased member fails closed even with a valid token, and restoring reopens access', async () => {
+  const signed = await token()
+  const headers = new Headers({ authorization: `Bearer ${signed}` })
+  expect((await payload.auth({ headers })).user?.id).toBe(memberID)
+  for (const status of ['offboarded', 'erased'] as const) {
+    await payload.update({ collection: 'members', id: memberID!, data: { status }, overrideAccess: true })
+    expect((await payload.auth({ headers })).user).toBeNull()
+  }
+  await payload.update({ collection: 'members', id: memberID!, data: { status: 'active' }, overrideAccess: true })
+  expect((await payload.auth({ headers })).user?.id).toBe(memberID)
+})

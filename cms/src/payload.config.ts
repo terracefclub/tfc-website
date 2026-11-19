@@ -12,6 +12,8 @@ import { Users } from './collections/Users'
 import { Members } from './collections/Members'
 import { communityCollections } from './community/collections'
 import { editorialEndpoints } from './auth/editorial'
+import { lifecycleCollections } from './lifecycle/collections'
+import { lifecycleEndpoints } from './lifecycle/endpoints'
 import { cmsRuntimeOrigin } from './runtime-policy'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -27,10 +29,10 @@ export default buildConfig({
   admin: { user: Users.slug, importMap: { baseDir: path.resolve(dirname) }, components: {
     beforeLogin: ['/components/EditorialLogin#EditorialLogin'], logout: { Button: '/components/EditorialLogin#EditorialLogout' },
   } },
-  endpoints: editorialEndpoints,
+  endpoints: [...editorialEndpoints, ...lifecycleEndpoints],
   editor: lexicalEditor(),
   db: postgresAdapter({ pool: { connectionString: process.env.DATABASE_URI }, push: false }),
-  collections: [Users, Members, Media, Events, Newsletters, Initiatives, Redirects, ...communityCollections],
+  collections: [Users, Members, Media, Events, Newsletters, Initiatives, Redirects, ...communityCollections, ...lifecycleCollections],
   typescript: { outputFile: path.resolve(dirname, '../payload-types.ts') },
   cors: [origin],
   csrf: [origin],

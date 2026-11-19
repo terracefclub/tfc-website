@@ -1,5 +1,6 @@
 import { APIError, type Access, type CollectionBeforeChangeHook, type CollectionBeforeOperationHook, type CollectionBeforeValidateHook, type PayloadRequest, type Where } from 'payload'
 import { isMember, memberId } from '../access/members'
+import { visible } from '../lifecycle/visibility'
 
 export const membersOnly: Access = ({ req }) => isMember(req)
 export const never: Access = () => false
@@ -40,6 +41,15 @@ export const own = (field: string): Access => ({ req }) => {
   return id ? { [field]: { equals: id } } : false
 }
 
+/** Like `own`, for collections whose rows can be hidden by moderation or offboarding. */
+export const ownVisible = (field: string): Access => ({ req }) => {
+  const id = memberId(req)
+  return id ? { and: [{ [field]: { equals: id } }, visible] } : false
+}
+
+/** Any approved member may read a row unless it is hidden. */
+export const membersVisible: Access = ({ req }) => isMember(req) ? visible : false
+
 export const keepOwner = (field: string): CollectionBeforeValidateHook => ({ data, req, operation, originalDoc }) => {
   const id = memberId(req)
   if (!id) throw new Error('An approved member account is required.')
@@ -63,7 +73,7 @@ export const readableStories: Access = async ({ req }) => {
   const groups = await joinedGroups(req)
   const or: Where[] = [{ audience: { equals: 'community' } }, { author: { equals: id } }]
   if (groups.length) or.push({ group: { in: groups } })
-  return { or }
+  return { and: [visible, { or }] }
 }
 
 export const storyAudience: CollectionBeforeChangeHook = async ({ data, req, originalDoc }) => {

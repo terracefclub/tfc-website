@@ -27,6 +27,8 @@ export const Members: CollectionConfig = {
               if (!user) return { user: null }
             }
           }
+          // Offboarded and erased members fail closed here, whatever the identity provider still says.
+          if ((user.status ?? 'active') !== 'active') return { user: null }
           return { user: { ...user, ...claims, collection: 'members' as const }, responseHeaders: new Headers({ 'Cache-Control': 'private, no-store', 'X-Robots-Tag': 'noindex, nofollow' }) }
         } catch {
           return { user: null }
@@ -41,6 +43,8 @@ export const Members: CollectionConfig = {
     { name: 'issuer', type: 'text', required: true, access: { read: () => false } },
     { name: 'subject', type: 'text', required: true, access: { read: () => false } },
     { name: 'displayName', type: 'text', required: true, maxLength: 120 },
-    { name: 'roles', type: 'select', required: true, hasMany: true, options: ['current-member', 'alumni'] },
+    { name: 'roles', type: 'select', hasMany: true, options: ['current-member', 'alumni'] },
+    { name: 'status', type: 'select', required: true, defaultValue: 'active', options: ['active', 'offboarded', 'erased'], access: { create: () => false, update: () => false } },
+    { name: 'statusChangedAt', type: 'date', access: { create: () => false, update: () => false, read: () => false } },
   ],
 }
