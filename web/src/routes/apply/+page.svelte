@@ -13,6 +13,14 @@
   const listed = $derived(order.filter((id) => fieldErrors[id]).map((id) => ({ id, message: fieldErrors[id] })));
   let alertBox: HTMLElement | undefined = $state();
   const describe = (id: string, help = '') => [help, fieldErrors[id] ? `apply-${id}-error` : ''].filter(Boolean).join(' ') || undefined;
+  // The anchor alone scrolls; some browsers do not also move focus into the field. Without script the plain link still works.
+  function focusField(event: MouseEvent, id: string) {
+    const field = document.getElementById(`apply-${id}`);
+    if (!field) return;
+    event.preventDefault();
+    field.scrollIntoView({ block: 'center' });
+    field.focus();
+  }
   onMount(() => { if (form?.error) alertBox?.focus(); });
 </script>
 <svelte:head>
@@ -44,7 +52,7 @@
           <div class="intake-alert" role="alert" tabindex="-1" bind:this={alertBox} aria-labelledby="apply-alert-title">
             <h2 id="apply-alert-title">There is a problem</h2>
             <p>{form.error}</p>
-            {#if listed.length}<ul>{#each listed as item (item.id)}<li><a href={`#apply-${item.id}`}>{item.message}</a></li>{/each}</ul>{/if}
+            {#if listed.length}<ul>{#each listed as item (item.id)}<li><a href={`#apply-${item.id}`} onclick={(event) => focusField(event, item.id)}>{item.message}</a></li>{/each}</ul>{/if}
           </div>
         {/if}
         <form class="intake-form" method="POST" autocomplete="off" aria-labelledby="apply-title" use:enhance={() => async ({ update }) => { await update({ reset: false }); await tick(); alertBox?.focus(); }}>

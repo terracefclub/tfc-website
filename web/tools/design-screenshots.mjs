@@ -83,8 +83,11 @@ try {
   if (process.env.SHOT_PUBLISHED === '1') {
     await send('Page.navigate', { url: new URL('/', base).href });
     await wait(2000);
-    const { result } = await send('Runtime.evaluate', { awaitPromise: true, returnByValue: true, expression: `fetch('/preview/source/published/',{method:'POST',redirect:'manual',credentials:'same-origin'}).then(r=>r.type==='opaqueredirect'||r.ok?'ok':String(r.status))` });
-    if (result.value !== 'ok') throw new Error(`could not switch the local preview to published content (${result.value}); is this a local preview?`);
+    const { result } = await send('Runtime.evaluate', { awaitPromise: true, returnByValue: true, expression: `fetch('/preview/source/published/',{method:'POST',redirect:'manual',credentials:'same-origin'}).then(r=>r.type==='opaqueredirect'?'redirect':'status '+r.status)` });
+    // The preview answers the switch with a 303 redirect and an HttpOnly terrace_published_preview_* cookie; a plain 200 proves nothing.
+    if (result.value !== 'redirect') throw new Error(`SHOT_PUBLISHED: the preview did not answer the switch with a redirect (${result.value}); is ${base} a local preview?`);
+    const { cookies } = await send('Network.getCookies', { urls: [base] });
+    if (!cookies.some(cookie => /^terrace_published_preview/.test(cookie.name) && cookie.httpOnly && cookie.value === '1')) throw new Error(`SHOT_PUBLISHED: the preview did not set its published-preview cookie; is ${base} a local preview?`);
   }
   const LIMIT = 16000;
   const report = [];

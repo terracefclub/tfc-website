@@ -17,13 +17,18 @@ let vite: ViteDevServer;
 let render: typeof import('svelte/server').render;
 const saved = { origin: process.env.CMS_ORIGIN, secret: process.env.LIFECYCLE_INTAKE_SECRET };
 
+const realNow = Date.now;
+let clockOffset = 0;
 beforeAll(async () => {
+  // Installed before the guard module loads, so it can be aged past its token life without waiting.
+  Date.now = () => realNow() + clockOffset;
   process.env.CMS_ORIGIN = `http://127.0.0.1:${api.port}`;
   process.env.LIFECYCLE_INTAKE_SECRET = secret;
   vite = await createServer({ server: { middlewareMode: true }, logLevel: 'silent' });
   render = (await vite.ssrLoadModule('svelte/server')).render;
 });
 afterAll(async () => {
+  Date.now = realNow;
   await vite?.close(); api.stop(true);
   for (const [name, value] of [['CMS_ORIGIN', saved.origin], ['LIFECYCLE_INTAKE_SECRET', saved.secret]] as const) { if (value === undefined) delete process.env[name]; else process.env[name] = value; }
 });
@@ -36,17 +41,17 @@ const html = (component: any, props: Record<string, unknown>) => render(componen
 const dom = (body: string) => parseHTML(`<html><body>${body}</body></html>`).document;
 
 // ---- class year --------------------------------------------------------------------------------
-test('every .svelte file avoids braces inside plain attribute strings (Svelte would parse them as expressions)', () => {
+test('no .svelte file puts braces inside a quoted attribute value (Svelte would parse them as expressions)', () => {
   const files: string[] = [];
   const walk = (dir: string) => { for (const name of readdirSync(dir)) { const path = join(dir, name); statSync(path).isDirectory() ? walk(path) : path.endsWith('.svelte') && files.push(path); } };
   walk(join(import.meta.dir, '../src'));
+  expect(files.length).toBeGreaterThan(10);
   const offenders: string[] = [];
   for (const file of files) {
     const markup = readFileSync(file, 'utf8').replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '');
     for (const match of markup.matchAll(/\s([\w:-]+)=(?:"([^"]*)"|'([^']*)')/g)) {
       const value = match[2] ?? match[3];
-      // `"{x}"` and `"a {x} b"` interpolations are intended; a regex quantifier like {4} in a pattern is not.
-      if (match[1] === 'pattern' && /[{}]/.test(value)) offenders.push(`${file}: pattern="${value}"`);
+      if (/[{}]/.test(value)) offenders.push(`${file}: ${match[1]}="${value}"`);
     }
   }
   expect(offenders).toEqual([]);
@@ -110,6 +115,43 @@ test('every field error is reported together, and the CMS is not called', async 
   expect(calls).toHaveLength(0);
 }, 15_000);
 
+test('a tripped honeypot gets exactly the fake-success shape, even with invalid fields', async () => {
+  const result = await submit(slots[8], await ready(slots[8], { website: 'https://spam.invalid', name: '', affiliation: 'staff', classYear: 'abc', contactEmail: 'nope' }));
+  expect(result).toEqual({ received: true });
+  expect(Object.keys(result)).toEqual(['received']);
+  expect(calls).toHaveLength(0);
+}, 15_000);
+
+test('too-fast and changed-network submissions keep their message and values, with no field errors', async () => {
+  const { load } = await applyModule();
+  const values = await ready(slots[9]);
+  const fresh = (load as any)({ setHeaders: () => undefined, getClientAddress: () => slots[9] }).token;
+  const fast: any = await submit(slots[9], { ...values, t: fresh });
+  expect(fast.status).toBe(400);
+  expect(fast.data.error).toBe('Please reload the page and send your application again.');
+  expect(fast.data.values.name).toBe('Pat Terran');
+  expect(fast.data.fieldErrors).toBeUndefined();
+  const moved: any = await submit(slots[10], values); // a genuine token presented from another network
+  expect(moved.status).toBe(400);
+  expect(moved.data.error).toContain('Your connection changed');
+  expect(moved.data.values.contactEmail).toBe('pat@terrace.invalid');
+  expect(moved.data.fieldErrors).toBeUndefined();
+  expect(calls).toHaveLength(0);
+}, 15_000);
+
+test('an expired token keeps its message and values, with no field errors', async () => {
+  const values = await ready(slots[11]);
+  clockOffset = 31 * 60_000;
+  try {
+    const expired: any = await submit(slots[11], values);
+    expect(expired.status).toBe(400);
+    expect(expired.data.error).toBe('Please reload the page and send your application again.');
+    expect(expired.data.values.name).toBe('Pat Terran');
+    expect(expired.data.fieldErrors).toBeUndefined();
+  } finally { clockOffset = 0; }
+  expect(calls).toHaveLength(0);
+}, 15_000);
+
 // ---- apply page states ---------------------------------------------------------------------------
 test('the application form has bound labels, one h1, a hidden honeypot and a useful head', async () => {
   const component = await applyPage();
@@ -149,6 +191,23 @@ test('a failed submit shows a summary, associates errors with fields and keeps t
   expect(document.querySelector('#apply-note')!.textContent).toBe('Line one\nLine two');
   expect(document.querySelectorAll('b')).toHaveLength(0); // typed markup is escaped, never rendered
   expect(document.querySelector('input[name="website"]')!.getAttribute('value')).toBeNull();
+});
+
+test('attacker-shaped input is escaped in attributes, the textarea and the error summary', async () => {
+  const evil = '"><script>alert(1)</script><img src=x onerror=alert(2)>';
+  const form = { error: `Problem ${evil}`, fieldErrors: { name: evil, contactEmail: evil, note: evil }, values: { name: evil, affiliation: 'alumni', classYear: '', contactEmail: evil, note: evil } };
+  const body = html(await applyPage(), { data: { open: true, token: 'tok' }, form });
+  expect(body).not.toContain('<script>alert');
+  expect(body).not.toContain('<img src=x');
+  expect(body).toContain('&lt;script>'); // `<` and `"` are escaped, which is all that is needed to stay inside the text or attribute
+  expect(body).toMatch(/id="apply-name"[^>]*value="&quot;>&lt;script>/);
+  const document = dom(body);
+  expect(document.querySelectorAll('script')).toHaveLength(0);
+  expect(document.querySelectorAll('img[onerror]')).toHaveLength(0);
+  expect(document.querySelector('#apply-name')!.getAttribute('value')).toBe(evil);
+  expect(document.querySelector('#apply-contactEmail')!.getAttribute('value')).toBe(evil);
+  expect(body).toMatch(/<textarea[^>]*id="apply-note"[^>]*>">&lt;script>alert\(1\)&lt;\/script>&lt;img/); // browsers decode entities inside a textarea
+  expect(document.querySelector('[role="alert"]')!.textContent).toContain(evil);
 });
 
 test('a network change error stays visible with the visitor\'s values and asks for a reload', async () => {

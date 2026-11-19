@@ -42,6 +42,7 @@ export const actions: Actions = {
     const form = await request.formData();
     let verdict: ReturnType<typeof applyGuard.check>;
     try { if (!clientAddressConfigured()) throw new Error('proxy'); verdict = applyGuard.check({ token: form.get('t'), honeypot: form.get('website'), client: getClientAddress() }); }
+    // Intentionally no `values` here: a closed form has nothing worth re-offering, and the page shows its closed state.
     catch { return fail(503, { error: 'Applications are not open right now. Please check back soon.' }); }
     // A tripped honeypot gets the same answer as success, so a script learns nothing.
     if (verdict === 'bot') return { received: true };
