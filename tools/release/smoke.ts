@@ -114,10 +114,12 @@ try {
   }
   if (!identityRecord) throw new Error()
   // Consume only the dedicated producer's settings internally; never print them.
-  const auth = Object.fromEntries(readFileSync(join(root, 'identity/.state/app.env'), 'utf8').trim().split('\n').map(line => {
+  // The producer also writes local-preview lifecycle settings (LIFECYCLE_*); this proof sets its own outbox and
+  // origins, so it takes only the identity settings and rejects any other unexpected key.
+  const auth = Object.fromEntries(readFileSync(join(root, 'identity/.state/app.env'), 'utf8').trim().split('\n').flatMap(line => {
     const split = line.indexOf('='); const key = line.slice(0, split)
-    if (!/^(MEMBER_AUTH|CMS_AUTH)_[A-Z_]+$/.test(key) || split < 1) throw new Error()
-    return [key, line.slice(split + 1)]
+    if (split < 1 || !/^(MEMBER_AUTH|CMS_AUTH|LIFECYCLE)_[A-Z_]+$/.test(key)) throw new Error()
+    return key.startsWith('LIFECYCLE_') ? [] : [[key, line.slice(split + 1)]]
   }))
   databaseOwned = true
   await run('fresh runtime database initialization', 'initdb', ['-D', data, '--auth-local=trust', '--auth-host=reject'])
@@ -138,7 +140,10 @@ try {
   const sweepEnv = { ...cmsEnv, LIFECYCLE_OUTBOX_DIR: '/runtime/outbox/mirror' }
   const outboxId = await run('synthetic pending outbox row', 'psql', ['-Atqc', "insert into message_outbox (kind, recipient_label, recipient_email, subject, body) values ('denial', 'Synthetic Applicant', 'release-proof@terrace.invalid', 'Synthetic subject', 'Synthetic body') returning id"], pgEnv, root, true)
   if (!/^\d+$/.test(outboxId)) throw new Error()
-  await run('relocated lifecycle sweep', bwrap, sandbox('cms', '/app/bin/sweep'), sweepEnv)
+  const summary = JSON.parse(await run('relocated lifecycle sweep', bwrap, sandbox('cms', '/app/bin/sweep'), sweepEnv, root, true))
+  // Counts only: the summary shape a timer's journal records.
+  if (summary.mirror?.written !== 1 || summary.mirror.failed || typeof summary.unlinkedRedeemedApplications !== 'number' || typeof summary.invitationsExpired !== 'number' ||
+      typeof summary.applicationsWithdrawn !== 'number' || typeof summary.offboardedPastGrace !== 'number' || JSON.stringify(summary).includes('release-proof@terrace.invalid')) throw new Error()
   const mirrored = join(outbox, 'mirror', `${outboxId.padStart(6, '0')}-denial.json`)
   if ((statSync(join(outbox, 'mirror')).mode & 0o777) !== 0o700 || (statSync(mirrored).mode & 0o777) !== 0o600 || JSON.parse(readFileSync(mirrored, 'utf8')).to !== 'release-proof@terrace.invalid') throw new Error()
   if (await run('marked outbox copy', 'psql', ['-Atqc', 'select count(*) from message_outbox where mirrored_at is null'], pgEnv, root, true) !== '0') throw new Error()
