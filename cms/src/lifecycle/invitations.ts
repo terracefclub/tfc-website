@@ -25,6 +25,7 @@ export async function issueInvitation(payload: Payload, application: Application
     subject: 'Your Terrace invitation',
     body: `Your Terrace application was approved. An invitation was issued and expires ${expiresAt.toISOString().slice(0, 10)}. The one-time link is delivered separately by a Terrace operator; it is not stored in this record.`,
     mirrorBody: `Your Terrace application was approved.\nOpen this one-time link before ${expiresAt.toISOString().slice(0, 10)}:\n${origin}/join/#${token}\n`,
+    invitationId: Number(invitation.id),
   }, req)
   return { token, invitationId: Number(invitation.id) }
 }

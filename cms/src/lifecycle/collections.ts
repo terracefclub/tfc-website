@@ -116,6 +116,7 @@ export const MessageOutbox: CollectionConfig = {
     { name: 'subject', type: 'text', required: true, admin: readOnly },
     { name: 'body', type: 'textarea', required: true, admin: readOnly },
     { name: 'status', type: 'select', required: true, defaultValue: 'queued', options: ['queued', 'delivered-by-operator'] },
+    { name: 'invitation', type: 'relationship', relationTo: 'member-invitations', index: true, admin: { readOnly: true, position: 'sidebar', description: 'The invitation an invitation message announced.' }, access: { read: ({ req }) => isAdmin(req.user), create: fieldNever, update: fieldNever } },
     { name: 'dedupeKey', type: 'text', unique: true, admin: { hidden: true }, access: { read: fieldNever, create: fieldNever, update: fieldNever } },
     // Set by the server once the file copy of the message is confirmed in place; never writable through the API.
     { name: 'mirroredAt', type: 'date', admin: { hidden: true }, access: { read: ({ req }) => isAdmin(req.user), create: fieldNever, update: fieldNever } },
@@ -161,7 +162,7 @@ export const MemberOffboardings: CollectionConfig = {
     }],
   },
   fields: [
-    { name: 'member', type: 'relationship', relationTo: 'members', required: true, admin: { readOnly: true } },
+    { name: 'member', type: 'relationship', relationTo: 'members', required: true, admin: { description: 'Choose the member to offboard by name. It cannot be changed afterwards.' }, access: { update: fieldNever } },
     { name: 'state', type: 'select', required: true, defaultValue: 'offboarded', options: ['offboarded', 'restored', 'erased'] },
     { name: 'reason', type: 'textarea', maxLength: 500 },
     { name: 'noticeEmail', type: 'email', admin: { description: 'Optional. Where the offboarding notice should be delivered by an operator; members do not have an email on file.' } },
@@ -240,7 +241,8 @@ export const ModerationReports: CollectionConfig = {
   ],
 }
 
-const memberField = (name: string): Field => ({ name, type: 'relationship', relationTo: 'members', required: true, admin: { readOnly: true } })
+// Chosen by an administrator when the record is created, then fixed. (Members' own requests are written by the server.)
+const memberField = (name: string): Field => ({ name, type: 'relationship', relationTo: 'members', required: true, admin: { description: 'Choose the offboarded member by name. It cannot be changed afterwards.' }, access: { update: fieldNever } })
 
 /** Export and erasure requests: an audit trail with no exported content. */
 export const DataRequests: CollectionConfig = {

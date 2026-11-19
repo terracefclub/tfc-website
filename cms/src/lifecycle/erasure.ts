@@ -26,8 +26,9 @@ export type Erasure = {
  *    keeps only the one-way identity hash, so a still-live realm account cannot re-enter.
  *
  * Applications and outbox rows are matched only through links: applications linked to the member (by
- * member link or through their invitations), plus UNLINKED applications with the same contact email as
- * one of those. The offboarding notice address is free text and is never a match key.
+ * member link or through their invitations; first sign-in sets that link automatically, see linking.ts),
+ * plus UNLINKED applications with the same contact email as one of those. Outbox rows are matched by their
+ * invitation link, by those emails, or by `Member #id`. The offboarding notice address is free text and is never a match key.
  */
 export async function eraseMember(payload: Payload, memberId: number, req?: PayloadRequest): Promise<Erasure> {
   const q = pool(payload, req)
@@ -59,7 +60,9 @@ export async function eraseMember(payload: Payload, memberId: number, req?: Payl
   // A still-pending invitation must not stay redeemable after its person is erased.
   counts['invitations-revoked'] = (await q.query(`UPDATE member_invitations SET status = 'revoked' WHERE status = 'pending' AND (member_id = $1 OR application_id = ANY($2::int[]))`, [memberId, ids])).rowCount ?? 0
   const outbox = await q.query(
-    `UPDATE message_outbox SET recipient_email = NULL, recipient_label = 'Former member' WHERE lower(recipient_email) = ANY($1::text[]) OR recipient_label = $2 RETURNING id`, [emails, `Member #${memberId}`])
+    `UPDATE message_outbox SET recipient_email = NULL, recipient_label = 'Former member'
+      WHERE lower(recipient_email) = ANY($1::text[]) OR recipient_label = $2
+         OR invitation_id IN (SELECT id FROM member_invitations WHERE member_id = $3 OR application_id = ANY($4::int[])) RETURNING id`, [emails, `Member #${memberId}`, memberId, ids])
   counts['outbox-rows-redacted'] = outbox.rowCount ?? 0
 
   await payload.update({

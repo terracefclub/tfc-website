@@ -1,6 +1,7 @@
 import type { Payload } from 'payload'
 import { applicationTtlMs, graceMs } from './policy'
 import { reconcileMirror } from './outbox'
+import { backfillLinks } from './linking'
 import { hideTargets, pool } from './visibility'
 
 /** Withdraw pending applications nobody reviewed within the (placeholder) time limit. */
@@ -47,6 +48,7 @@ export async function sweep(payload: Payload, options: { purgeModerated?: boolea
   }
   const offboarded = await q.query(`SELECT count(*)::int AS n FROM member_offboardings WHERE state = 'offboarded' AND grace_ends_at < now()`)
   const applicationsWithdrawn = await expireStaleApplications(payload)
+  const links = await backfillLinks(payload).catch(() => ({ invitations: 0, applications: 0, ambiguous: 0, failed: true }))
   const mirror = await reconcileMirror(payload).catch(() => ({ redacted: 0, written: 0, failed: true }))
-  return { mirror, applicationsWithdrawn, invitationsExpired: expired.rowCount ?? 0, moderatedPastGrace: pastGrace, moderatedPurged: purged, offboardedPastGrace: Number(offboarded.rows[0].n) }
+  return { mirror, links, applicationsWithdrawn, invitationsExpired: expired.rowCount ?? 0, moderatedPastGrace: pastGrace, moderatedPurged: purged, offboardedPastGrace: Number(offboarded.rows[0].n) }
 }

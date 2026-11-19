@@ -107,7 +107,7 @@ and is not readable through the API.
 
 Every outgoing message (invitation, denial, offboarding notice, erasure confirmation) is appended to
 **message-outbox**. Outbox rows are append-only (no deletes, only the status may change), readable by
-administrators, and **never contain links or tokens**. In local preview the same message is also written
+administrators, and **never contain links or tokens**. An invitation message carries a real foreign key to its invitation (`message_outbox.invitation_id`, set when it is enqueued), which the admin outbox list and erasure use; rows written before the key existed are matched by the older email-and-nearest-time heuristic. In local preview the same message is also written
 to `LIFECYCLE_OUTBOX_DIR/<id>-<kind>.json`; the invitation file is the only place the one-time link
 exists. There is no SMTP. **[OWNER]** how messages are actually delivered. Until decided, an operator
 reads the mirror file and passes the link to the applicant.
@@ -131,6 +131,7 @@ KEYCLOAK_HTTP_PORT=8186 direnv exec identity bun identity/tools/provision-member
   --username verify.alumna --email person@example.org --name "Verify Alumna" --role alumni
 ```
 
+* **`--email` must be the application's contact email**: it is what binds the person's first sign-in to their application and invitation (next subsection). The script marks it verified.
 * A new user gets a temporary password (change forced at first sign-in), written to
   `identity/.state/provisioned/<username>.txt` (mode 0600), never printed. Deliver it privately.
 * Running it again for an existing user keeps their credentials, re-enables the account and sets
@@ -139,13 +140,40 @@ KEYCLOAK_HTTP_PORT=8186 direnv exec identity bun identity/tools/provision-member
   the Keycloak admin console following the same steps; **[OWNER]** production enrollment, verified
   contact ownership and password delivery are still open.
 
-After the person first signs in, an administrator may set the optional **member** link on their
-application and invitation. That lets the member (and only that member) read those two records.
+### Linking the person to their application and invitation (automatic)
+
+Erasure and export find a person's application, invitation and messages through links to their member record, so the link is made **by
+the system at first sign-in, not by hand**. Redeeming a link (above) and signing in are separate events: the browser that redeems has no
+identity yet, and the member row is created later, from the verified Keycloak token. They are bound like this:
+
+1. The operator creates the realm user for exactly one applicant with `provision-member.ts --email <the application's contact email>`.
+   Registration is off, addresses are unique in the realm (`duplicateEmailsAllowed: false`), and members cannot change their address or username
+   (`editEmailAllowed: false`, `editUsernameAllowed: false`). The member browser client (`terrace-web`) releases the `email` scope, so the access token carries `email` and
+   `email_verified` (the provisioning script sets it verified). The editorial client does not release it.
+2. On every authenticated request the CMS reads the **verified** address from the signature-checked, introspected token (never from anything the browser sent), and in one conditional
+   statement links every invitation that is **redeemed** (someone holding the one-time link accepted it), whose application is **approved**, whose application
+   contact email equals that address (case-insensitively) and whose `member` link is **still empty**, together with its application (`cms/src/lifecycle/linking.ts`).
+   It runs when the member row is first created and again until something is bound, so a person who signs in before accepting the link is bound at their next request after redeeming.
+3. A link, once set, is never overwritten: a second person presenting the same address binds nothing, and neither does an unverified or missing address, a pending, expired or
+   revoked invitation, or an application with a different address. An administrator's manual link is never replaced either. The address itself is not stored on the member (members have no email on file).
+
+*What stops one person claiming another's application:* the address must come from a token the realm vouches for and only an operator can set it on a realm user;
+the invitation must already be redeemed; and each row can be bound once. A person would need a realm account carrying the other person's address **and** to sign in before
+that person does. Operators must not create a second realm user with someone else's address (the realm refuses duplicates). If the realm's token has no `email` (an older realm that was not
+re-applied: re-run the identity bootstrap), nothing is bound automatically.
+
+**Backfill.** For members who signed in before this existed, `lifecycle:sweep` runs `backfillLinks`: it binds a redeemed, unlinked invitation to a member only when the applicant name
+equals the member's display name (case-insensitively), exactly one member has that name, no other redeemed unlinked invitation has it, and that member has no linked application yet.
+Anything ambiguous is left alone and counted (`links.ambiguous` in the sweep summary) for an administrator. The administrator's **member** picker on an application or invitation
+(next section) remains the manual fallback.
 
 ## 5. Offboard
 
-An administrator creates a **Member offboardings** record for the member (reason, optional notice
-email). On creation:
+An administrator opens **Member offboardings**, presses **Create new** and chooses the member **by name** in the **Member** picker (type to search), adds a reason and an optional notice
+email, and saves. The member cannot be changed afterwards. The picker works because administrators (not editors) may list and search members: they get the display name and
+the status only; `identityKey`, `issuer`, `subject`, roles and the status timestamp stay hidden and unqueryable, nothing can be created, changed or deleted through the members API, and members still read only their own row. The same picker is on the
+**Member** link of an application and an invitation and on an erasure **Data request**. (Editors do not need it: they cannot offboard, erase or link.) Nothing needs the REST API or a guessed id.
+On creation:
 
 1. The member row is marked `offboarded`. The CMS authentication strategy and `isMember` then refuse
    them (401/403) **even if the realm still lets them sign in**.
@@ -217,14 +245,14 @@ staff note); reports of mentorship requests addressed to them; legacy story repo
 offboarding reason and notice address; and applications, decision notes and outbox recipients as follows.
 
 *How applications and outbox rows are found.* Only through links: applications linked to the member (member
-link, or through an invitation linked to them), plus **unlinked** applications with the same contact email as
+link, or through an invitation linked to them; sign-in sets both automatically, see section 4), plus **unlinked** applications with the same contact email as
 one of those. The offboarding notice address is free text and is **never** a match key. Outbox rows to those
-emails, or to `Member #id`, have only their recipient columns redacted (rows stay). The counts matched are
+emails, to `Member #id`, or announcing one of those invitations (`invitation_id`), have only their recipient columns redacted (rows stay). The counts matched are
 returned (member erasure) so the blast radius is visible. **Email-reuse caveat:** if two different people
 share one contact address (a family address, a club mailbox), erasing one also anonymises other unlinked
-applications and outbox rows to that address; check before erasing. **Link the application or invitation to
-the member before erasing** when you can; an unlinked, never-invited application with a different email cannot
-be tied to a person.
+applications and outbox rows to that address; check before erasing. An application that was
+never linked (the person never signed in, or the realm token carried no verified email and the backfill found no unambiguous match) is the one case left to an administrator:
+set the **member** picker on it before erasing. An unlinked, never-invited application with a different email cannot be tied to a person.
 
 *Files.* The database erasure commits first; local mirror files are rewritten only after the commit (a
 rolled-back erasure never touches them). If that file step fails, the erasure stands, the response says
@@ -249,7 +277,7 @@ cd cms && direnv exec . tools/with-local bun run lifecycle:sweep               #
 cd cms && direnv exec . tools/with-local bun run lifecycle:sweep -- --purge-moderated
 ```
 
-The sweep expires stale invitations, withdraws unreviewed applications, completes any pending mirror
+The sweep expires stale invitations, withdraws unreviewed applications, links unambiguous earlier sign-ins to their applications (`links`), completes any pending mirror
 redaction after an erasure, and reports content past its grace period. It deletes
 moderation-hidden content only with `--purge-moderated` (in one transaction, memberships and stories of a
 purged group first) and blanks the snapshots of reports about what it deleted; offboarded members are never
@@ -283,8 +311,8 @@ regenerated and is not an upgrade of those.
 | Anonymous | Submit `/apply/` (limited); check and redeem a valid link. Everything else: 401/403. |
 | Unapproved or offboarded/erased member | Nothing under `/members/` or `/api/lifecycle/*` (401/403). |
 | Member | Own export and erasure; report content they can read; read only applications/invitations linked to them. |
-| Editor | Review applications; read and resolve reports. Cannot read members, identity fields, reporter identity, token hashes, the outbox, or offboard/erase. |
-| Administrator | Everything above plus offboarding, erasure of offboarded members, the outbox and linking records to a member. |
+| Editor | Review applications; read and resolve reports. Cannot read or search members, identity fields, reporter identity, token hashes, the outbox, or offboard/erase. |
+| Administrator | Everything above plus offboarding, erasure of offboarded members, the outbox and linking records to a member; may list and search members by display name and status in the admin pickers (read-only, no identity fields or roles). |
 
 ## Verify
 

@@ -18,6 +18,8 @@ export type OutboxMessage = {
   mirrorBody?: string
   /** At most one message per key may exist (for example one staff notice a day). */
   dedupeKey?: string
+  /** The invitation an `invitation` message announces; stored as a real foreign key. */
+  invitationId?: number
 }
 export type Recorded = { id: number; createdAt: string; message: OutboxMessage }
 
@@ -43,7 +45,7 @@ export function writeFileAtomic(file: string, content: string): void {
 export async function recordMessage(payload: Payload, message: OutboxMessage, req?: PayloadRequest): Promise<Recorded> {
   const record = await payload.create({
     collection: 'message-outbox', overrideAccess: true, req,
-    data: { kind: message.kind, recipientEmail: message.recipientEmail ?? undefined, recipientLabel: message.recipientLabel, subject: message.subject, body: message.body, status: 'queued', dedupeKey: message.dedupeKey },
+    data: { kind: message.kind, recipientEmail: message.recipientEmail ?? undefined, recipientLabel: message.recipientLabel, subject: message.subject, body: message.body, status: 'queued', dedupeKey: message.dedupeKey, invitation: message.invitationId },
   })
   return { id: Number(record.id), createdAt: record.createdAt, message }
 }
@@ -133,17 +135,20 @@ export type MirrorReport = { redacted: number; written: number; failed?: number;
 export type InvitationState = 'live' | 'redeemed' | 'revoked' | 'expired' | 'unknown'
 
 /**
- * State of the invitation an outbox invitation message announced. The message has no foreign key, so it is the
- * invitation of the application with the same contact email that was created closest in time (they are
- * issued in one transaction). `live` means pending and not yet past its lifetime; `unknown` (for example after
- * erasure removed the address) counts as not live.
+ * State of the invitation an outbox invitation message announced. New messages carry `invitation_id`, a foreign key
+ * set when the message is enqueued. Older rows have none; for those it is the invitation of the application with
+ * the same contact email that was created closest in time (they were issued in one transaction). `live` means
+ * pending and not yet past its lifetime; `unknown` (for example after erasure removed the address, or the
+ * invitation was deleted) counts as not live.
  */
 export async function invitationState(payload: Payload, outboxId: number): Promise<InvitationState> {
-  const found = await pool(payload).query(
+  const q = pool(payload)
+  const linked = await q.query(`SELECT i.status, i.expires_at <= now() AS past FROM message_outbox o JOIN member_invitations i ON i.id = o.invitation_id WHERE o.id = $1`, [outboxId])
+  const found = linked.rows[0] ? linked : await q.query(
     `SELECT i.status, i.expires_at <= now() AS past FROM message_outbox o
        JOIN member_applications a ON lower(a.contact_email) = lower(o.recipient_email)
        JOIN member_invitations i ON i.application_id = a.id
-      WHERE o.id = $1 ORDER BY abs(extract(epoch FROM (i.created_at - o.created_at))) LIMIT 1`, [outboxId])
+      WHERE o.id = $1 AND o.invitation_id IS NULL ORDER BY abs(extract(epoch FROM (i.created_at - o.created_at))) LIMIT 1`, [outboxId])
   const row = found.rows[0]
   if (!row) return 'unknown'
   if (row.status === 'pending') return row.past ? 'expired' : 'live'

@@ -94,7 +94,7 @@ for (const client of clientSettings({ webSecret: credentials.webSecret, introspe
   const clientPath = `realms/${realm}/clients/${current[0].id}`
   if (client.clientId === 'terrace-web' || client.clientId === 'terrace-cms') {
     const scopes = await (await api(`realms/${realm}/client-scopes`)).json() as { id: string; name: string }[]
-    for (const name of ['basic', 'profile', 'roles']) {
+    for (const name of client.defaultClientScopes ?? []) {
       const scope = scopes.find((entry) => entry.name === name)
       if (!scope) throw new Error('Required Keycloak client scope is missing.')
       await api(`${clientPath}/default-client-scopes/${scope.id}`, 'PUT')
