@@ -55,6 +55,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"subject" varchar NOT NULL,
   	"body" varchar NOT NULL,
   	"status" "enum_message_outbox_status" DEFAULT 'queued' NOT NULL,
+  	"dedupe_key" varchar,
   	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
   );
@@ -145,6 +146,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX "member_invitations_member_idx" ON "member_invitations" USING btree ("member_id");
   CREATE INDEX "member_invitations_updated_at_idx" ON "member_invitations" USING btree ("updated_at");
   CREATE INDEX "member_invitations_created_at_idx" ON "member_invitations" USING btree ("created_at");
+  CREATE UNIQUE INDEX "message_outbox_dedupe_key_idx" ON "message_outbox" USING btree ("dedupe_key");
   CREATE INDEX "message_outbox_updated_at_idx" ON "message_outbox" USING btree ("updated_at");
   CREATE INDEX "message_outbox_created_at_idx" ON "message_outbox" USING btree ("created_at");
   CREATE INDEX "member_offboardings_member_idx" ON "member_offboardings" USING btree ("member_id");

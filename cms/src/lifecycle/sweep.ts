@@ -1,5 +1,6 @@
 import type { Payload } from 'payload'
 import { applicationTtlMs, graceMs } from './policy'
+import { reconcileMirror } from './outbox'
 import { hideTargets, pool } from './visibility'
 
 /** Withdraw pending applications nobody reviewed within the (placeholder) time limit. */
@@ -25,12 +26,18 @@ export async function sweep(payload: Payload, options: { purgeModerated?: boolea
   }
   if (options.purgeModerated) {
     // One transaction: memberships of a hidden group go first (group_id is NOT NULL), then the rows.
-    const client = await (payload.db as unknown as { pool: { connect: () => Promise<{ query: (text: string, values?: unknown[]) => Promise<{ rowCount: number | null }>; release: () => void }> } }).pool.connect()
+    const client = await (payload.db as unknown as { pool: { connect: () => Promise<{ query: (text: string, values?: unknown[]) => Promise<{ rowCount: number | null; rows: Array<{ id: number }> }>; release: () => void }> } }).pool.connect()
     try {
       await client.query('BEGIN')
       await client.query(`DELETE FROM group_memberships WHERE group_id IN (SELECT id FROM member_groups WHERE moderation_hidden_at < $1)`, [cutoff])
       await client.query(`DELETE FROM member_stories WHERE group_id IN (SELECT id FROM member_groups WHERE moderation_hidden_at < $1)`, [cutoff])
-      for (const { table } of Object.values(hideTargets)) purged += (await client.query(`DELETE FROM ${table} WHERE moderation_hidden_at < $1`, [cutoff])).rowCount ?? 0
+      const types: Record<string, string> = { 'member-stories': 'story', 'member-groups': 'group', 'mentorship-requests': 'mentorship-request' }
+      for (const [collection, { table }] of Object.entries(hideTargets)) {
+        const gone = await client.query(`DELETE FROM ${table} WHERE moderation_hidden_at < $1 RETURNING id`, [cutoff])
+        purged += gone.rowCount ?? 0
+        // A report keeps no copy of what it reported once that content is purged.
+        if (types[collection] && gone.rowCount) await client.query(`UPDATE moderation_reports SET snapshot_title = 'Purged after the retention period.', snapshot_body = 'Purged after the retention period.', detail = NULL WHERE target_type = $1 AND target_id = ANY($2::numeric[])`, [types[collection], (gone as unknown as { rows: Array<{ id: number }> }).rows.map((row) => row.id)])
+      }
       await client.query('COMMIT')
     } catch (error) {
       await client.query('ROLLBACK')
@@ -39,5 +46,6 @@ export async function sweep(payload: Payload, options: { purgeModerated?: boolea
   }
   const offboarded = await q.query(`SELECT count(*)::int AS n FROM member_offboardings WHERE state = 'offboarded' AND grace_ends_at < now()`)
   const applicationsWithdrawn = await expireStaleApplications(payload)
-  return { applicationsWithdrawn, invitationsExpired: expired.rowCount ?? 0, moderatedPastGrace: pastGrace, moderatedPurged: purged, offboardedPastGrace: Number(offboarded.rows[0].n) }
+  const mirror = await reconcileMirror(payload).catch(() => ({ redacted: 0, written: 0, failed: true }))
+  return { mirror, applicationsWithdrawn, invitationsExpired: expired.rowCount ?? 0, moderatedPastGrace: pastGrace, moderatedPurged: purged, offboardedPastGrace: Number(offboarded.rows[0].n) }
 }

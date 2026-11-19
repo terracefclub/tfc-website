@@ -115,6 +115,7 @@ export const MessageOutbox: CollectionConfig = {
     { name: 'subject', type: 'text', required: true, admin: readOnly },
     { name: 'body', type: 'textarea', required: true, admin: readOnly },
     { name: 'status', type: 'select', required: true, defaultValue: 'queued', options: ['queued', 'delivered-by-operator'] },
+    { name: 'dedupeKey', type: 'text', unique: true, admin: { hidden: true }, access: { read: fieldNever, create: fieldNever, update: fieldNever } },
   ],
 }
 

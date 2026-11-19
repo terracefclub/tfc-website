@@ -103,7 +103,8 @@ export const GroupMemberships: CollectionConfig = {
       const group = relationId(data?.group)
       if (!id || !group) throw new Error('Choose a group.')
       await req.payload.findByID({ collection: 'member-groups', id: group, req, overrideAccess: false, depth: 0 })
-      if ((await joinedGroups(req)).length >= 100) throw new Error('You can join up to 100 groups.')
+      // Count every membership, including groups that are currently hidden.
+      if ((await req.payload.count({ collection: 'group-memberships', where: { member: { equals: id } }, req, overrideAccess: true })).totalDocs >= 100) throw new Error('You can join up to 100 groups.')
       return { ...data, membershipKey: `${id}:${group}` }
     }],
     beforeDelete: [async ({ id, req }) => {

@@ -1,6 +1,6 @@
 import { commitTransaction, initTransaction, killTransaction, type Endpoint, type PayloadRequest } from 'payload'
 import { isMember, memberId } from '../access/members'
-import { eraseMember } from './erasure'
+import { eraseMember, finishErasure } from './erasure'
 import { buildExport } from './export'
 import { inspectInvitation, redeemInvitation } from './invitations'
 import { erasureConfirmMs } from './policy'
@@ -52,9 +52,10 @@ export const intake = {
     await expireStaleApplications(req.payload)
     const pending = await req.payload.count({ collection: 'member-applications', where: { status: { equals: 'pending' } }, overrideAccess: true })
     if (pending.totalDocs >= WARN_PENDING) {
-      const day = new Date(Date.now() - 86_400_000).toISOString()
-      const warned = await req.payload.count({ collection: 'message-outbox', where: { and: [{ kind: { equals: 'staff-notice' } }, { createdAt: { greater_than: day } }] }, overrideAccess: true })
-      if (!warned.totalDocs) await enqueueMessage(req.payload, { kind: 'staff-notice', recipientLabel: 'Terrace reviewers', subject: 'The application queue is nearly full', body: `${pending.totalDocs} of ${MAX_PENDING} pending applications. New applications are refused at ${MAX_PENDING}. Review or deny the queue.` })
+      // One notice a day: the unique key makes a race harmless, and a failure here never refuses an application.
+      try {
+        await enqueueMessage(req.payload, { kind: 'staff-notice', recipientLabel: 'Terrace reviewers', subject: 'The application queue is nearly full', dedupeKey: `staff-notice:${new Date().toISOString().slice(0, 10)}`, body: `${pending.totalDocs} of ${MAX_PENDING} pending applications. New applications are refused at ${MAX_PENDING}. Review or deny the queue.` }, undefined, { bestEffortMirror: true })
+      } catch { /* already sent today, or the outbox is unavailable */ }
     }
     if (pending.totalDocs >= MAX_PENDING) return json({ error: 'Unavailable.' }, 503)
     const duplicate = await req.payload.find({ collection: 'member-applications', where: { and: [{ status: { equals: 'pending' } }, { contactEmail: { equals: email } }] }, limit: 1, depth: 0, overrideAccess: true })
@@ -109,20 +110,23 @@ export const own = {
       // One transaction: claiming the code, erasing and completing commit together. If anything fails
       // the claim rolls back too, so the code still works and nothing was changed.
       await initTransaction(req)
+      let erasure: Awaited<ReturnType<typeof eraseMember>>
       try {
         const claimed = await pool(req.payload, req).query(
           `UPDATE data_requests SET status = 'confirmed' WHERE member_id = $1 AND kind = 'erasure' AND status = 'awaiting-confirmation' AND confirm_hash = $2 AND confirm_expires_at > now() RETURNING id`,
           [member.id, hashToken(data.token)])
         const request = claimed.rows[0]
         if (!request) { await killTransaction(req); return json({ error: 'That confirmation is not valid or has expired. Start again.' }, 400) }
-        const counts = await eraseMember(req.payload, member.id, req)
+        erasure = await eraseMember(req.payload, member.id, req)
         await pool(req.payload, req).query(`UPDATE data_requests SET status = 'completed', completed_at = now(), confirm_hash = NULL WHERE id = $1`, [request.id])
         await commitTransaction(req)
-        return json({ erased: true, counts })
       } catch {
         await killTransaction(req)
         return json({ error: 'Erasure could not be completed. Nothing was erased; your code still works.' }, 503)
       }
+      // Committed: the erasure stands. Files are a separate, retryable step, reported as it is.
+      const { mirror } = finishErasure(erasure)
+      return json({ erased: true, counts: erasure.counts, mirror, ...(mirror === 'pending' ? { warning: 'Your data was erased. Redacting the local message copies did not finish; an operator will complete it.' } : {}) })
     }
     return json({ error: 'Invalid request.' }, 400)
   },

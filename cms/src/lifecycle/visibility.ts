@@ -31,8 +31,11 @@ type Pool = { query: (text: string, values?: unknown[]) => Promise<{ rowCount: n
  */
 export function pool(payload: Payload, req?: Pick<PayloadRequest, 'transactionID'>): Pool {
   const db = payload.db as unknown as { pool: Pool; sessions?: Record<string, { db: { session: { client: Pool } } }> }
-  const session = req?.transactionID ? db.sessions?.[String(req.transactionID)] : undefined
-  return session ? session.db.session.client : db.pool
+  if (!req?.transactionID) return db.pool
+  const session = db.sessions?.[String(req.transactionID)]
+  // Never fall back to the shared pool: that would run outside the transaction the caller relies on.
+  if (!session) throw new Error('The request transaction is not available.')
+  return session.db.session.client
 }
 
 const owned = (owners: readonly string[]) => owners.map((column) => `${column} = $1`).join(' OR ')

@@ -1,14 +1,13 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test'
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getPayload, type Payload } from 'payload'
 import config from '../src/payload.config'
 import { isMember } from '../src/access/members'
 import { intake, own } from '../src/lifecycle/endpoints'
-import { setErasureProbe } from '../src/lifecycle/erasure'
 import { issueInvitation } from '../src/lifecycle/invitations'
-import { enqueueMessage } from '../src/lifecycle/outbox'
+import { deliveryConfig, enqueueMessage, reconcileMirror } from '../src/lifecycle/outbox'
 import { sweep } from '../src/lifecycle/sweep'
 import { hashToken } from '../src/lifecycle/tokens'
 import { pool } from '../src/lifecycle/visibility'
@@ -50,6 +49,17 @@ const offboard = async (member: any) => {
 const restore = (record: any) => payload.update({ collection: 'member-offboardings', id: record.id, data: { state: 'restored' }, user: admin, overrideAccess: false })
 const pendingApplication = (name: string, email: string) => payload.create({ collection: 'member-applications', overrideAccess: true, data: { name, affiliation: 'alumni', contactEmail: email } })
 
+// Real faults, not test seams: a trigger that raises on any statement against a table.
+const faulted: string[] = []
+async function failOn(table: string, event: 'UPDATE' | 'DELETE') {
+  await q(`CREATE OR REPLACE FUNCTION tfc_injected_failure() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'injected failure'; END $$ LANGUAGE plpgsql`)
+  await q(`CREATE TRIGGER tfc_fail_${table} BEFORE ${event} ON ${table} FOR EACH STATEMENT EXECUTE FUNCTION tfc_injected_failure()`)
+  faulted.push(table)
+}
+async function dropFaults() {
+  for (const table of faulted.splice(0)) await q(`DROP TRIGGER IF EXISTS tfc_fail_${table} ON ${table}`)
+}
+
 beforeAll(async () => {
   if (process.env.CMS_LOCAL_BOOTSTRAP !== '1') throw new Error('Lifecycle tests require isolated local data.')
   process.env.LIFECYCLE_INTAKE_SECRET = secret
@@ -61,7 +71,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  setErasureProbe(undefined)
+  await dropFaults()
   for (const item of trash) await payload.delete({ ...item, overrideAccess: true }).catch(() => {})
   await q(`DELETE FROM data_requests WHERE member_id = ANY($1)`, [members]).catch(() => {})
   await q(`DELETE FROM member_offboardings WHERE member_id = ANY($1)`, [members]).catch(() => {})
@@ -92,7 +102,7 @@ async function scan(needles: string[]) {
 test('erasure leaves no trace of the member\'s name or email in any table or mirror file', async () => {
   const name = `Zelda Quill ${suffix}`
   const email = `zelda-quill-${suffix}@terrace.invalid`
-  const noticeEmail = `zelda-notice-${suffix}@terrace.invalid`
+  const noticeEmail = `shared-officers-${suffix}@terrace.invalid`
   const zelda = await makeMember(name)
   const other = await makeMember(`Other ${suffix}`, ['current-member'])
   // Invitation chain: the application is NOT linked to the member, only the invitation is.
@@ -100,30 +110,57 @@ test('erasure leaves no trace of the member\'s name or email in any table or mir
   await payload.update({ collection: 'member-applications', id: application.id, data: { status: 'approved', grantRole: 'alumni', decisionNote: `Known to ${name}` }, user: editor, overrideAccess: false })
   const invitation = (await payload.find({ collection: 'member-invitations', where: { application: { equals: application.id } }, overrideAccess: true })).docs[0]
   await payload.update({ collection: 'member-invitations', id: invitation.id, data: { member: zelda.id }, user: admin, overrideAccess: false })
-  // A second, pending application from the same address (never linked) is caught by its email.
+  // A second, unlinked application from the same address is caught by its email.
   await q(`UPDATE member_applications SET status = 'withdrawn' WHERE id = $1`, [application.id])
   const twin = await pendingApplication('Twin of Zelda', email.toUpperCase())
+  // Someone else's application that shares ONLY the offboarding notice address must survive.
+  const stranger = await pendingApplication(`Stranger ${suffix}`, noticeEmail)
   const story = await as('member-stories', { title: `Story by ${name}`, body: `Written by ${name}`, audience: 'community' }, zelda)
   await as('member-profiles', { displayName: name, bio: `About ${name}`, directoryVisible: true }, zelda)
+  await as('mentorship-offers', { displayName: name, topics: `Topics from ${name}`, about: `Offer by ${name}`, optIn: true }, zelda)
+  const group = await as('member-groups', { name: `Zelda's Group ${suffix}`, description: 'Pool table people.' }, zelda)
+  const groupStory = await as('member-stories', { title: `Group tale by ${name}`, body: `Group body by ${name}`, audience: 'group', group: group.id }, zelda)
   const mine = await as('member-stories', { title: `Other ${suffix}`, body: 'Theirs', audience: 'community' }, other)
-  // Legacy story report about Zelda's story, a moderation report about it, and a report Zelda filed.
+  // A request Zelda sent (her name and text), and one addressed to Zelda (her name in the mentor fields and report snapshot).
+  await as('mentorship-offers', { displayName: `Other ${suffix}`, optIn: true }, other)
+  const sent = await as('mentorship-requests', { mentor: other.id, message: `${name} here, hello` }, zelda)
+  const received = await as('mentorship-requests', { mentor: zelda.id, message: 'Could we talk?' }, other)
+  await payload.update({ collection: 'mentorship-requests', id: received.id, data: { status: 'accepted', reply: `Reply from ${name}` }, user: zelda, overrideAccess: false })
+  // Reports: legacy, about her story, a mentor reporting a request addressed to her, and one she filed with a staff note.
   await as('story-reports', { storyId: story.id, reason: 'privacy' }, other)
   const about = await as('moderation-reports', { targetType: 'story', targetId: story.id, reason: 'other', detail: `About ${name}` }, other)
   await payload.update({ collection: 'moderation-reports', id: about.id, data: { status: 'resolved', resolutionNote: `Spoke to ${name}` }, user: editor, overrideAccess: false })
-  await as('moderation-reports', { targetType: 'story', targetId: mine.id, reason: 'harassment', detail: `Filed by ${name} ${email}` }, zelda)
+  const filed = await as('moderation-reports', { targetType: 'story', targetId: mine.id, reason: 'harassment', detail: `Filed by ${name} ${email}` }, zelda)
+  await payload.update({ collection: 'moderation-reports', id: filed.id, data: { status: 'resolved', resolutionNote: `Thanked ${name}` }, user: editor, overrideAccess: false })
+  const mentorReport = await as('moderation-reports', { targetType: 'mentorship-request', targetId: sent.id, reason: 'other' }, other)
+  expect(mentorReport.snapshotTitle).toContain('Mentorship request to')
+  // The mentor (Zelda) reports a request addressed to her: the snapshot title carries her name as mentor.
+  const toZelda = await as('moderation-reports', { targetType: 'mentorship-request', targetId: received.id, reason: 'other' }, zelda)
+  expect(toZelda.snapshotTitle).toContain(name)
+  await payload.update({ collection: 'moderation-reports', id: toZelda.id, data: { status: 'resolved', resolutionNote: `Handled for ${name}` }, user: editor, overrideAccess: false })
   const off = await payload.create({ collection: 'member-offboardings', data: { member: zelda.id, reason: `Reason for ${name}`, noticeEmail }, user: admin, overrideAccess: false })
   trash.unshift({ collection: 'member-offboardings', id: off.id } as any)
-  const before = await scan([`Zelda Quill ${suffix}`, `zelda-quill-${suffix}`, `zelda-notice-${suffix}`])
-  expect(before.length).toBeGreaterThan(5) // the scan really does see the data beforehand
+  const needles = [`Zelda Quill ${suffix}`, `zelda-quill-${suffix}`]
+  const before = await scan(needles)
+  expect(before.length).toBeGreaterThan(8) // the scan really does see the data beforehand
   expect(readdirSync(outbox).some((file) => readFileSync(join(outbox, file), 'utf8').includes(email))).toBe(true)
 
   await payload.create({ collection: 'data-requests', data: { member: zelda.id, kind: 'erasure' }, user: admin, overrideAccess: false })
 
-  expect(await scan([`Zelda Quill ${suffix}`, `zelda-quill-${suffix}`, `zelda-notice-${suffix}`])).toEqual([])
-  for (const file of readdirSync(outbox)) expect(readFileSync(join(outbox, file), 'utf8')).not.toMatch(new RegExp(`zelda-(quill|notice)-${suffix}|Zelda Quill`, 'i'))
+  expect(await scan(needles)).toEqual([])
+  expect(await scan([`shared-officers-${suffix}`])).toContain('member_applications') // the stranger's own row, untouched
+  // Files: an administrator's erasure leaves redaction to the retryable reconcile step.
+  expect(readdirSync(outbox).some((file) => readFileSync(join(outbox, file), 'utf8').includes(email))).toBe(true)
+  await reconcileMirror(payload)
+  for (const file of readdirSync(outbox)) expect(readFileSync(join(outbox, file), 'utf8')).not.toMatch(new RegExp(`zelda-quill-${suffix}|Zelda Quill`, 'i'))
+  // Another person's data is untouched: the stranger sharing only the notice address, and others' content.
+  expect((await payload.findByID({ collection: 'member-applications', id: stranger.id, overrideAccess: true })).name).toBe(`Stranger ${suffix}`)
   expect((await payload.findByID({ collection: 'member-applications', id: twin.id, overrideAccess: true })).name).toBe('Erased applicant')
-  // Other people's content is untouched, and the outbox keeps its rows (only personal columns are redacted).
   expect((await payload.findByID({ collection: 'member-stories', id: mine.id, overrideAccess: true })).title).toBe(`Other ${suffix}`)
+  expect(await payload.findByID({ collection: 'member-stories', id: groupStory.id, overrideAccess: true }).catch(() => null)).toBeNull()
+  // Policy pending an owner decision: the group the member founded keeps its name and description; only the founder name is anonymised.
+  const kept = await payload.findByID({ collection: 'member-groups', id: group.id, overrideAccess: true })
+  expect(kept).toMatchObject({ name: `Zelda's Group ${suffix}`, description: 'Pool table people.', ownerName: 'Former member' })
   expect((await payload.count({ collection: 'message-outbox', where: { recipientLabel: { equals: 'Former member' } }, overrideAccess: true })).totalDocs).toBeGreaterThanOrEqual(2)
 })
 
@@ -135,17 +172,18 @@ test('a failure part-way through member erasure changes nothing and the confirma
   const untouched = async () => {
     expect((await payload.findByID({ collection: 'members', id: subject.id, overrideAccess: true })).status).toBe('active')
     expect((await payload.findByID({ collection: 'member-stories', id: story.id, overrideAccess: true })).title).toBe('Atomic story')
-    const row = (await q(`SELECT status FROM data_requests WHERE confirm_hash = $1`, [hashToken(code)])).rows[0]
-    expect(row.status).toBe('awaiting-confirmation')
+    expect((await q(`SELECT status FROM data_requests WHERE confirm_hash = $1`, [hashToken(code)])).rows[0].status).toBe('awaiting-confirmation')
   }
-  for (const failAt of ['collected', 'deleted', 'anonymised', 'scrubbed', 'tombstoned']) {
-    setErasureProbe((step) => { if (step === failAt) throw new Error('injected failure') })
-    const response = await own.erasure(request(subject, { step: 'confirm', token: code }))
-    expect(response.status).toBe(503)
-    expect(((await response.json()) as any).error).toContain('Nothing was erased')
+  // Each fault hits a different stage: deleting content, anonymising conversations, scrubbing outbox rows, the tombstone.
+  for (const [table, event] of [['member_stories', 'DELETE'], ['mentorship_requests', 'UPDATE'], ['message_outbox', 'UPDATE'], ['members', 'UPDATE']] as const) {
+    await failOn(table, event)
+    try {
+      const response = await own.erasure(request(subject, { step: 'confirm', token: code }))
+      expect(response.status).toBe(503)
+      expect(((await response.json()) as any).error).toContain('Nothing was erased')
+    } finally { await dropFaults() }
     await untouched()
   }
-  setErasureProbe(undefined)
   expect((await own.erasure(request(subject, { step: 'confirm', token: code }))).status).toBe(200)
   expect((await payload.findByID({ collection: 'members', id: subject.id, overrideAccess: true })).status).toBe('erased')
   expect(await payload.findByID({ collection: 'member-stories', id: story.id, overrideAccess: true }).catch(() => null)).toBeNull()
@@ -156,16 +194,54 @@ test('an administrator\'s erasure rolls back completely when it fails, then succ
   const subject = await makeMember(`Admin Atomic ${suffix}`)
   const story = await as('member-stories', { title: 'Admin atomic story', body: 'Keep me.', audience: 'community' }, subject)
   await offboard(subject)
-  setErasureProbe((step) => { if (step === 'scrubbed') throw new Error('injected failure') })
+  await failOn('message_outbox', 'UPDATE')
   try {
     await expect(payload.create({ collection: 'data-requests', data: { member: subject.id, kind: 'erasure' }, user: admin, overrideAccess: false })).rejects.toThrow()
-  } finally { setErasureProbe(undefined) }
+  } finally { await dropFaults() }
   expect((await payload.findByID({ collection: 'members', id: subject.id, overrideAccess: true })).status).toBe('offboarded')
   expect((await payload.findByID({ collection: 'member-stories', id: story.id, overrideAccess: true })).title).toBe('Admin atomic story')
   expect((await payload.count({ collection: 'data-requests', where: { member: { equals: subject.id } }, overrideAccess: true })).totalDocs).toBe(0)
   const run = await payload.create({ collection: 'data-requests', data: { member: subject.id, kind: 'erasure' }, user: admin, overrideAccess: false })
   expect((await payload.findByID({ collection: 'data-requests', id: run.id, overrideAccess: true })).status).toBe('completed')
   expect((await payload.findByID({ collection: 'members', id: subject.id, overrideAccess: true })).status).toBe('erased')
+})
+
+// ---- N3: files change only after the database commits -----------------------------------------------------------
+test('mirror files are untouched when erasure rolls back, and a file failure after commit is reported and retryable', async () => {
+  const email = `mirror-${suffix}@terrace.invalid`
+  const subject = await makeMember(`Mirror Subject ${suffix}`)
+  const application = await pendingApplication(`Mirror Subject ${suffix}`, email)
+  await payload.update({ collection: 'member-applications', id: application.id, data: { status: 'approved', grantRole: 'alumni' }, user: editor, overrideAccess: false })
+  const invitation = (await payload.find({ collection: 'member-invitations', where: { application: { equals: application.id } }, overrideAccess: true })).docs[0]
+  await payload.update({ collection: 'member-invitations', id: invitation.id, data: { member: subject.id }, user: admin, overrideAccess: false })
+  const file = readdirSync(outbox).find((name) => readFileSync(join(outbox, name), 'utf8').includes(email))!
+  const path = join(outbox, file)
+  const original = readFileSync(path)
+  const count = () => readdirSync(outbox).length
+  const files = count()
+  const code = (await (await own.erasure(request(subject, { step: 'request' }))).json() as any).confirmationCode
+
+  await failOn('message_outbox', 'UPDATE')
+  try { expect((await own.erasure(request(subject, { step: 'confirm', token: code }))).status).toBe(503) } finally { await dropFaults() }
+  expect(readFileSync(path).equals(original)).toBe(true) // byte-identical: the pending invitation link was not redacted
+  expect(count()).toBe(files) // and no orphan confirmation file
+
+  // Now make the post-commit file step fail: a directory sits where the file should be rewritten.
+  rmSync(path)
+  mkdirSync(path)
+  const response = await own.erasure(request(subject, { step: 'confirm', token: code }))
+  const body = await response.json() as any
+  expect(response.status).toBe(200)
+  expect(body).toMatchObject({ erased: true, mirror: 'pending' })
+  expect(body.warning).toContain('did not finish')
+  expect((await payload.findByID({ collection: 'members', id: subject.id, overrideAccess: true })).status).toBe('erased') // the erasure stands
+  rmSync(path, { recursive: true })
+  writeFileSync(path, original, { mode: 0o600 })
+  const reconciled = await reconcileMirror(payload)
+  expect(reconciled.redacted).toBeGreaterThanOrEqual(1)
+  expect(reconciled.written).toBeGreaterThanOrEqual(1) // the confirmation file that was missing
+  expect(readFileSync(path, 'utf8')).not.toContain(email)
+  expect((await reconcileMirror(payload))).toEqual({ redacted: 0, written: 0 }) // idempotent
 })
 
 // ---- M1: moderation and offboarding hides are independent ---------------------------------------------
@@ -260,22 +336,41 @@ test('an invitation cannot be issued, and approval rolls back, when no delivery 
   expect((await payload.count({ collection: 'member-invitations', where: { application: { equals: application.id } }, overrideAccess: true })).totalDocs).toBe(0)
 })
 
-test('in production the invitation origin must be an explicit public https origin', async () => {
+test('the invitation origin must be a bare public https origin everywhere except the explicit local profile', async () => {
   const application = await pendingApplication(`Prod ${suffix}`, `prod-${suffix}@terrace.invalid`)
-  const env = { node: process.env.NODE_ENV, origin: process.env.LIFECYCLE_PUBLIC_ORIGIN }
-  ;(process.env as any).NODE_ENV = 'production'
+  const saved = { node: process.env.NODE_ENV, origin: process.env.LIFECYCLE_PUBLIC_ORIGIN, local: process.env.CMS_LOCAL_BOOTSTRAP }
+  const attempt = () => issueInvitation(payload, { ...application, grantRole: 'alumni' } as any)
+  const setOrigin = (value?: string) => { if (value === undefined) delete process.env.LIFECYCLE_PUBLIC_ORIGIN; else process.env.LIFECYCLE_PUBLIC_ORIGIN = value }
   try {
-    for (const bad of [undefined, 'http://members.example.org', 'https://localhost', 'https://127.0.0.1', 'https://user:pw@members.example.org', 'https://members.example.org/path']) {
-      if (bad === undefined) delete process.env.LIFECYCLE_PUBLIC_ORIGIN; else process.env.LIFECYCLE_PUBLIC_ORIGIN = bad
-      await expect(issueInvitation(payload, { ...application, grantRole: 'alumni' } as any)).rejects.toThrow(/LIFECYCLE_PUBLIC_ORIGIN/)
+    // Production, and anything that is not the local profile, fails closed.
+    for (const mode of ['production', 'unset'] as const) {
+      if (mode === 'production') (process.env as any).NODE_ENV = 'production'; else { delete process.env.CMS_LOCAL_BOOTSTRAP; delete (process.env as any).NODE_ENV }
+      for (const bad of [undefined, 'http://members.example.org', 'https://localhost', 'https://127.0.0.1', 'https://127.0.0.2', 'https://0.0.0.0', 'https://[::1]', 'https://app.localhost', 'https://user:pw@members.example.org', 'https://members.example.org/path', 'https://members.example.org/', 'https://members.example.org/?x=1', 'https://members.example.org#frag']) {
+        setOrigin(bad)
+        await expect(attempt()).rejects.toThrow(/LIFECYCLE_PUBLIC_ORIGIN/)
+      }
     }
-    process.env.LIFECYCLE_PUBLIC_ORIGIN = 'https://members.example.org'
-    const { token } = await issueInvitation(payload, { ...application, grantRole: 'alumni' } as any)
+    // Local development: CMS_LOCAL_BOOTSTRAP=1 and not production may use loopback, but never with NODE_ENV=production.
+    process.env.CMS_LOCAL_BOOTSTRAP = '1'
+    delete (process.env as any).NODE_ENV
+    setOrigin(undefined)
+    expect(deliveryConfig().origin).toBe('http://127.0.0.1:4194')
+    setOrigin('http://127.0.0.1:4252')
+    expect(deliveryConfig().origin).toBe('http://127.0.0.1:4252')
+    setOrigin('http://127.0.0.1:4252/?x')
+    expect(() => deliveryConfig()).toThrow()
+    ;(process.env as any).NODE_ENV = 'production'
+    setOrigin('http://127.0.0.1:4252')
+    expect(() => deliveryConfig()).toThrow()
+    // A real public origin works and the link lands in the mirror.
+    setOrigin('https://members.example.org')
+    const { token } = await attempt()
     const files = readdirSync(outbox).map((file) => readFileSync(join(outbox, file), 'utf8'))
     expect(files.some((text) => text.includes(`https://members.example.org/join/#${token}`))).toBe(true)
   } finally {
-    ;(process.env as any).NODE_ENV = env.node
-    process.env.LIFECYCLE_PUBLIC_ORIGIN = env.origin
+    if (saved.node === undefined) delete (process.env as any).NODE_ENV; else (process.env as any).NODE_ENV = saved.node
+    if (saved.local === undefined) delete process.env.CMS_LOCAL_BOOTSTRAP; else process.env.CMS_LOCAL_BOOTSTRAP = saved.local
+    setOrigin(saved.origin)
   }
 })
 
@@ -409,4 +504,60 @@ test('GraphQL is disabled', () => {
 test('the mirror directory is owner-only and holds only expected files', () => {
   expect(statSync(outbox).mode & 0o777).toBe(0o700)
   expect(existsSync(outbox)).toBe(true)
+})
+
+// ---- later review items ------------------------------------------------------------------------------------------
+test('the group limit counts hidden groups, and an author keeps their group story after leaving the group', async () => {
+  const joiner = await makeMember(`Limit ${suffix}`, ['current-member'])
+  const founder = await makeMember(`Limit Founder ${suffix}`)
+  const open = await as('member-groups', { name: `Open ${suffix}`, description: 'x' }, founder)
+  await as('group-memberships', { group: open.id }, joiner)
+  const story = await as('member-stories', { title: 'Mine after leaving', body: 'x', audience: 'group', group: open.id }, joiner)
+  const membership = (await payload.find({ collection: 'group-memberships', where: { and: [{ member: { equals: joiner.id } }, { group: { equals: open.id } }] }, user: joiner, overrideAccess: false })).docs[0]
+  await payload.delete({ collection: 'group-memberships', id: membership.id, user: joiner, overrideAccess: false })
+  expect(await storiesFor(joiner)).toContain(story.id) // authors keep their own group stories (intended; documented)
+  expect(await storiesFor(founder)).toContain(story.id) // the founder is still a member
+  // 100 memberships, many in hidden groups, still hit the limit.
+  await q(`INSERT INTO member_groups (owner_id, owner_name, name, description, moderation_hidden_at, updated_at, created_at) SELECT $1, 'x', 'bulk ' || g || ' ${suffix}', 'x', now(), now(), now() FROM generate_series(1, 100) g`, [founder.id])
+  const bulk = (await q(`SELECT id FROM member_groups WHERE name LIKE $1`, [`bulk % ${suffix}`])).rows.map((row) => row.id)
+  for (const id of bulk) await q(`INSERT INTO group_memberships (member_id, group_id, membership_key, updated_at, created_at) VALUES ($1, $2, $3, now(), now())`, [joiner.id, id, `${joiner.id}:${id}`])
+  await expect(as('group-memberships', { group: open.id }, joiner)).rejects.toThrow(/100 groups/)
+})
+
+test('the staff notice does not refuse applications when the mirror is unwritable, and is once a day even in a race', async () => {
+  const pending = (await payload.count({ collection: 'member-applications', where: { status: { equals: 'pending' } }, overrideAccess: true })).totalDocs
+  const need = Math.max(450 - pending, 1)
+  await q(`INSERT INTO member_applications (name, affiliation, contact_email, status, updated_at, created_at) SELECT 'Warn ' || g, 'alumni', 'warn-' || g || '-${suffix}@terrace.invalid', 'pending', now(), now() FROM generate_series(1, $1) g`, [need])
+  await q(`DELETE FROM message_outbox WHERE kind = 'staff-notice'`)
+  const saved = process.env.LIFECYCLE_OUTBOX_DIR
+  const blocker = join(outbox, 'not-a-directory')
+  writeFileSync(blocker, 'x')
+  process.env.LIFECYCLE_OUTBOX_DIR = blocker // mkdir on a file fails
+  try {
+    const apply = (n: number) => intake.apply(request(null, { name: 'Warned', affiliation: 'alumni', contactEmail: `warned-${n}-${suffix}@terrace.invalid` }, { 'x-terrace-intake': secret }))
+    const results = await Promise.all([1, 2, 3, 4, 5].map(apply))
+    expect(results.map((response) => response.status)).toEqual([202, 202, 202, 202, 202])
+  } finally { process.env.LIFECYCLE_OUTBOX_DIR = saved; rmSync(blocker, { force: true }) }
+  expect((await payload.count({ collection: 'message-outbox', where: { kind: { equals: 'staff-notice' } }, overrideAccess: true })).totalDocs).toBe(1)
+  await q(`UPDATE member_applications SET status = 'withdrawn' WHERE contact_email LIKE $1`, [`warn-%-${suffix}@terrace.invalid`])
+})
+
+test('purging moderated content also blanks its report snapshots', async () => {
+  const author = await makeMember(`Purge Author ${suffix}`)
+  const reporter = await makeMember(`Purge Reporter ${suffix}`, ['current-member'])
+  const story = await as('member-stories', { title: `Purge me ${suffix}`, body: 'Evidence text', audience: 'community' }, author)
+  const report = await as('moderation-reports', { targetType: 'story', targetId: story.id, reason: 'other', detail: 'Detail text' }, reporter)
+  await payload.update({ collection: 'moderation-reports', id: report.id, data: { status: 'hidden' }, user: editor, overrideAccess: false })
+  await q(`UPDATE member_stories SET moderation_hidden_at = now() - interval '400 days' WHERE id = $1`, [story.id])
+  await sweep(payload, { purgeModerated: true })
+  expect(await payload.findByID({ collection: 'member-stories', id: story.id, overrideAccess: true }).catch(() => null)).toBeNull()
+  const row = (await q(`SELECT snapshot_title, snapshot_body, detail FROM moderation_reports WHERE id = $1`, [report.id])).rows[0]
+  expect(row.snapshot_body).not.toContain('Evidence')
+  expect(row.snapshot_title).not.toContain('Purge me')
+  expect(row.detail).toBeNull()
+})
+
+test('raw SQL never silently leaves the request transaction', () => {
+  expect(() => pool(payload, { transactionID: 'no-such-session' } as any)).toThrow(/transaction/)
+  expect(typeof pool(payload).query).toBe('function')
 })

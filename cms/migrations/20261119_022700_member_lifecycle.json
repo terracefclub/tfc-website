@@ -3591,6 +3591,12 @@
           "notNull": true,
           "default": "'queued'"
         },
+        "dedupe_key": {
+          "name": "dedupe_key",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "timestamp(3) with time zone",
@@ -3607,6 +3613,21 @@
         }
       },
       "indexes": {
+        "message_outbox_dedupe_key_idx": {
+          "name": "message_outbox_dedupe_key_idx",
+          "columns": [
+            {
+              "expression": "dedupe_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "message_outbox_updated_at_idx": {
           "name": "message_outbox_updated_at_idx",
           "columns": [
@@ -5755,6 +5776,6 @@
     "tables": {},
     "columns": {}
   },
-  "id": "5bdaa2a8-cf68-4fcf-8aed-a715388b4cb4",
+  "id": "4a754a5a-3b51-4699-8310-f5c1c5013394",
   "prevId": "00000000-0000-0000-0000-000000000000"
 }
