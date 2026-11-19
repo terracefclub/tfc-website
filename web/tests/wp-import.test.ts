@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildPlan, classifyZone, sourcePathOf, zonedToUtc } from '../tools/wp-import/map';
 import { dryRunReport } from '../tools/wp-import/report';
-import { canonicalJson, hashOf, planHash, resolveOldUrl, validatePlan, type Plan } from '../tools/wp-import/plan-schema';
+import { canonicalJson, hashOf, planHash, resolveOldUrl, validatePlan, type Plan, type PlanDoc } from '../tools/wp-import/plan-schema';
 import { convertBody, convertShortcodes, htmlToText, isSafeHtml, safeUrl, sanitizeHtml } from '../tools/wp-import/sanitize';
 import { fixturePlan, fixtureXml } from '../tools/wp-import/write-fixture-plan';
 import { noExtensions } from '../tools/wp-import/zip-hooks';
@@ -66,7 +66,18 @@ describe('sanitizer', () => {
     expect(safeUrl('https://example.invalid/a', 'link')).toBe('https://example.invalid/a');
     expect(safeUrl('mailto:someone@example.invalid', 'link')).toBe('mailto:someone@example.invalid');
     expect(safeUrl('mailto:someone@example.invalid', 'img')).toBeNull();
-    for (const bad of ['javascript:x', 'data:text/html,x', '//evil.invalid', 'https://u:p@example.invalid/', 'file:///etc/passwd', '']) expect(safeUrl(bad, 'link')).toBeNull();
+    for (const bad of ['javascript:x', 'data:text/html,x', '//evil.invalid', 'https://u:p@example.invalid/', 'file:///etc/passwd', '', '/\\evil.invalid', '\\\\evil.invalid', '/ok\\x']) expect(safeUrl(bad, 'link')).toBeNull();
+    expect(sanitizeHtml('<a href="/\\evil.invalid">x</a><img src="/\\evil.invalid/x.png">').html).not.toContain('evil');
+  });
+  test('adversarial size and shape cannot make the scan quadratic or oversize', () => {
+    const started = performance.now();
+    const unterminated = sanitizeHtml("<a '".repeat(100_000));
+    const pairs = sanitizeHtml('<script></script>'.repeat(50_000));
+    expect(isSafeHtml(unterminated.html)).toBe(true);
+    expect(pairs.html).toBe('');
+    // A generous wall-clock ceiling only guards against quadratic blow-up, not normal timing variance.
+    expect(performance.now() - started).toBeLessThan(15_000);
+    expect(sanitizeHtml('x'.repeat(1024 * 1024 + 1))).toMatchObject({ html: '', unsafe: true, findings: { oversize: 1 } });
   });
   test('Divi/Gravity/plugin shortcodes are converted or stripped; builder code modules are dropped whole', () => {
     const body = '[et_pb_section][et_pb_text]<p>Hello</p>[/et_pb_text][et_pb_code]<script>x()</script>[/et_pb_code][et_pb_button button_url="https://example.invalid/" button_text="Go"][gravityform id="2"][tribe_events view="list"][caption id="a"]<img src="/a.png" alt="a"> cap[/caption] [sic][/et_pb_section]';
@@ -173,6 +184,50 @@ describe('mapping the synthetic export', () => {
     const check = preflight(xml);
     expect(plan.summary.sourceItems).toBe(check.itemCount);
     expect(plan.summary.publishStatusContentWithoutPassword).toBe(check.scope.publishStatusContentWithoutPassword);
+  });
+});
+
+const reseal = (changes: Partial<Plan>): Plan => {
+  const { planSha256: _, ...rest } = { ...plan, ...changes };
+  return { ...rest, planSha256: planHash(rest) };
+};
+const withDoc = (wpId: number, collection: string, change: (item: PlanDoc) => PlanDoc) => reseal({ docs: plan.docs.map(item => item.wpId === wpId && item.collection === collection ? change(item) : item) });
+
+describe('plan validation derives publication from source facts', () => {
+  test('a re-sealed plan cannot publish a draft, a protected item, a flagged item or media', () => {
+    const draft = (item: PlanDoc) => ({ ...item, desiredStatus: 'published' as const, publishEligible: true });
+    expect(() => validatePlan(withDoc(1003, 'pages', draft))).toThrow('publication not supported by source');
+    expect(() => validatePlan(withDoc(1003, 'pages', item => ({ ...draft(item), sourceStatus: 'publish' })))).toThrow('status mismatch');
+    expect(() => validatePlan(withDoc(1004, 'pages', draft))).toThrow('publication not supported by source');
+    expect(() => validatePlan(withDoc(2003, 'posts', draft))).toThrow('publication not supported by source');
+    expect(() => validatePlan(withDoc(1001, 'pages', item => ({ ...item, flags: ['unsafe-html-stripped'], data: { ...item.data, wpReviewFlags: ['unsafe-html-stripped'] }, targetHash: hashOf({ data: { ...item.data, wpReviewFlags: ['unsafe-html-stripped'] }, refs: item.refs }) })))).toThrow('publication not supported by source');
+    expect(() => validatePlan(withDoc(1001, 'pages', item => ({ ...item, flags: [] , sourceStatus: 'draft', data: { ...item.data, wpStatus: 'draft' }, targetHash: hashOf({ data: { ...item.data, wpStatus: 'draft' }, refs: item.refs }) })))).toThrow('publication not supported by source');
+    expect(() => validatePlan(withDoc(1001, 'pages', item => ({ ...item, flags: ['divi-layout-review'] })))).toThrow('review flags mismatch');
+    expect(validatePlan(JSON.parse(JSON.stringify(plan))).docs.length).toBe(plan.docs.length);
+  });
+  test('malformed documents fail validation instead of throwing a type error; strict field types', () => {
+    expect(() => validatePlan(reseal({ docs: plan.docs.map((item, i) => i === 0 ? { ...item, data: null as never } : item) }))).toThrow('Invalid import plan');
+    for (const [field, value] of [['menuOrder', 'x'], ['menuOrder', 1.5], ['startsAtLocal', 'tomorrow']] as const) {
+      expect(() => validatePlan(withDoc(1001, 'pages', item => ({ ...item, data: { ...item.data, [field]: value } })))).toThrow('Invalid import plan');
+    }
+    expect(() => validatePlan(withDoc(4001, 'events', item => { const data = { ...item.data, category: 'party' }; return { ...item, data, targetHash: hashOf({ data, refs: item.refs }) }; }))).toThrow('category');
+  });
+  test('redirect destinations are re-derived: external, mismatched, reserved and self redirects are rejected', () => {
+    const swap = (change: Partial<Plan['redirects'][number]>, index = plan.redirects.findIndex(item => item.mode === 'redirect')) =>
+      reseal({ redirects: plan.redirects.map((item, i) => i === index ? { ...item, ...change } : item) });
+    expect(() => validatePlan(swap({ destination: 'https://evil.invalid/' }))).toThrow('redirect');
+    expect(() => validatePlan(swap({ destination: '/pages/other' }))).toThrow('redirect destination');
+    expect(() => validatePlan(swap({ sourcePath: '/members/area' }))).toThrow('redirect destination');
+    expect(() => validatePlan(swap({ sourcePath: '/about' }))).toThrow('redirect destination');
+    const inPlace = plan.redirects.findIndex(item => item.mode === 'served-in-place');
+    expect(() => validatePlan(swap({ destination: '/pages/about' }, inPlace))).toThrow('redirect destination');
+    expect(() => validatePlan(swap({ collection: 'posts' }, inPlace))).toThrow('redirect');
+  });
+  test('reserved and self-referential sources are listed as gaps by the planner, not mapped', () => {
+    const reserved = buildPlan(xml.replace('https://princetonterraceclub.org/2024/04/club-story/', 'https://princetonterraceclub.org/members/club-story/').replace('https://princetonterraceclub.org/project/fixture-initiative/', 'https://princetonterraceclub.org/initiatives/'));
+    expect(reserved.unmapped.filter(item => item.scope === 'redirect').map(item => item.reason)).toEqual(expect.arrayContaining(['redirect-reserved-route']));
+    expect(reserved.redirects.some(item => item.sourcePath.startsWith('/members/'))).toBe(false);
+    expect(() => validatePlan(JSON.parse(JSON.stringify(reserved)))).not.toThrow();
   });
 });
 

@@ -2,7 +2,7 @@
 // plan (no clocks, no randomness, no I/O, no network). The strict bounded parse is the
 // preflight's (`readWxr`); this module only maps what it returns.
 import { readWxr, type WxrRecord } from '../wxr-preflight';
-import { blockingFlags, canonicalJson, collections, destinationFor, hashOf, planHash, planKind, planSchemaVersion, publicMediaRequired, redirectPath, servedInPlace, type Plan, type PlanCollection, type PlanDoc, type PlanRedirect, type Unmapped } from './plan-schema';
+import { blockingFlags, canonicalJson, collections, destinationFor, hashOf, isReservedSource, planHash, planKind, planSchemaVersion, publicMediaRequired, redirectPath, servedInPlace, type Plan, type PlanCollection, type PlanDoc, type PlanRedirect, type Unmapped } from './plan-schema';
 import { convertBody, decodeEntities, excerptText, htmlToText, mergeFindings, sanitizeHtml, type Findings } from './sanitize';
 import { noExtensions, type ExtensionHooks } from './zip-hooks';
 
@@ -251,9 +251,12 @@ export function buildPlan(xml: string, hooks: ExtensionHooks = noExtensions): Pl
     const source = sourcePathOf(record.link, hosts);
     if ('reason' in source) { skip(record, `redirect-${source.reason}`, 'redirect'); continue; }
     if (claimed.has(source.path)) { skip(record, 'redirect-duplicate-source-path', 'redirect'); continue; }
-    claimed.set(source.path, doc.wpId);
     const inPlace = doc.collection === 'pages' && (servedInPlace as readonly string[]).includes(source.path);
-    redirects.push({ ordinal: doc.ordinal, wpId: doc.wpId, collection: doc.collection, sourcePath: source.path, destination: inPlace ? source.path : destinationFor(doc.collection, String(doc.data.slug)), mode: inPlace ? 'served-in-place' : 'redirect' });
+    const destination = inPlace ? source.path : destinationFor(doc.collection, String(doc.data.slug));
+    if (!inPlace && isReservedSource(source.path)) { skip(record, 'redirect-reserved-route', 'redirect'); continue; }
+    if (!inPlace && destination === source.path) { skip(record, 'redirect-source-equals-destination', 'redirect'); continue; }
+    claimed.set(source.path, doc.wpId);
+    redirects.push({ ordinal: doc.ordinal, wpId: doc.wpId, collection: doc.collection, sourcePath: source.path, destination, mode: inPlace ? 'served-in-place' : 'redirect' });
   }
   unmapped.sort((a, b) => a.ordinal - b.ordinal || (a.scope < b.scope ? -1 : 1));
 

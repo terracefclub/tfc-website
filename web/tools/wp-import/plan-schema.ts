@@ -40,6 +40,10 @@ export const routes: Record<Exclude<PlanCollection, 'media'>, string> = {
 /** Existing top-level routes. A WordPress page already living at one of these paths is served in place. */
 export const servedInPlace = ['/about', '/contact', '/donate', '/merchandise', '/shows-archive', '/newsletter', '/events', '/initiatives'] as const;
 
+/** Paths the new site already serves, or reserves, that a WordPress URL must never be redirected over. */
+export const reservedSourcePrefix = /^\/(?:members|auth|preview|api|admin|_app|events|newsletter)(?:\/|$)/;
+export const isReservedSource = (path: string) => reservedSourcePrefix.test(path) || (servedInPlace as readonly string[]).includes(path);
+
 export const blockingFlags = ['unsafe-html-stripped', 'builder-code-dropped', 'event-date-review', 'event-timezone-review', 'event-venue-missing', 'event-end-invalid', 'form-shortcode-dropped', 'plugin-shortcode-dropped', 'media-bytes-pending'] as const;
 
 export type PlanDoc = {
@@ -78,6 +82,8 @@ function fail(reason: string): never { throw new Error(`Invalid import plan: ${r
 const isObject = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const isInt = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) > 0;
 
+// Plain-text fields (title, summary, body, ...) are stored entity-decoded: they may legitimately contain `<`, `&` and
+// quotes. Consumers MUST render them as text (never as HTML). Only `bodyHtml` is HTML, and it is allowlist-sanitized.
 const stringFields: Record<string, number> = {
   alt: 300, caption: 500, mimeType: 100, sourceUrl: 2000, sourceFile: 500, slug: 160, title: 300, summary: 1000, locationName: 300, locationAddress: 500, organizerName: 300,
   timezone: 64, startsAtLocal: 32, endsAtLocal: 32, body: 60000, excerpt: 2000, bodyHtml: 200000, authorName: 200, seoTitle: 300, seoDescription: 600, wpGuid: 600, wpStatus: 20,
@@ -94,13 +100,18 @@ export function validatePlan(input: unknown): Plan {
   const seen = new Set<string>(), slugs = new Set<string>();
   for (const doc of plan.docs) {
     if (!isObject(doc) || !(collections as readonly string[]).includes(doc.collection) || !isInt(doc.wpId) || !isInt(doc.ordinal)) fail('document identity');
+    if (!isObject(doc.data) || !isObject(doc.refs) || !Array.isArray(doc.flags) || !doc.flags.every(flag => typeof flag === 'string' && /^[a-z0-9-]{1,60}$/.test(flag))) fail('document body');
     const key = `${doc.collection}:${doc.wpId}`;
     if (seen.has(key)) fail('duplicate document identity');
     seen.add(key);
     if (!['draft', 'published', 'inherit'].includes(doc.desiredStatus) || typeof doc.publishEligible !== 'boolean') fail('status');
-    if (doc.desiredStatus === 'published' && !doc.publishEligible) fail('ineligible publication');
+    if (typeof doc.sourceStatus !== 'string' || doc.data.wpStatus !== doc.sourceStatus) fail('status mismatch');
+    if (canonicalJson(doc.data.wpReviewFlags ?? []) !== canonicalJson(doc.flags)) fail('review flags mismatch');
+    // Publication is derived from source facts here, never trusted from the plan: only a publish-status, unprotected
+    // document with no blocking review flag can be published. (The plan hash is an integrity check, not authenticity.)
+    const eligible = doc.collection !== 'media' && doc.sourceStatus === 'publish' && doc.data.wpPasswordProtected !== true && !doc.flags.some(flag => (blockingFlags as readonly string[]).includes(flag));
+    if (doc.publishEligible !== eligible || doc.desiredStatus !== (doc.collection === 'media' ? 'inherit' : eligible ? 'published' : 'draft')) fail('publication not supported by source');
     if (doc.collection === 'media' && (doc.data.public !== false)) fail('media must be non-public');
-    if (!isObject(doc.data) || !isObject(doc.refs) || !Array.isArray(doc.flags) || !doc.flags.every(flag => typeof flag === 'string' && /^[a-z0-9-]{1,60}$/.test(flag))) fail('document body');
     if (doc.data.wpId !== doc.wpId) fail('wpId mismatch');
     const allowed = new Set<string>([...dataFields[doc.collection], ...wpFields]);
     for (const [name, value] of Object.entries(doc.data)) {
@@ -114,6 +125,10 @@ export function validatePlan(input: unknown): Plan {
       if (['startsAt', 'endsAt', 'issueDate', 'publishedAt'].includes(name) && !(typeof value === 'string' && isoDate.test(value) && Number.isFinite(Date.parse(value)))) fail('date');
       if (name === 'sourceUrl' && !httpUrl(value)) fail('url');
       if (['width', 'height', 'parentWpId'].includes(name) && !isInt(value)) fail('number');
+      if (name === 'menuOrder' && !(Number.isSafeInteger(value) && Math.abs(value as number) < 1_000_000)) fail('number');
+      if (name === 'category' && !['music', 'food', 'community'].includes(String(value))) fail('category');
+      if (['startsAtLocal', 'endsAtLocal'].includes(name) && !/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/.test(String(value))) fail('local date');
+      if (name === 'wpReviewFlags' && !(Array.isArray(value) && value.length <= 40 && value.every(item => typeof item === 'string' && /^[a-z0-9-]{1,60}$/.test(item)))) fail('flags');
       if (['allDay', 'public', 'wpPasswordProtected'].includes(name) && typeof value !== 'boolean') fail('boolean');
       if (['categories', 'tags'].includes(name) && !(Array.isArray(value) && value.length <= 50 && value.every(item => typeof item === 'string' && item.length <= 100))) fail('terms');
     }
@@ -128,8 +143,12 @@ export function validatePlan(input: unknown): Plan {
   }
   const paths = new Set<string>();
   for (const redirect of plan.redirects) {
-    if (!isObject(redirect) || !redirectPath.test(redirect.sourcePath) || redirect.sourcePath.length > 500 || redirect.sourcePath === '/' || !['redirect', 'served-in-place'].includes(redirect.mode)) fail('redirect');
-    if (!(redirect.collection in routes) || !plan.docs.some(doc => doc.collection === redirect.collection && doc.wpId === redirect.wpId && doc.sourceStatus === 'publish' && doc.data.wpPasswordProtected !== true)) fail('redirect target');
+    if (!isObject(redirect) || typeof redirect.sourcePath !== 'string' || !redirectPath.test(redirect.sourcePath) || redirect.sourcePath.length > 500 || redirect.sourcePath === '/' || !['redirect', 'served-in-place'].includes(redirect.mode)) fail('redirect');
+    const target = plan.docs.find(doc => doc.collection === redirect.collection && doc.wpId === redirect.wpId && doc.sourceStatus === 'publish' && doc.data.wpPasswordProtected !== true);
+    if (!(redirect.collection in routes) || !target) fail('redirect target');
+    if (redirect.mode === 'redirect') {
+      if (redirect.destination !== destinationFor(redirect.collection, String(target!.data.slug)) || redirect.destination === redirect.sourcePath || isReservedSource(redirect.sourcePath)) fail('redirect destination');
+    } else if (redirect.collection !== 'pages' || redirect.destination !== redirect.sourcePath || !(servedInPlace as readonly string[]).includes(redirect.sourcePath)) fail('redirect destination');
     if (paths.has(redirect.sourcePath)) fail('duplicate redirect');
     paths.add(redirect.sourcePath);
   }

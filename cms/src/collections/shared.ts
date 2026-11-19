@@ -59,12 +59,18 @@ export const wpImportFields: Field[] = [
 ]
 export const wpRedirectFields: Field[] = [wpIdField, ...wpImportFields.filter(field => 'name' in field && ['wpContentHash', 'wpAppliedHash', 'wpImportRun'].includes(field.name))]
 
-/** Defence in depth for imported/legacy HTML: the importer sanitizes with an allowlist, this refuses obviously active markup. */
-const activeHtml = /<\s*(?:script|iframe|object|embed|form|style|svg|math|link|meta|base)\b|\bon[a-z]+\s*=|javascript:|data:text\/html/i
+/**
+ * Defence in depth for imported/legacy HTML: the importer sanitizes with an allowlist; this refuses markup that is
+ * active in tag context. Patterns are anchored to tags and attributes so prose ("javascript: the language") and URLs
+ * such as `?online=1` are not refused. Fails with the fixed code `active-html-refused`.
+ */
+const activeTag = /<\s*\/?\s*(?:script|iframe|object|embed|form|style|svg|math|link|meta|base)\b/i
+const activeHandler = /<[^<>]*?[\s"'\/]on[a-z]+\s*=/i
+const activeUrl = /<[^<>]*?\b(?:href|src|action|formaction|xlink:href|data)\s*=\s*["']?\s*(?:javascript:|vbscript:|data:text\/html)/i
 export const refuseActiveHtml = (...fields: string[]): CollectionBeforeChangeHook => ({ data }) => {
   for (const name of fields) {
     const value = data?.[name]
-    if (typeof value === 'string' && activeHtml.test(value)) throw new Error(`${name} contains markup that is not allowed. Use the sanitized import or plain formatting.`)
+    if (typeof value === 'string' && (activeTag.test(value) || activeHandler.test(value) || activeUrl.test(value))) throw new Error('active-html-refused')
   }
   return data
 }

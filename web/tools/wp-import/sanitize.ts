@@ -10,7 +10,7 @@ export type Sanitized = { html: string; findings: Findings; unsafe: boolean };
 
 // Finding kinds that mean the source carried active or unreviewable content. Such a
 // document is still imported (stripped) but only ever as a draft needing review.
-const unsafeKinds = new Set(['script', 'iframe', 'object', 'embed', 'form', 'style-element', 'svg', 'event-handler', 'unsafe-url', 'builder-code', 'raw-text-element']);
+const unsafeKinds = new Set(['oversize', 'script', 'iframe', 'object', 'embed', 'form', 'style-element', 'svg', 'event-handler', 'unsafe-url', 'builder-code', 'raw-text-element']);
 
 const allowed: Record<string, readonly string[]> = {
   p: [], br: [], hr: [], h2: [], h3: [], h4: [], h5: [], h6: [], ul: [], ol: ['start'], li: [], strong: [], em: [], u: [], blockquote: [], code: [], pre: [], sup: [], sub: [],
@@ -43,7 +43,7 @@ const escapeAttr = (value: string) => value.replace(/&/g, '&amp;').replace(/"/g,
 export function safeUrl(raw: string, kind: 'link' | 'img'): string | null {
   const value = decodeEntities(raw).replace(/[\u0000-\u0020\u007f-\u009f\u200b-\u200f\u2028\u2029\ufeff]/g, '');
   if (!value || value.length > 2048) return null;
-  if (/^\/\/|^\\/.test(value)) return null;
+  if (value.includes('\\') || value.startsWith('//')) return null; // `/\evil.com` and `\\evil.com` are read as protocol-relative by browsers
   const scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(value);
   if (!scheme) return /^[^:]*$/.test(value) || value.startsWith('/') || value.startsWith('#') ? value : null;
   const name = scheme[1].toLowerCase();
@@ -66,7 +66,13 @@ function parseAttributes(source: string): Attribute[] {
   return result;
 }
 
-export function sanitizeHtml(input: string): Sanitized {
+/** Longest input and longest single tag the sanitizer will scan; bounds the unterminated-tag rescan cost. */
+export const maxHtmlBytes = 1024 * 1024;
+const maxTagLength = 2048;
+
+export function sanitizeHtml(rawInput: string): Sanitized {
+  if (rawInput.length > maxHtmlBytes) return { html: '', findings: { oversize: 1 }, unsafe: true };
+  const input = rawInput;
   const findings: Findings = {};
   const stack: string[] = [];
   let out = '';
@@ -93,19 +99,22 @@ export function sanitizeHtml(input: string): Sanitized {
     if (!open) { out += '&lt;'; i++; continue; }
     // Find the end of the tag, honouring quoted attribute values.
     let end = i + open[0].length, quote = '';
-    for (; end < input.length; end++) {
+    const limit = Math.min(input.length, i + maxTagLength);
+    for (; end < limit; end++) {
       const ch = input[end];
       if (quote) { if (ch === quote) quote = ''; } else if (ch === '"' || ch === "'") quote = ch; else if (ch === '>') break;
     }
-    if (end >= input.length) { out += '&lt;'; i++; continue; } // unterminated: treat '<' as text
+    if (end >= limit) { out += '&lt;'; i++; continue; } // unterminated or implausibly long: treat '<' as text
     const closing = open[1] === '/', raw = open[2].toLowerCase();
     const attrSource = input.slice(i + open[0].length, end);
     i = end + 1;
     if (Object.hasOwn(dropWithContent, raw)) {
       bump(findings, dropWithContent[raw]);
       if (!closing && !attrSource.trimEnd().endsWith('/')) {
-        const close = new RegExp(`</${raw.replace(/[^a-z0-9]/g, '')}\\s*>`, 'i').exec(input.slice(i));
-        i = close ? i + close.index + close[0].length : input.length;
+        const closer = new RegExp(`</${raw.replace(/[^a-z0-9]/g, '')}\\s*>`, 'gi');
+        closer.lastIndex = i; // search in place: slicing here made many small elements quadratic
+        const close = closer.exec(input);
+        i = close ? close.index + close[0].length : input.length;
       }
       continue;
     }

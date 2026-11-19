@@ -9,9 +9,9 @@ import { getPayload } from 'payload'
 import { writePrivateJson } from '../../web/tools/private-output'
 import { apply, dryRun, rollback } from './wp-import/apply'
 
-const usage = 'Usage: wp-import.ts dry-run|apply --plan PLAN [--report OUT] [--publish] [--run-id ID] [--overwrite-edited] | rollback --run ID [--report OUT] [--discard-edits] [--allow-nonlocal-database]'
+const usage = 'Usage: wp-import.ts dry-run|apply --plan PLAN [--report OUT] [--publish] [--run-id ID] [--overwrite-edited] | rollback --run ID [--report OUT] [--discard-edits] [--take-over-stale] [--allow-nonlocal-database]'
 const valueFlags = new Set(['--plan', '--report', '--run-id', '--run'])
-const boolFlags = new Set(['--publish', '--overwrite-edited', '--discard-edits', '--allow-nonlocal-database'])
+const boolFlags = new Set(['--publish', '--overwrite-edited', '--discard-edits', '--take-over-stale', '--allow-nonlocal-database'])
 
 export function parseArgs(argv: string[]) {
   const [command, ...rest] = argv
@@ -27,13 +27,20 @@ export function parseArgs(argv: string[]) {
   return { command, values, flags }
 }
 
-/** The database must be local (Unix socket or loopback) unless the operator explicitly allows otherwise. */
-export function isLocalDatabase(uri: string | undefined): boolean {
+/**
+ * The database must be local unless the operator explicitly allows otherwise: a Unix-socket `host=` path or a
+ * loopback host. An empty host is NOT local (libpq would fall back to PGHOST), and PGHOST itself must be unset or
+ * local. Loopback also admits an SSH tunnel to a remote database, so the flag guards intent, not network topology.
+ */
+export function isLocalDatabase(uri: string | undefined, env: Record<string, string | undefined> = process.env): boolean {
   if (!uri) return false
+  const local = (host: string) => host.startsWith('/') || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(host)
   try {
     const url = new URL(uri)
-    if (url.searchParams.has('host')) return url.searchParams.get('host')!.startsWith('/')
-    return ['', 'localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+    const socket = url.searchParams.get('host')
+    if (env.PGHOST && !local(env.PGHOST)) return false
+    if (socket !== null) return local(socket)
+    return url.hostname !== '' && local(url.hostname)
   } catch { return false }
 }
 
@@ -59,7 +66,7 @@ if (import.meta.main) {
     payload = await getPayload({ config })
     let report: unknown, summary: Record<string, unknown>
     if (command === 'rollback') {
-      const result = await rollback(payload, values['--run'], { discardEdits: flags.has('--discard-edits') })
+      const result = await rollback(payload, values['--run'], { discardEdits: flags.has('--discard-edits'), takeOverStale: flags.has('--take-over-stale') })
       report = result; summary = { ...result }
       if (!result.ok) exit = 1
     } else {

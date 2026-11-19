@@ -20,7 +20,12 @@ Two stages joined by a private plan file:
 
 `web/tools/wp-import/plan-schema.ts` and `sanitize.ts` are dependency-free and shared by both stages. The applier
 re-validates every plan (hash seal, field allowlist per collection, URL/slug/date shapes, and re-checks every HTML
-field with the sanitizer), so a hand-edited plan cannot smuggle unsafe markup or unknown fields into the CMS.
+field with the sanitizer), so a hand-edited plan cannot smuggle unsafe markup or unknown fields into the CMS. Publication is *derived* during
+validation, not trusted from the plan: a document may be published only if its source status is `publish`, it is not
+password protected, its `wpStatus` equals the source status, `wpReviewFlags` equals its flags and none is a blocking
+flag; redirect destinations are re-derived from the document slug. **The plan hash is an integrity check, not
+authenticity**: anyone who can write the plan file can re-seal it, so keep plan files private and only apply plans you
+generated. Validation cannot know the real WordPress status of a record whose status fields were rewritten consistently.
 
 The plan file holds titles and bodies. Treat it like the export itself: a private, owner-only directory outside every
 Git checkout, never committed. Both tools create their outputs exclusively with mode `0600` (existing files and
@@ -47,7 +52,7 @@ direnv exec . tools/with-local bun tools/wp-import.ts rollback --run wpimport-YY
 `bun run import:wordpress -- ...` is the same entry point from `web/` and `cms/`. Apply options: `--publish`,
 `--run-id ID` (default generated), `--overwrite-edited`. Rollback option: `--discard-edits`. The CMS tool refuses a
 non-local `DATABASE_URI` (Unix socket or loopback only) unless `--allow-nonlocal-database` is passed for an approved
-target. Terminal output is always aggregate counts and fixed error text, never record contents, paths or URLs.
+target. "Local" means a Unix-socket `host=` path or loopback host; an empty host does not count (libpq would fall back to `PGHOST`), `PGHOST` must itself be unset or local, and loopback also admits an SSH tunnel to a remote database, so the flag guards intent rather than topology. Terminal output is always aggregate counts and fixed error text, never record contents, paths or URLs.
 
 Regenerate the committed synthetic plan used by the CMS tests: `direnv exec web bun web/tools/wp-import/write-fixture-plan.ts`.
 
@@ -66,7 +71,7 @@ For each plan document the applier looks up `wpId` and decides:
 - **skipped / locally-edited** when an editor changed the document since the import (the stored `wpAppliedHash` no
   longer matches the newest saved state, including draft-only saves). Source changes never clobber editors. Re-run with
   `--overwrite-edited` to take the source anyway;
-- **update** otherwise, clearing fields the source no longer supplies. Updates never change publication status.
+- **update** otherwise, clearing fields the source no longer supplies. Updates never change publication status, and an update to an already **published** document is written as a draft version, so the public page does not change until an editor reviews and publishes it (the `wp*` hashes on the live row move with it so re-runs stay idempotent).
 
 Applying the same plan twice therefore yields identical state and writes nothing (tested). Re-running after a changed
 export updates only what changed.
@@ -101,7 +106,7 @@ eligible: source status `publish`, no password, and no blocking review flag (`un
 `event-timezone-review`, `event-venue-missing`, `event-end-invalid`, `media-bytes-pending`). Draft, pending, private,
 future and password-protected sources stay drafts (staff-only); passwords are never copied. Items referencing
 reference-only media cannot publish until bytes exist, because the Events/Newsletters/Initiatives publish hooks
-require public media. `--publish` only affects documents created by that run; use the CMS to publish later.
+require public media. `--publish` only affects documents created by that run (a run that publishes nothing says so in its report `notes`); use the CMS to publish later.
 
 ### HTML and shortcodes
 
@@ -124,7 +129,7 @@ listed as unmapped with `redirect-query-or-fragment-route`, `redirect-foreign-or
 are stored without the trailing slash; the redirect layer must trim one trailing slash before lookup (the tests use
 `resolveOldUrl`, which does). Dry runs put the map in the report; apply writes it to `redirects` as 301s with
 `active: false` until the target is published, so nothing public redirects to a draft. A later apply run activates the
-redirect once its document is published. Served-in-place pages need no row. Existing redirects on the same source path
+redirect once its document is published. Served-in-place pages need no row. Sources that are, or sit under, routes the new site serves or reserves (`/members`, `/auth`, `/preview`, `/api`, `/admin`, `/_app`, `/events/*`, `/newsletter/*`, and the top-level pages) are never redirected (`redirect-reserved-route`), and a source equal to its destination is skipped. Existing redirects on the same source path
 that the importer did not create are left alone (`source-path-taken`). No redirect consumer exists in `web/` yet.
 
 ## Reports
@@ -150,10 +155,12 @@ pre-image of the managed fields. Every write is tagged with the run ID in `wpImp
 - `edited-since-import`: the document changed after the run wrote it (override with `--discard-edits`);
 - `published-since-import`: an editor published a document the run created as a draft (override with `--discard-edits`);
 - `referenced-by-other-documents`: media created by the run is referenced by a document outside the run;
-- the run is unknown, already rolled back, or still running.
+- `status-changed-since-import`: for an **updated** row, the document's publication state differs from what the run left (an editor published or unpublished it); `_status` is never restored by rollback;
+- the run is unknown, already rolled back, or still `running`. A crashed apply is marked `failed` and can be rolled back; a
+  run left `running` by a killed process needs the explicit `--take-over-stale` flag (only after confirming nothing is still running).
 
-Otherwise it processes rows newest first: deletes documents the run created and restores updated documents from
-their pre-image (including status and hashes), then marks the run `rolled-back`. Rollback is covered by tests for
+Otherwise it processes rows newest first inside **one transaction** (any failure changes nothing, so a retry is always safe): deletes documents the run created and restores updated documents from
+their pre-image (published documents receive the restored content as a draft version), then marks the run `rolled-back`. Rollback is covered by tests for
 refusal and success paths.
 
 A failed document does not stop the run: it is counted as failed with a fixed reason code, the run is marked `failed`,
@@ -185,7 +192,9 @@ this job; the typed hooks are in `web/tools/wp-import/zip-hooks.ts` and report a
 - Divi layouts are flattened to text and basic HTML; pages flagged `divi-layout-review` need visual comparison.
 - Media `alt` falls back to the title or filename when the export has none (`alt-missing`); editors must review.
 - Effective public access (membership/password plugins) is still unproven; "publish" status is a candidate only.
-- The pg driver may print a "client.query() already executing" deprecation warning during transactional writes.
+- The pg driver prints a "client.query() already executing" deprecation warning during Payload's transactional writes. `cms` pins `pg` at exactly 8.16.3 and Payload's Postgres adapter carries its own copy; pg 9 turns the warning into an error, so do not upgrade either until Payload stops issuing concurrent queries on one client.
+- Plain-text fields (titles, summaries, Events/Initiatives bodies) are stored entity-decoded and must only ever be rendered as text. Only `bodyHtml` is HTML.
+- The fixture uses the club's public host with invented paths: it exercises the production host allowlist unchanged, and no real post is reproduced.
 
 ## Verification
 
