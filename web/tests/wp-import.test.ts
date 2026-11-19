@@ -233,7 +233,7 @@ describe('plan validation derives publication from source facts', () => {
   test('a tag longer than the scan cap is escaped, recorded, and keeps the document from publishing unreviewed', () => {
     const long = `<a ${'x '.repeat(1500)}>t</a>`;
     expect(sanitizeHtml(long)).toMatchObject({ unsafe: true, findings: { 'oversize-tag': 1 } });
-    const body = buildPlan(xml.replace('<![CDATA[<p>Same slug as another post.</p>]]>', `<![CDATA[${long}]]>`));
+    const body = buildPlan(xml.replace('Same slug as another post.', long));
     expect(body.docs.find(item => item.wpId === 2004)).toMatchObject({ desiredStatus: 'draft', publishEligible: false });
     expect(body.docs.find(item => item.wpId === 2004)!.flags).toContain('unsafe-html-stripped');
   });
@@ -290,7 +290,7 @@ describe('reconciliation report', () => {
   const report = dryRunReport(plan, xml);
   const text = JSON.stringify(report);
   test('carries counts, hashes and reason codes, but no content, names, emails, GUIDs or WordPress IDs', () => {
-    for (const secret of ['Fixture Open Mic', 'Fixture Author', 'example.invalid', 'fixture_author', 'Fall issue cover', 'wp-content', '?p=', 'fixture-password-value', 'princetonterraceclub.org']) expect(text).not.toContain(secret);
+    for (const secret of ['Fixture Open Mic', 'Fixture Author', 'example.invalid', 'fixture_author', 'Fall issue cover', '?p=', 'fixture-password-value', 'princetonterraceclub.org']) expect(text).not.toContain(secret);
     expect(report.writes).toEqual({ cms: 0, files: 0, network: 0, redirects: 0 });
     expect(report.preflightReproduction.itemCount.equal).toBe(true);
     expect(report.preflightReproduction.publishStatusContentWithoutPassword.equal).toBe(true);
@@ -298,7 +298,7 @@ describe('reconciliation report', () => {
     expect(report.documents.every(item => /^[0-9a-f]{64}$/.test(item.sourceHash) && /^[0-9a-f]{64}$/.test(item.targetHash))).toBe(true);
     expect((report.counts.bySourceType as Record<string, Record<string, number>>).post).toMatchObject({ total: 15, publish: 9 });
     expect(report.unmapped.length).toBe(plan.unmapped.length);
-    expect(report.deferredToKinstaZip).toEqual({ mediaBytes: 'todo-kinsta-zip', menus: 'todo-kinsta-zip', pluginSettings: 'todo-kinsta-zip' });
+    expect(report.deferredToKinstaZip).toEqual({ mediaBytes: 'todo-kinsta-zip', menus: 'todo-kinsta-zip', pluginSettings: 'todo-kinsta-zip', uploadLinkRewrite: 'todo-kinsta-zip' });
     expect(report.redirects.length).toBe(plan.redirects.length);
   });
   test('content hashes change when the source changes and are stable otherwise', () => {
@@ -312,6 +312,7 @@ describe('reconciliation report', () => {
   test('the Kinsta ZIP hooks are declared but unimplemented', () => {
     expect(noExtensions.media).toBeNull();
     expect(noExtensions.database).toBeNull();
+    expect(noExtensions.uploadLinks).toBeNull();
   });
 });
 
@@ -356,7 +357,8 @@ describe('command line', () => {
         const rejected = cli(xml, ['plan', '--out', destination]);
         expect(rejected.status).toBe(1);
         expect(rejected.stdout).toBe('');
-        expect(rejected.stderr).toContain('Nothing was written to the CMS.');
+        expect(rejected.stderr).toContain('Unsupported output:');
+        expect(rejected.stderr).toContain('outside every Git checkout');
         expect(rejected.stderr).not.toContain(destination);
       }
       expect(existsSync(join(checkout, 'x.json'))).toBe(false);

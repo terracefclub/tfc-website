@@ -1,5 +1,6 @@
 import type { CollectionConfig, Field } from 'payload'
 import { publishedOrStaff, staffOnly } from '@/access/rules'
+import { redirectHooks } from './redirect-sync'
 import { editorialAccess, refuseActiveHtml, slugField, wpImportFields } from './shared'
 
 // Imported WordPress posts and pages, served at /news/{slug} and /pages/{slug}. bodyHtml is sanitized
@@ -18,14 +19,15 @@ const content = (): Field[] => [
   { name: 'featuredMedia', type: 'relationship', relationTo: 'media', admin: { description: 'May reference a media record whose file has not been copied yet.' } },
 ]
 
-const base = {
+const base = (collection: 'posts' | 'pages') => ({
   versions: { drafts: true },
   access: { ...editorialAccess, read: publishedOrStaff, readVersions: staffOnly },
-  hooks: { beforeChange: [refuseActiveHtml('bodyHtml')] },
-}
+  // Publishing or unpublishing keeps the imported redirect rows in step (see redirect-sync.ts).
+  hooks: { beforeChange: [refuseActiveHtml('bodyHtml')], ...redirectHooks(collection) },
+})
 
-export const Posts: CollectionConfig = { slug: 'posts', admin: { useAsTitle: 'title' }, ...base, fields: [...content(), ...wpImportFields] }
+export const Posts: CollectionConfig = { slug: 'posts', admin: { useAsTitle: 'title' }, ...base('posts'), fields: [...content(), ...wpImportFields] }
 export const Pages: CollectionConfig = {
-  slug: 'pages', admin: { useAsTitle: 'title' }, ...base,
+  slug: 'pages', admin: { useAsTitle: 'title' }, ...base('pages'),
   fields: [...content(), { name: 'parentWpId', type: 'number', admin: { readOnly: true, description: 'WordPress ID of the parent page.' } }, { name: 'menuOrder', type: 'number' }, ...wpImportFields],
 }

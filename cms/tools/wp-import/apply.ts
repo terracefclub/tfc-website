@@ -199,7 +199,7 @@ async function execute(payload: Payload, plan: Plan, options: ApplyOptions, writ
     }
   }
   const publishedThisRun = documents.filter(item => item.action === 'created' && item.status === 'published').length
-  const notes = publish && publishedThisRun === 0 ? ['publish-requested-but-nothing-published: --publish only affects documents created by the same run'] : []
+  const notes = publish && publishedThisRun === 0 ? ['publish-requested-but-nothing-published: --publish only affects documents created by the same run; use the publish command for drafts that are already imported'] : []
   return {
     schemaVersion: 1, kind: 'wp-import-run-report', mode: write ? 'apply' : 'dry-run', runId, source: { sha256: plan.sourceSha256 }, planSha256: plan.planSha256, publish,
     counts: { ...total, byCollection, redirects: redirectTotal }, publishedThisRun, notes, documents, redirects, unmapped: plan.unmapped, writes: write,
@@ -298,6 +298,83 @@ async function writeRedirect(payload: Payload, wpId: number, wanted: Record<stri
   })
 }
 
+// --- publish already-imported drafts -----------------------------------------------------------
+
+export type PublishOutcome = { ordinal: number; collection: PlanCollection; action: 'published' | 'skipped' | 'failed'; reason?: string; redirect?: 'activated' | 'none' }
+export type PublishReport = {
+  schemaVersion: 1; kind: 'wp-import-publish-report'; mode: 'dry-run' | 'publish'; runId: string | null; planSha256: string
+  counts: { eligible: number; published: number; skipped: number; failed: number; redirectsActivated: number; notEligible: number }; documents: PublishOutcome[]; writes: boolean
+}
+
+/**
+ * Publish the plan's eligible documents that were already imported as drafts (`apply` without `--publish`), as its own run in
+ * the ledger, so it can be rolled back (`rollback --run ID` sets those documents back to draft). It never touches a document
+ * that is already published, that an editor changed since the import (the stored applied hash no longer matches the newest saved
+ * state, drafts included), whose stored content differs from this plan, or that the plan does not mark eligible. The redirect rows of
+ * each published document are activated by the collection hook inside the same transaction; the report says which. Safe to
+ * repeat: a document published by an earlier run is `already-published`.
+ */
+export async function publishExisting(payload: Payload, input: unknown, options: { write?: boolean; runId?: string; now?: () => Date } = {}): Promise<PublishReport> {
+  const plan = validatePlan(input)
+  const write = options.write !== false
+  const now = options.now ?? (() => new Date())
+  const runId = write ? options.runId ?? newRunId(now()) : null
+  if (runId && !runIdPattern.test(runId)) throw new Error('Invalid run id.')
+  let sequence = 0
+  if (runId) {
+    if ((await payload.find({ collection: 'wp-import-runs', where: { runId: { equals: runId } }, limit: 1, overrideAccess: true })).totalDocs) throw new Error('Run id already used.')
+    await payload.create({ collection: 'wp-import-runs', overrideAccess: true, data: { runId, status: 'running', publish: true, startedAt: now().toISOString(), sourceSha256: plan.sourceSha256, planSha256: plan.planSha256 } })
+  }
+  const documents: PublishOutcome[] = []
+  let completed = false
+  try {
+    for (const doc of plan.docs) {
+      if (doc.collection === 'media' || !doc.publishEligible) continue
+      const outcome: PublishOutcome = { ordinal: doc.ordinal, collection: doc.collection, action: 'skipped' }
+      try {
+        const existing = await byWpId(payload, doc.collection, doc.wpId)
+        if (!existing) outcome.reason = 'not-imported'
+        else if (existing._status === 'published') outcome.reason = 'already-published'
+        else if (existing.wpContentHash !== doc.targetHash) outcome.reason = 'differs-from-plan'
+        else if (existing.wpAppliedHash !== appliedHash(doc.collection, (await latestOf(payload, doc.collection, existing.id)) ?? existing)) outcome.reason = 'locally-edited'
+        else if (!write) outcome.action = 'published'
+        else {
+          const result = await inTransaction(payload, async req => {
+            await claimRun(payload, req, runId!)
+            await payload.update({ collection: doc.collection as any, id: existing.id, data: { _status: 'published' }, overrideAccess: true, req, depth: 0 })
+            const stored = (await latestOf(payload, doc.collection, existing.id, req))!
+            const hash = appliedHash(doc.collection, stored)
+            await stampVersionHash(payload, req, doc.collection, existing.id, hash)
+            const rows = await payload.find({ collection: 'redirects', where: { wpId: { equals: doc.wpId } }, limit: 1, depth: 0, overrideAccess: true, req })
+            await payload.create({
+              collection: 'wp-import-journal', overrideAccess: true, req,
+              data: { runId, sequence: ++sequence, collection: doc.collection, docId: String(existing.id), wpId: doc.wpId, action: 'updated', postHash: hash,
+                preImage: { publish: true, statusBefore: existing._status ?? 'draft', postStatus: 'published', data: {}, wpContentHash: existing.wpContentHash ?? null, wpAppliedHash: existing.wpAppliedHash ?? null, wpImportRun: existing.wpImportRun ?? null } },
+            })
+            return rows.docs[0] && (rows.docs[0] as Doc).active === true ? 'activated' as const : 'none' as const
+          }).catch(error => { sequence--; throw error })
+          outcome.action = 'published'; outcome.redirect = result
+        }
+      } catch (error) { outcome.action = 'failed'; outcome.reason = reasonOf(error) }
+      documents.push(outcome)
+      if (outcome.reason === 'run-no-longer-running') throw new Error('run-no-longer-running')
+    }
+    completed = true
+  } finally {
+    if (runId) {
+      const failed = !completed || documents.some(item => item.action === 'failed')
+      const counts = { published: documents.filter(item => item.action === 'published').length }
+      await executor(payload).execute(sql`UPDATE wp_import_runs SET status = ${failed ? 'failed' : 'completed'}, finished_at = ${now().toISOString()}, counts = ${JSON.stringify(counts)}::jsonb, updated_at = now() WHERE run_id = ${runId} AND status = 'running'`)
+    }
+  }
+  const count = (action: PublishOutcome['action']) => documents.filter(item => item.action === action).length
+  return {
+    schemaVersion: 1, kind: 'wp-import-publish-report', mode: write ? 'publish' : 'dry-run', runId, planSha256: plan.planSha256,
+    counts: { eligible: documents.length, published: count('published'), skipped: count('skipped'), failed: count('failed'), redirectsActivated: documents.filter(item => item.redirect === 'activated').length, notEligible: plan.docs.filter(doc => doc.collection !== 'media' && !doc.publishEligible).length },
+    documents, writes: write,
+  }
+}
+
 // --- rollback ----------------------------------------------------------------------------------
 
 type JournalRow = { id: string | number; sequence: number; collection: string; docId: string; wpId: number; action: 'created' | 'updated'; preImage: any; postHash: string; createdAt: string }
@@ -350,8 +427,10 @@ export async function rollback(payload: Payload, runId: string, options: Rollbac
         const doc = await latestOf(payload, row.collection, row.docId, req)
         current.set(`${row.collection}:${row.docId}`, doc)
         if (!doc) continue
-        const hash = row.collection === 'redirects' ? redirectHash(doc) : appliedHash(row.collection as PlanCollection, doc)
-        if (hash !== row.postHash && !options.discardEdits) refuse(label, 'edited-since-import')
+        // A redirect row follows its document's publication state (an editor publishing or unpublishing it flips `active` inside the
+        // same transaction, see src/collections/redirect-sync.ts), so that flip alone is not an edit.
+        const hashes = row.collection === 'redirects' ? [true, false].map(active => redirectHash({ ...doc, active })) : [appliedHash(row.collection as PlanCollection, doc)]
+        if (!hashes.includes(row.postHash) && !options.discardEdits) refuse(label, 'edited-since-import')
         if (versioned.has(row.collection) && !options.discardEdits) {
           const main = await payload.findByID({ collection: row.collection as any, id: row.docId, depth: 0, overrideAccess: true, req }).catch(() => undefined) as Doc | undefined
           if (main && row.action === 'created') {
@@ -379,6 +458,10 @@ export async function rollback(payload: Payload, runId: string, options: Rollbac
         if (row.action === 'created') {
           await payload.delete({ collection: row.collection as any, id: row.docId, overrideAccess: true, req })
           result.deleted++
+        } else if (row.preImage?.publish === true) {
+          // A `publish` row: undo only the publication (the document goes back to the status it had); its redirect rows follow through the hook.
+          await payload.update({ collection: row.collection as any, id: row.docId, overrideAccess: true, req, depth: 0, data: { _status: row.preImage.statusBefore ?? 'draft' } })
+          result.restored++
         } else if (row.collection === 'redirects') {
           await payload.update({ collection: 'redirects', id: row.docId, overrideAccess: true, req, depth: 0, data: { ...row.preImage.data, wpContentHash: row.preImage.wpContentHash, wpAppliedHash: row.preImage.wpAppliedHash, wpImportRun: row.preImage.wpImportRun } })
           result.restored++
