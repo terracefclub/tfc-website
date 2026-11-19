@@ -77,14 +77,14 @@ try {
   }
   if (!componentRoots.cms || !componentRoots.web) throw new Error()
   const node = realpathSync(Bun.which('node')!), bash = realpathSync(Bun.which('bash')!), browser = realpathSync(Bun.which('chromium')!), bwrap = realpathSync(Bun.which('bwrap')!)
-  const media = join(state, 'media'), cache = join(state, 'cache'), socket = join(state, 'postgres-socket'), data = join(state, 'postgres')
-  for (const path of [media, cache, socket]) mkdirSync(path, { mode: 0o700 })
+  const media = join(state, 'media'), cache = join(state, 'cache'), socket = join(state, 'postgres-socket'), data = join(state, 'postgres'), outbox = join(state, 'outbox')
+  for (const path of [media, cache, socket, outbox]) mkdirSync(path, { mode: 0o700 })
   const runtimeBase = { PATH: `${dirname(node)}:${dirname(bash)}`, HOME: '/tmp', NODE_ENV: 'production', NEXT_TELEMETRY_DISABLED: '1' }
   const sandbox = (component: 'web' | 'cms', entry: string, extra: string[] = []) => [
     '--die-with-parent', '--unshare-user', '--unshare-pid', '--ro-bind', '/nix/store', '/nix/store',
     '--proc', '/proc', '--dev', '/dev', '--tmpfs', '/tmp', '--ro-bind', componentRoots[component], '/app',
     '--dir', '/runtime', '--bind', media, '/runtime/media', '--bind', socket, '/runtime/postgres',
-    ...(component === 'cms' ? ['--bind', cache, '/app/.next/cache'] : []), '--chdir', '/app', bash, entry, ...extra,
+    ...(component === 'cms' ? ['--bind', cache, '/app/.next/cache', '--bind', outbox, '/runtime/outbox'] : []), '--chdir', '/app', bash, entry, ...extra,
   ]
   // The namespace starts empty: no checkout, dependency tree, home credentials or build state.
   await run('read-only sandbox boundary', bwrap, sandbox('cms', '-c', ['exec "$@"', 'release-boundary', node, '-e', `
@@ -134,6 +134,17 @@ try {
   await run('relocated no-op migration repeat', bwrap, sandbox('cms', '/app/bin/migrate'), cmsEnv)
   const after = await run('unchanged migration ledger', 'psql', ['-Atqc', 'select name,batch from payload_migrations order by id'], pgEnv, root, true)
   if (before !== after) throw new Error()
+  // The packaged lifecycle sweep writes a pending outbox copy (0600, in a 0700 directory) and later redacts it after an erasure.
+  const sweepEnv = { ...cmsEnv, LIFECYCLE_OUTBOX_DIR: '/runtime/outbox/mirror' }
+  const outboxId = await run('synthetic pending outbox row', 'psql', ['-Atqc', "insert into message_outbox (kind, recipient_label, recipient_email, subject, body) values ('denial', 'Synthetic Applicant', 'release-proof@terrace.invalid', 'Synthetic subject', 'Synthetic body') returning id"], pgEnv, root, true)
+  if (!/^\d+$/.test(outboxId)) throw new Error()
+  await run('relocated lifecycle sweep', bwrap, sandbox('cms', '/app/bin/sweep'), sweepEnv)
+  const mirrored = join(outbox, 'mirror', `${outboxId.padStart(6, '0')}-denial.json`)
+  if ((statSync(join(outbox, 'mirror')).mode & 0o777) !== 0o700 || (statSync(mirrored).mode & 0o777) !== 0o600 || JSON.parse(readFileSync(mirrored, 'utf8')).to !== 'release-proof@terrace.invalid') throw new Error()
+  if (await run('marked outbox copy', 'psql', ['-Atqc', 'select count(*) from message_outbox where mirrored_at is null'], pgEnv, root, true) !== '0') throw new Error()
+  await run('synthetic erasure of the outbox recipient', 'psql', ['-Atqc', `update message_outbox set recipient_label = 'Former member', recipient_email = null where id = ${outboxId}`], pgEnv, root, true)
+  await run('relocated lifecycle sweep redaction', bwrap, sandbox('cms', '/app/bin/sweep'), sweepEnv)
+  if (JSON.parse(readFileSync(mirrored, 'utf8')).to !== 'Former member') throw new Error()
   const webEnv = { ...runtimeBase, CMS_ORIGIN: cmsOrigin, CONTENT_SOURCE: 'cms', ORIGIN: webOrigin, PORT: String(ports.web),
     ...Object.fromEntries(['MEMBER_AUTH_ISSUER', 'MEMBER_AUTH_CLIENT_ID', 'MEMBER_AUTH_CLIENT_SECRET', 'MEMBER_AUTH_ORIGIN'].map(key => [key, auth[key]])) }
   for (const [component, env] of [['cms', cmsEnv], ['web', webEnv]] as const) {
@@ -184,7 +195,7 @@ if (verifiedRevision && !process.exitCode) {
     if (!await portAvailable(port)) { console.error('Release proof cleanup left a fixture port occupied.'); process.exitCode = 1 }
   }
   if (!process.exitCode) {
-    writeFileSync(join(state, 'proof.json'), JSON.stringify({ revision: verifiedRevision, checks: ['archive/file hashes', 'empty filesystem/immutable code', 'explicit migrations', 'repeat no-op migration ledger', 'editorial SSO/publication/withdrawal', 'member SSO/moderation', 'native image optimization/cache', 'authenticated-then-anonymous private-image denial', 'owned runtime cleanup/closed ports'] }, null, 2) + '\n', { mode: 0o600 })
+    writeFileSync(join(state, 'proof.json'), JSON.stringify({ revision: verifiedRevision, checks: ['archive/file hashes', 'empty filesystem/immutable code', 'explicit migrations', 'repeat no-op migration ledger', 'packaged lifecycle sweep outbox write/redaction', 'editorial SSO/publication/withdrawal', 'member SSO/moderation', 'native image optimization/cache', 'authenticated-then-anonymous private-image denial', 'owned runtime cleanup/closed ports'] }, null, 2) + '\n', { mode: 0o600 })
     console.log(`Relocated release proof passed for ${verifiedRevision}, including owned runtime cleanup. Private evidence retained in ${state}.`)
   }
 }

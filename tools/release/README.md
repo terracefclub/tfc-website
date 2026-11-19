@@ -41,13 +41,14 @@ direnv exec cms bun tools/release/pack.ts web /absolute/private/output
 direnv exec cms bun tools/release/pack.ts cms /absolute/private/output
 ```
 
-The separately bundled CMS migrator gets its own dependency trace using the
-tracer bundled with pinned Next; application code/migrations stay bundled and
-only traced dependency files supplement the request-server output.
+The separately bundled CMS migrator and lifecycle sweep get their own dependency
+trace using the tracer bundled with pinned Next; application code/migrations stay
+bundled and only traced dependency files supplement the request-server output.
 
 CI publishes only these secret-free artifacts, with seven-day retention. It
 runs the extracted CMS migrator against a separate empty database twice, verifies
-an unchanged migration ledger, then starts the bundle for HTTP tests. Retain selected release archives
+an unchanged migration ledger, runs the extracted `bin/sweep` to write and then
+redact a synthetic outbox copy, then starts the bundle for HTTP tests. Retain selected release archives
 and their checksums outside expiring CI storage before deployment.
 
 ## Runtime contract
@@ -74,7 +75,30 @@ continues to gate HTTPS activation; packaging does not enable it.
 
 Run CMS `bin/migrate` as an explicit operator step with the target database and
 runtime configuration, after verifying a restorable backup. Run it once more to
-confirm no pending migration. Server startup never runs migrations. Start each
+confirm no pending migration. Server startup never runs migrations.
+
+CMS `bin/sweep` is the packaged member-lifecycle housekeeping (`lifecycle:sweep`;
+see `../../docs/member-lifecycle.md`, section 9). Run it with exactly the CMS
+runtime configuration of `bin/start`, as the same operating-system account as the
+CMS (it writes `LIFECYCLE_OUTBOX_DIR`, forced to mode 0700 with 0600 files), on a
+daily timer and after every administrator-initiated erasure. It accepts only
+`--purge-moderated`. It prints one JSON line of counts and outbox row ids (never
+addresses or message text), always ends on its own (a 120 s bound), and exits
+non-zero with a labelled line when mirror work failed, the unlinked-application
+count could not be read or, in a public deployment, the outbox directory is unset,
+so the timer unit shows the failure; the next run retries it. Like `bin/migrate`, it
+needs no `PORT` and opens no listener. A public CMS (`CMS_PUBLIC_DEPLOYMENT=1`)
+refuses to run either command without valid lifecycle settings.
+
+The WordPress import applier is deliberately **not** packaged. Its guard refuses a
+non-local database (`--allow-nonlocal-database` overrides it) so that a rehearsal
+against a scratch local database cannot reach production by accident. On a
+production host the production PostgreSQL is itself local (a Unix socket), so a
+packaged `bin/import` would pass that guard against the live database and the
+guard would no longer distinguish rehearsal from production. Keep running it from
+a reviewed source checkout of the deployed revision (`docs/wordpress-import.md`),
+against a local rehearsal database first; a production apply remains a separate,
+explicit and backed-up operator decision. Start each
 component with `PORT` explicitly set (1024–65535) and execute its `bin/start`.
 Both launchers set production mode and bind to `127.0.0.1`. A deployment gateway
 must provide any external routing/TLS; the bundle opens no public listener.
@@ -120,10 +144,12 @@ The runner reserves dedicated loopback ports 18386/19386, 13048 and 14294, refus
 an existing identity fixture state, and bootstraps only fresh synthetic identities.
 It verifies archive and file hashes, extracts into an unrelated private directory,
 and runs Node inside an empty Bubblewrap filesystem with only `/nix/store`, the
-immutable bundle, private writable cache/uploads and its fresh PostgreSQL socket.
+immutable bundle, private writable cache/uploads/outbox and its fresh PostgreSQL socket.
 The source checkout and build database are absent. It runs the extracted CMS
 migrator against the empty database and repeats it with an unchanged
-ledger, then normal editorial/member SSO, draft/publish/withdrawal and moderation
+ledger, then runs the extracted `bin/sweep` to write a synthetic pending outbox
+copy (0600 in a 0700 directory) and, after a synthetic erasure of its recipient,
+to redact it, then normal editorial/member SSO, draft/publish/withdrawal and moderation
 browser checks. The final media check uploads synthetic PNGs, exercises native
 image optimization/cache and requests the exact private optimizer URL first with
 an editorial session and then anonymously; either must deny image bytes.

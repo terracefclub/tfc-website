@@ -56,10 +56,10 @@ test('CMS release includes static assets/migrator and only an empty runtime cach
   const root = tree()
   try {
     const input = join(root, 'standalone'), assets = join(root, 'static'), publicAssets = join(root, 'public'), output = join(root, 'cms')
-    file(input, 'server.js'); file(input, 'migrate.mjs'); file(input, '.next/cache/SECRET_CACHE', 'private cache data')
+    file(input, 'server.js'); file(input, 'migrate.mjs'); file(input, 'sweep.mjs'); file(input, '.next/cache/SECRET_CACHE', 'private cache data')
     file(assets, 'chunks/admin.js'); file(publicAssets, 'favicon.ico')
     const manifest = stageRelease({ component: 'cms', input, staticAssets: assets, publicAssets, destination: output, revision, epoch: 123, runtime })
-    expect(manifest.entrypoints).toEqual({ start: 'bin/start', migrate: 'bin/migrate' })
+    expect(manifest.entrypoints).toEqual({ start: 'bin/start', migrate: 'bin/migrate', sweep: 'bin/sweep' })
     expect(manifest.writablePaths).toEqual({ cacheMount: '.next/cache', uploadsEnvironment: 'CMS_MEDIA_DIR' })
     expect(existsSync(join(output, '.next/static/chunks/admin.js'))).toBe(true)
     expect(existsSync(join(output, 'public/favicon.ico'))).toBe(true)
@@ -68,6 +68,9 @@ test('CMS release includes static assets/migrator and only an empty runtime cach
     expect(readFileSync(join(output, 'bin/start'), 'utf8')).toContain('HOSTNAME=127.0.0.1')
     expect(readFileSync(join(output, 'bin/migrate'), 'utf8')).toContain('exec node "$release_root/migrate.mjs"')
     expect(readFileSync(join(output, 'bin/migrate'), 'utf8')).not.toContain('PORT from')
+    expect(readFileSync(join(output, 'bin/sweep'), 'utf8')).toContain('exec node "$release_root/sweep.mjs" "$@"')
+    expect(readFileSync(join(output, 'bin/sweep'), 'utf8')).not.toContain('PORT from')
+    expect(readFileSync(join(output, 'bin/sweep'), 'utf8')).toContain('external absolute CMS_MEDIA_DIR')
     expect(Object.keys(fileManifest(output))).not.toContain('.next/cache/SECRET_CACHE')
   } finally { rmSync(root, { recursive: true, force: true }) }
 })
@@ -136,7 +139,7 @@ test('CMS launchers enforce runtime-only uploads, production mode, explicit boun
   try {
     const input = join(root, 'standalone'), assets = join(root, 'static'), output = join(root, 'cms'), uploads = join(root, 'uploads')
     file(input, 'server.js', `console.log(JSON.stringify({mode:process.env.NODE_ENV,host:process.env.HOSTNAME,port:process.env.PORT}))`)
-    file(input, 'migrate.mjs', 'process.exit(0)'); file(assets, 'admin.js')
+    file(input, 'migrate.mjs', 'process.exit(0)'); file(input, 'sweep.mjs', 'console.log(JSON.stringify({mode:process.env.NODE_ENV,args:process.argv.slice(2)}))'); file(assets, 'admin.js')
     mkdirSync(uploads)
     stageRelease({ component: 'cms', input, staticAssets: assets, destination: output, revision, epoch: 123, runtime })
     const start = (extra: Record<string, string> = {}) => spawnSync('bash', [join(output, 'bin/start')], {
@@ -157,6 +160,16 @@ test('CMS launchers enforce runtime-only uploads, production mode, explicit boun
     expect(refused.status).toBe(1)
     expect(refused.stdout).toBe('')
     expect(refused.stderr).toContain('uploads outside')
+    const sweep = (args: string[], extra: Record<string, string> = {}) => spawnSync('bash', [join(output, 'bin/sweep'), ...args], {
+      env: { PATH: process.env.PATH, CMS_MEDIA_DIR: uploads, NODE_ENV: 'development', ...extra }, encoding: 'utf8',
+    })
+    const swept = sweep(['--purge-moderated'])
+    expect(swept.status).toBe(0)
+    expect(JSON.parse(swept.stdout)).toEqual({ mode: 'production', args: ['--purge-moderated'] })
+    const unsafe = sweep([], { CMS_MEDIA_DIR: link })
+    expect(unsafe.status).toBe(1)
+    expect(unsafe.stdout).toBe('')
+    expect(unsafe.stderr).toContain('uploads outside')
   } finally { rmSync(root, { recursive: true, force: true }) }
 })
 
