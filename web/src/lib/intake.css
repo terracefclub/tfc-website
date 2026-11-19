@@ -1,0 +1,53 @@
+/*
+ * Public intake pages (/apply/ and /join/). Reuses the donate page's card language: 2px green rule,
+ * hard offset shadow, cream card, lime and coral accents, Anton display headings. No new colours or fonts.
+ */
+.intake { padding-block: 56px 96px; }
+.intake-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 40px; align-items: start; }
+.intake-card { min-width: 0; padding: 32px; border: 2px solid #203f33; background: #fffdf6; box-shadow: 5px 5px 0 #203f33; overflow-wrap: anywhere; }
+.intake-card h2, .intake-aside h2 { margin: 12px 0 14px; font: 400 clamp(32px, 4.4vw, 46px)/1.05 'Anton', Impact, sans-serif; letter-spacing: .005em; text-transform: uppercase; }
+.intake-card p, .intake-aside p, .intake-aside li { color: #34493d; max-width: 62ch; }
+.intake-card p a, .intake-aside a, .intake-alert a { text-decoration: underline; text-underline-offset: 3px; font-weight: 700; }
+.intake-aside { padding: 28px; border: 2px dashed #203f33; background: #eee4f7; }
+.intake-aside h2 { font-size: clamp(28px, 3.4vw, 36px); margin-top: 0; }
+.intake-aside ol { margin: 0; padding-left: 1.3em; }
+.intake-aside li { margin-bottom: 10px; line-height: 1.6; }
+
+.intake-form { display: grid; gap: 22px; margin-top: 8px; }
+.intake-field { display: grid; gap: 6px; min-width: 0; }
+.intake-field label { font-weight: 800; line-height: 1.4; }
+.intake-optional { font-weight: 500; color: #455a4b; }
+.intake-help { margin: 0; font-size: 14px; line-height: 1.5; color: #455a4b; }
+.intake-field input, .intake-field select, .intake-field textarea { width: 100%; min-width: 0; min-height: 48px; padding: 11px 13px; border: 2px solid #203f33; border-radius: 0; background: #fff; color: #173f32; font: inherit; line-height: 1.5; }
+.intake-field textarea { min-height: 140px; resize: vertical; line-height: 1.6; }
+.intake-field select { appearance: auto; }
+.intake-field [aria-invalid='true'] { border-color: #a3324f; border-width: 3px; background: #fff7f6; }
+.intake-error { margin: 0; display: flex; gap: 8px; font-size: 15px; font-weight: 700; line-height: 1.45; color: #a3324f; }
+.intake-error::before { content: '!'; flex: none; display: inline-grid; place-content: center; width: 20px; height: 20px; border-radius: 50%; background: #a3324f; color: #fffdf6; font-size: 13px; line-height: 1; }
+.intake-alert { margin: 0 0 26px; padding: 18px 20px; border: 2px solid #203f33; border-left: 10px solid #a3324f; background: #fff0e7; }
+.intake-alert:focus { outline: 3px solid #173f32; outline-offset: 3px; }
+.intake-alert h2 { margin: 0 0 6px; font: 800 18px/1.3 'DM Sans Variable', 'Trebuchet MS', sans-serif; letter-spacing: 0; text-transform: none; }
+.intake-alert p { margin: 0 0 6px; color: #173f32; font-weight: 700; }
+.intake-alert ul { margin: 8px 0 0; padding-left: 1.2em; }
+.intake-alert li { margin-bottom: 4px; }
+.intake-note { margin: 0; font-size: 15px; }
+.intake-submit { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; }
+.intake-submit button.button { border: 0; cursor: pointer; justify-content: center; }
+.intake-submit button.button:focus-visible { box-shadow: 0 0 0 7px #fff9e9; }
+.intake-mark { display: inline-block; margin-bottom: 4px; padding: 2px 10px; border: 1.5px solid #203f33; background: #ddec85; font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; transform: rotate(-1.5deg); }
+.intake-done { border-left: 10px solid #203f33; background: #ddec85; }
+.intake-done p, .intake-done li { color: #173f32; }
+
+@media (max-width: 860px) {
+  .intake-grid { grid-template-columns: 1fr; gap: 32px; }
+}
+@media (max-width: 520px) {
+  .intake { padding-block: 40px 72px; }
+  .intake-card { padding: 22px 18px; }
+  .intake-aside { padding: 22px 18px; }
+  .intake-submit .button { width: 100%; }
+}
+@media (forced-colors: active) {
+  .intake-field [aria-invalid='true'] { border-color: Highlight; }
+  .intake-alert { border-left-color: Highlight; }
+}
