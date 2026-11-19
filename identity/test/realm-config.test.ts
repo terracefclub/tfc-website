@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { clientSettings, cmsOrigins, editorialRoleNames, keycloakOrigin, localClientOrigins, memberRoleNames, realmSettings, roleScopeMappings, syntheticIdentityRoles, webOrigins } from '../tools/realm-config'
+import { memberUserProfile, restrictEmailEdit, clientSettings, cmsOrigins, editorialRoleNames, keycloakOrigin, localClientOrigins, memberRoleNames, realmSettings, roleScopeMappings, syntheticIdentityRoles, webOrigins } from '../tools/realm-config'
 
 test('local realm requires approval and uses short, rotating sessions', () => {
   expect(realmSettings.registrationAllowed).toBe(false)
@@ -31,6 +31,9 @@ test('member browser client is PKCE only with its own exact callbacks, audience,
   expect(web.directAccessGrantsEnabled).toBe(false)
   expect(web.defaultClientScopes).toContain('basic')
   expect(web.defaultClientScopes).toContain('roles')
+  expect(web.defaultClientScopes).toContain('email') // the verified address binds a first sign-in to its invitation
+  expect(realmSettings.editUsernameAllowed).toBe(false)
+  expect(realmSettings.duplicateEmailsAllowed).toBe(false)
   expect(web.redirectUris).toEqual(webOrigins.map(value => `${value}/auth/callback`))
   expect(webOrigins.every(value => new URL(value).hostname === '127.0.0.1' && !value.includes('*'))).toBe(true)
   expect(web.protocolMappers?.[0].config['included.custom.audience']).toBe(resource.clientId)
@@ -71,4 +74,13 @@ test('member and editorial clients receive disjoint role scopes and synthetic id
   expect(syntheticIdentityRoles.find(user => user.username === 'local-editorial-editor')?.roles).toEqual(['editorial-editor'])
   expect(syntheticIdentityRoles.find(user => user.username === 'local-editorial-admin')?.roles).toEqual(['editorial-admin'])
   expect(keycloakOrigin(8186)).toBe('http://127.0.0.1:8186')
+})
+
+test('restricting the email attribute is idempotent and touches nothing else', () => {
+  const profile = { attributes: [{ name: 'username', permissions: { edit: ['admin', 'user'] } }, { name: 'email', permissions: { view: ['admin', 'user'], edit: ['admin', 'user'] } }] }
+  const once = JSON.stringify(restrictEmailEdit(profile))
+  expect(JSON.stringify(restrictEmailEdit(profile))).toBe(once)
+  expect(profile.attributes[0].permissions.edit).toEqual(['admin', 'user'])
+  expect(profile.attributes[1].permissions).toEqual({ view: ['admin', 'user'], edit: ['admin'] })
+  expect(memberUserProfile().attributes!.find(attribute => attribute.name === 'email')!.permissions!.edit).toEqual(['admin'])
 })

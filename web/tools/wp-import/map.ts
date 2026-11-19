@@ -5,6 +5,11 @@ import { readWxr, type WxrRecord } from '../wxr-preflight';
 import { blockingFlags, canonicalJson, collections, destinationFor, hashOf, isReservedSource, planHash, planKind, planSchemaVersion, publicMediaRequired, redirectPath, servedInPlace, type Plan, type PlanCollection, type PlanDoc, type PlanRedirect, type Unmapped } from './plan-schema';
 import { convertBody, decodeEntities, excerptText, htmlToText, mergeFindings, sanitizeHtml, type Findings } from './sanitize';
 import { noExtensions, type ExtensionHooks } from './zip-hooks';
+import { appExactRoutes } from '../../src/lib/route-manifest';
+import { oldSiteHosts } from '../../src/lib/site-routes';
+import { applyReviews, bodyGatedCollections, isNearEmpty, leftoverShortcodes, minBodyTextChars, type ReviewFile } from './content-gates';
+import { auditLinks, type DocLinks } from './links';
+import { staleManifests } from '../route-manifest';
 
 export const metaKeys = new Set([
   '_EventStartDate', '_EventEndDate', '_EventStartDateUTC', '_EventEndDateUTC', '_EventTimezone', '_EventAllDay', '_EventVenueID', '_EventOrganizerID',
@@ -69,7 +74,8 @@ function serializedSize(meta: string | undefined): { width?: number; height?: nu
   return match ? { width: Number(match[1]), height: Number(match[2]) } : {};
 }
 
-type Draft = { ordinal: number; record: WxrRecord; collection: PlanCollection; data: Record<string, unknown>; refs: Record<string, number>; flags: Set<string>; slug?: string; findings: Findings };
+type Draft = { ordinal: number; record: WxrRecord; collection: PlanCollection; data: Record<string, unknown>; refs: Record<string, number>; flags: Set<string>; slug?: string; findings: Findings; shortcodes?: string[] };
+export type BuildOptions = { /** Route tree to check the manifest against (tests only); defaults to web/src/routes. */ routesDir?: string; /** Operator review decisions (see content-gates.ts); a flag is cleared only for a document whose ordinal and source hash match. */ reviews?: ReviewFile };
 
 // --- source path / redirect -------------------------------------------------------------------
 
@@ -87,7 +93,10 @@ export function sourcePathOf(link: string, hosts: ReadonlySet<string>): { path: 
 
 // --- the planner ------------------------------------------------------------------------------
 
-export function buildPlan(xml: string, hooks: ExtensionHooks = noExtensions): Plan {
+export function buildPlan(xml: string, hooks: ExtensionHooks = noExtensions, options: BuildOptions = {}): Plan {
+  // Reserved redirect sources come from the route manifest; planning against one that no longer matches the route tree could hide a
+  // dead redirect row (regenerate with `bun web/tools/route-manifest.ts`).
+  if (staleManifests(options.routesDir).length) throw new Error('Stale route manifest: run `bun web/tools/route-manifest.ts` and commit the result.');
   const read = readWxr(xml, metaKeys);
   const { records, authors, safeHosts } = read;
   const byId = new Map<number, WxrRecord>();
@@ -164,7 +173,9 @@ export function buildPlan(xml: string, hooks: ExtensionHooks = noExtensions): Pl
     const summary = clean(record.excerpt, 1000) || excerptText(converted.html) || title;
     const publishedAt = utcIso(record.dateGmt);
     const termNames = (domain: string) => record.terms.filter(term => term.domain === domain && term.nicename).map(term => term.nicename.slice(0, 100)).slice(0, 50);
-    const base = { ordinal: record.ordinal, record, flags, refs, findings: converted.findings };
+    const base: Pick<Draft, 'ordinal' | 'record' | 'flags' | 'refs' | 'findings' | 'shortcodes'> = { ordinal: record.ordinal, record, flags, refs, findings: converted.findings };
+    // Shortcodes the converter did not know survive as bracketed text; they would show on the page as raw markup.
+    const noteShortcodes = (target: typeof base) => { const names = leftoverShortcodes(htmlToText(converted.html)); if (names.length) { target.flags.add('leftover-shortcode'); target.shortcodes = names; } };
 
     if (record.type === 'tribe_events') {
       const result = mapEvent(record, byId, flags);
@@ -174,9 +185,11 @@ export function buildPlan(xml: string, hooks: ExtensionHooks = noExtensions): Pl
         else if (!rasterMimes.includes(mediaMime(thumbnailId) ?? '')) flags.add('cover-not-raster');
         else refs.coverImage = thumbnailId;
       }
+      noteShortcodes(base);
       drafts.push({ ...base, collection: 'events', data: { ...common, title, summary, ...result.fields, body: htmlToText(converted.html) || undefined } });
     } else if (record.type === 'project') {
       if (thumbnailId) { if (mappedMedia.has(thumbnailId)) refs.coverImage = thumbnailId; else flags.add('featured-media-unresolved'); }
+      noteShortcodes(base);
       drafts.push({ ...base, collection: 'initiatives', data: { ...common, title, summary, body: htmlToText(converted.html) || undefined } });
     } else if (record.type === 'post' || record.type === 'page') {
       const name = record.terms.filter(term => ['category', 'post_tag'].includes(term.domain)).map(term => term.nicename).join(' ');
@@ -196,6 +209,8 @@ export function buildPlan(xml: string, hooks: ExtensionHooks = noExtensions): Pl
       }
       if (thumbnailId) { if (mappedMedia.has(thumbnailId)) refs.featuredMedia = thumbnailId; else flags.add('featured-media-unresolved'); }
       if (!publishedAt) flags.add('date-missing');
+      if ((bodyGatedCollections as readonly string[]).includes(record.type === 'post' ? 'posts' : 'pages') && isNearEmpty(converted.html)) flags.add('empty-body');
+      noteShortcodes(base);
       drafts.push({
         ...base, collection: record.type === 'post' ? 'posts' : 'pages',
         data: {
@@ -224,22 +239,28 @@ export function buildPlan(xml: string, hooks: ExtensionHooks = noExtensions): Pl
     draft.data.slug = slug;
   }
 
-  // 4. Finish documents: flags, publication eligibility, hashes.
-  const docs: PlanDoc[] = drafts.map((draft): PlanDoc => {
+  // 4. Finish documents: flags, operator reviews, publication eligibility, hashes. Redirects are built next from the
+  //    finished documents; link audit flags (non-blocking) then re-finish the affected documents.
+  let reviewsApplied = 0;
+  const finish = (draft: Draft, extra: string[] = []): PlanDoc => {
     const { record, collection } = draft;
-    if (publicMediaRequired.includes(collection) && Object.keys(draft.refs).length) draft.flags.add('media-bytes-pending');
-    const flags = [...draft.flags].sort();
-    draft.data.wpReviewFlags = flags.length ? flags : undefined;
-    const data = JSON.parse(JSON.stringify(draft.data)) as Record<string, unknown>; // drops undefined, fixes key order for hashing
-    const publishEligible = collection !== 'media' && record.status === 'publish' && !record.protected && !flags.some(flag => (blockingFlags as readonly string[]).includes(flag));
+    const flags = new Set(draft.flags);
+    for (const flag of extra) flags.add(flag);
+    if (publicMediaRequired.includes(collection) && Object.keys(draft.refs).length) flags.add('media-bytes-pending');
+    const sourceHash = sourceHashOf(record);
+    const reviewed = applyReviews([...flags].sort(), draft.ordinal, sourceHash, options.reviews);
+    if (reviewed.applied.length && !extra.length) reviewsApplied++;
+    const sortedFlags = reviewed.flags;
+    const data = JSON.parse(JSON.stringify({ ...draft.data, wpReviewFlags: sortedFlags.length ? sortedFlags : undefined })) as Record<string, unknown>; // drops undefined, fixes key order for hashing
+    const publishEligible = collection !== 'media' && record.status === 'publish' && !record.protected && !sortedFlags.some(flag => (blockingFlags as readonly string[]).includes(flag));
     return {
       ordinal: draft.ordinal, wpId: record.id!, collection, sourceType: record.type, sourceStatus: record.status,
       desiredStatus: collection === 'media' ? 'inherit' : publishEligible ? 'published' : 'draft', publishEligible,
-      data, refs: draft.refs, flags, sourceHash: sourceHashOf(record), targetHash: hashOf({ data, refs: draft.refs }),
+      data, refs: draft.refs, flags: sortedFlags, sourceHash, targetHash: hashOf({ data, refs: draft.refs }),
     };
-  });
-  const order = (collection: PlanCollection) => collections.indexOf(collection);
-  docs.sort((a, b) => order(a.collection) - order(b.collection) || a.ordinal - b.ordinal);
+  };
+  const draftOf = new Map<string, Draft>(drafts.map(draft => [`${draft.collection}:${draft.record.id}`, draft]));
+  const docs: PlanDoc[] = drafts.map(draft => finish(draft));
 
   // 5. Redirects for every public (publish, unprotected) mapped content item.
   const redirects: PlanRedirect[] = [];
@@ -258,6 +279,32 @@ export function buildPlan(xml: string, hooks: ExtensionHooks = noExtensions): Pl
     claimed.set(source.path, doc.wpId);
     redirects.push({ ordinal: doc.ordinal, wpId: doc.wpId, collection: doc.collection, sourcePath: source.path, destination, mode: inPlace ? 'served-in-place' : 'redirect' });
   }
+
+  // 6. Link audit (paths only). A link resolves when the new site would answer it once the plan is applied with --publish: an
+  //    app route, a served-in-place page, or the redirect source / new path of a document that is publish-eligible. A link to a
+  //    document that stays a draft is reported too: it would 404 until an editor publishes that document.
+  const live = new Map(docs.map(doc => [doc.wpId, doc.publishEligible]));
+  const answered = new Set<string>([
+    ...appExactRoutes, ...servedInPlace,
+    ...redirects.filter(item => item.mode === 'served-in-place' || live.get(item.wpId)).map(item => item.sourcePath),
+    ...docs.filter(doc => doc.collection !== 'media' && doc.publishEligible).map(doc => destinationFor(doc.collection as Exclude<PlanCollection, 'media'>, String(doc.data.slug ?? ''))),
+  ].map(path => path.toLowerCase()));
+  const linkContext = { hosts: new Set<string>([...hosts, ...oldSiteHosts]) as ReadonlySet<string>, resolves: (path: string) => answered.has(path.toLowerCase()) };
+  const linkRows: { ordinal: number; unresolved: number; uploads: number; uploadImages: number }[] = [];
+  const unresolvedTargets = new Set<string>(), uploadTargets = new Set<string>();
+  for (let index = 0; index < docs.length; index++) {
+    const doc = docs[index];
+    if (doc.collection !== 'posts' && doc.collection !== 'pages') continue;
+    const found: DocLinks = auditLinks(String(doc.data.bodyHtml ?? ''), linkContext);
+    if (!found.unresolved.length && !found.uploads.length) continue;
+    found.unresolved.forEach(path => unresolvedTargets.add(path)); found.uploads.forEach(path => uploadTargets.add(path));
+    linkRows.push({ ordinal: doc.ordinal, unresolved: found.unresolved.length, uploads: found.uploads.length, uploadImages: found.uploadImages });
+    docs[index] = finish(draftOf.get(`${doc.collection}:${doc.wpId}`)!, ['unresolved-links']);
+  }
+  const shortcodeCounts: Record<string, number> = {};
+  for (const draft of drafts) for (const name of draft.shortcodes ?? []) shortcodeCounts[name] = (shortcodeCounts[name] ?? 0) + 1;
+  const order = (collection: PlanCollection) => collections.indexOf(collection);
+  docs.sort((a, b) => order(a.collection) - order(b.collection) || a.ordinal - b.ordinal);
   unmapped.sort((a, b) => a.ordinal - b.ordinal || (a.scope < b.scope ? -1 : 1));
 
   const publishCandidates = records.filter(record => ['post', 'page', 'tribe_events'].includes(record.type) && record.status === 'publish' && !record.protected);
@@ -277,6 +324,8 @@ export function buildPlan(xml: string, hooks: ExtensionHooks = noExtensions): Pl
       unmappedByReason: sorted(count(unmapped.map(item => ({ key: `${item.scope}:${item.reason}` })))),
       redirects: { total: redirects.length, redirect: redirects.filter(item => item.mode === 'redirect').length, servedInPlace: redirects.filter(item => item.mode === 'served-in-place').length, publishCandidatesWithoutRedirect: publishCandidates.filter(record => !redirects.some(item => item.wpId === record.id)).length },
       extensions: hooks.status(),
+      contentGates: { minBodyTextChars, leftoverShortcodeNames: sorted(shortcodeCounts), reviewsApplied, reviewsUnmatched: (options.reviews?.reviewed.length ?? 0) - reviewsApplied },
+      links: { documentsWithFindings: linkRows.length, unresolvedInternalTargets: [...unresolvedTargets].sort(), oldSiteUploadLinks: [...uploadTargets].sort(), perDocument: linkRows },
     },
   };
   return { ...body, planSha256: planHash(body) };

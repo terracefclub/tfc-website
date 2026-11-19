@@ -1,5 +1,6 @@
 import type { CollectionConfig } from 'payload'
 import { publishedOrStaff, staffOnly } from '@/access/rules'
+import { redirectHooks } from './redirect-sync'
 import { editorialAccess, imageCoverOnly, posterImageMimeTypes, publicMediaOnPublish, slugField, wpImportFields } from './shared'
 
 export const Events: CollectionConfig = {
@@ -18,7 +19,7 @@ export const Events: CollectionConfig = {
     },
     imageCoverOnly,
     publicMediaOnPublish,
-  ] },
+  ], ...redirectHooks('events') },
   fields: [
     slugField,
     { name: 'title', type: 'text', required: true },

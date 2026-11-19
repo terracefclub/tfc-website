@@ -41,7 +41,7 @@ async function currentMemberRoles(api: Api, id: string): Promise<MemberRole[]> {
 export async function provisionMember(api: Api, input: { username: string; email: string; name: string; role: MemberRole; temporaryPassword: () => string }) {
   if (!usernamePattern.test(input.username)) throw new Error('Username must be 3-64 lowercase letters, digits, dot, dash or underscore.')
   if (!isMemberRole(input.role)) throw new Error('Role must be current-member or alumni.')
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) throw new Error('A valid email address is required.')
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email) || input.email.toLowerCase() === erasedEmail) throw new Error('A valid email address is required.')
   const words = input.name.trim().split(/\s+/).filter(Boolean)
   if (!words.length || input.name.length > 120) throw new Error('A name of up to 120 characters is required.')
   let user = await findUser(api, input.username)
@@ -76,4 +76,54 @@ export async function offboardRealmUser(api: Api, username: string) {
   if (user.enabled !== false) await ok(await api(`realms/${realm}/users/${id}`, 'PUT', { ...user, enabled: false }))
   await ok(await api(`realms/${realm}/users/${id}/logout`, 'POST'))
   return { found: true, rolesRemoved: have.length }
+}
+
+/**
+ * The address a realm user gets must be the contact email of an APPROVED application: it is what binds the person's first sign-in to
+ * their invitation, so it is read from the application record, never typed. `lookup` returns that application's contact email when
+ * its status is approved (the CLI queries the local CMS database), else null. A given `--email` must equal it (case-insensitively).
+ */
+/** What erasure leaves in an application's contact email; never a person's address. */
+export const erasedEmail = 'erased@terrace.invalid';
+export const erasedName = 'Erased applicant';
+
+/**
+ * The SQL the CLI runs to find an application's contact email: approved, not erased, and its invitation is still live (pending) or was
+ * accepted (redeemed). Erased applications (sentinel address and name) are refused, so no realm user can ever be created at the sentinel.
+ */
+export const approvedEmailQuery = `select a.contact_email from member_applications a
+  where a.id = :id and a.status = 'approved' and a.contact_email <> '${erasedEmail}' and a.name <> '${erasedName}'
+    and exists (select 1 from member_invitations i where i.application_id = a.id and i.status in ('pending', 'redeemed'))`;
+
+/** psql reads its connection from the environment (never argv, which any local user can list and an error would print). */
+export function connectionEnv(uri: string): Record<string, string> {
+  const url = new URL(uri);
+  const env: Record<string, string> = {};
+  const host = url.searchParams.get('host') || url.hostname;
+  if (host) env.PGHOST = host;
+  const port = url.searchParams.get('port') || url.port;
+  if (port) env.PGPORT = port;
+  if (url.pathname.length > 1) env.PGDATABASE = decodeURIComponent(url.pathname.slice(1));
+  if (url.username) env.PGUSER = decodeURIComponent(url.username);
+  if (url.password) env.PGPASSWORD = decodeURIComponent(url.password);
+  return env;
+}
+
+/** Look the email up with psql. Any failure is a fixed message: Node's own error would carry the command line and environment. */
+export function lookupWithPsql(uri: string | undefined, run: (args: string[], env: Record<string, string>, input: string) => string): (id: number) => Promise<string | null> {
+  return async (id) => {
+    if (!uri) throw new Error('DATABASE_URI (the local CMS database) is required to read the application; run through cms/tools/with-local.');
+    try {
+      const out = run(['-Atq', '-v', `id=${id}`], connectionEnv(uri), approvedEmailQuery).trim();
+      return out || null;
+    } catch { throw new Error('Could not read the application from the local database; nothing was changed.'); }
+  };
+}
+
+export async function approvedApplicationEmail(applicationId: string, lookup: (id: number) => Promise<string | null>, typed?: string): Promise<string> {
+  if (!/^[1-9]\d{0,9}$/.test(applicationId)) throw new Error('--application must be the numeric id of an approved application.');
+  const email = await lookup(Number(applicationId));
+  if (!email || email.toLowerCase() === erasedEmail) throw new Error('No approved application with that id; nothing was changed.');
+  if (typed !== undefined && typed.trim().toLowerCase() !== email.toLowerCase()) throw new Error('--email does not match the application\'s contact email; nothing was changed.');
+  return email;
 }

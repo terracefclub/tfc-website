@@ -5,7 +5,7 @@ Repeatable, repo-local tooling that turns a WordPress WXR export into Payload do
 (`web/tools/wxr-preflight.ts`, `loadWxr`/`readWxr`); there is no second parser.
 
 **Status.** Dry run and apply are verified against the synthetic fixture and the local preview database only.
-The real export has had a dry run (aggregate counts below) and **no apply**. Media bytes, menus and plugin
+The real export has had dry runs (aggregate counts below) and a rehearsal apply on a throwaway local database, and **no apply to any real target**. Media bytes, menus and plugin
 settings wait for the Kinsta backup ZIP (see [What the Kinsta ZIP adds](#what-the-kinsta-zip-adds)). Historical
 Gravity Forms entries are excluded, as the owner decided.
 
@@ -26,8 +26,7 @@ password protected, its `wpStatus` equals the source status, `wpReviewFlags` equ
 flag; redirect destinations are re-derived from the document slug. **The plan hash is an integrity check, not
 authenticity**: anyone who can write the plan file can re-seal it, so keep plan files private and only apply plans you
 generated. Blocking review flags and sanitizer findings are
-**supplied by the plan and are not re-derived by the applier** (the applier cannot see the source markup or WXR), so a
-consistently rewritten plan can clear them. Treat the plan file as trusted operator input protected by its file mode, and
+**supplied by the plan**; the applier re-derives only these from the stored text, with the planner's own functions: HTML safety, `empty-body` (a post or page body under 200 characters) and `leftover-shortcode` (a document must carry the flag or its `-reviewed` form), plus publication eligibility, flag consistency and redirect destinations. It **cannot** re-derive the other flags (`divi-layout-review`, the builder, form and plugin shortcode flags, event date and media flags), because they depend on source markup and metadata the plan does not carry, so a consistently rewritten plan can still clear those. The applier also cannot verify that a `-reviewed` flag came from an override file: a re-sealed plan can set one and publish an empty or shortcode-only body. Treat the plan file as trusted operator input protected by its file mode, and
 re-run the planner from the WXR instead of ever editing a plan. Validation cannot know the real WordPress status of a record whose status fields were rewritten consistently.
 
 The plan file holds titles and bodies. Treat it like the export itself: a private, owner-only directory outside every
@@ -36,24 +35,30 @@ symlinks are refused) using the same writer as the preflight (`web/tools/private
 
 ## Commands
 
-From the repository root; `EXPORT` is the protected WXR, `PRIV` an existing `0700` directory outside Git.
+From the repository root; `EXPORT` is the protected WXR, `PRIV` an existing `0700` directory **outside every Git checkout**.
+Use a directory such as `~/.terrace-private` (`mkdir -m 700 ~/.terrace-private`), never `.state/` or any other path inside a
+checkout: the tools refuse a directory that has a `.git` anywhere above it **even when Git ignores it**, because an ignored file is
+one `git add -f`, backup or sync away from leaving the machine. The refusal says why in fixed text and never quotes the path.
 
 ```sh
 # 1. Dry run: reads the WXR, writes ONLY the safe reconciliation report. Nothing else is touched.
 direnv exec web bun web/tools/wp-import/import.ts dry-run --report $PRIV/wp-import-dryrun-DATE.safe.json < $EXPORT
 
-# 2. Plan: same, plus the full private plan the CMS stage applies.
+# 2. Plan: same, plus the full private plan the CMS stage applies. Add --reviewed $PRIV/review.json after you reviewed documents
+#    (see "Content quality gates"); `buildPlan` itself refuses to run against a stale route manifest (see "Redirect map").
 direnv exec web bun web/tools/wp-import/import.ts plan --out $PRIV/wp-import-plan.json --report $PRIV/plan-report.json < $EXPORT
 
 # 3. Against the local preview CMS (`tools/local-stack`, migrations applied; see docs/local-preview.md):
 cd cms
 direnv exec . tools/with-local bun tools/wp-import.ts dry-run  --plan $PRIV/wp-import-plan.json --report $PRIV/cms-dryrun.json
 direnv exec . tools/with-local bun tools/wp-import.ts apply    --plan $PRIV/wp-import-plan.json --report $PRIV/cms-apply.json
+# 4. Later, publish the eligible drafts that are already imported (journaled; see "Publishing already-imported drafts"):
+direnv exec . tools/with-local bun tools/wp-import.ts publish  --plan $PRIV/wp-import-plan.json --report $PRIV/cms-publish.json [--dry-run]
 direnv exec . tools/with-local bun tools/wp-import.ts rollback --run wpimport-YYYYMMDDHHMMSS-abcdef
 ```
 
 `bun run import:wordpress -- ...` is the same entry point from `web/` and `cms/`. Apply options: `--publish`,
-`--run-id ID` (default generated), `--overwrite-edited`. Rollback option: `--discard-edits`. The CMS tool refuses a
+`--run-id ID` (default generated), `--overwrite-edited`. Publish options: `--run-id ID`, `--dry-run`. Rollback option: `--discard-edits`. The CMS tool refuses a
 non-local `DATABASE_URI` (Unix socket or loopback only) unless `--allow-nonlocal-database` is passed for an approved
 target. "Local" means a Unix-socket `host=` path or loopback host; an empty host does not count (libpq would fall back to `PGHOST`), `PGHOST` must itself be unset or local, and loopback also admits an SSH tunnel to a remote database, so the flag guards intent rather than topology. Terminal output is always aggregate counts and fixed error text, never record contents, paths or URLs.
 
@@ -106,10 +111,53 @@ Slugs are normalized per collection; the lowest WordPress ID keeps a duplicated 
 Everything is created as a **draft** unless apply is run with `--publish`, and then only documents the plan marks
 eligible: source status `publish`, no password, and no blocking review flag (`unsafe-html-stripped`,
 `builder-code-dropped`, `form-shortcode-dropped`, `plugin-shortcode-dropped`, `event-date-review`,
-`event-timezone-review`, `event-venue-missing`, `event-end-invalid`, `media-bytes-pending`). Draft, pending, private,
+`event-timezone-review`, `event-venue-missing`, `event-end-invalid`, `media-bytes-pending`, and the content gates
+`empty-body`, `leftover-shortcode` and `divi-layout-review` below). Draft, pending, private,
 future and password-protected sources stay drafts (staff-only); passwords are never copied. Items referencing
 reference-only media cannot publish until bytes exist, because the Events/Newsletters/Initiatives publish hooks
-require public media. `--publish` only affects documents created by that run (a run that publishes nothing says so in its report `notes`); use the CMS to publish later.
+require public media. `--publish` only affects documents created by that run (a run that publishes nothing says so in its report `notes`);
+to publish drafts that are already imported use the `publish` command, or publish in the CMS.
+
+### Content quality gates
+
+Publication eligibility also needs content an editor would accept. The planner flags, and **blocks from `--publish`** and from
+the `publish` command:
+
+| Flag | When | Why it blocks |
+| --- | --- | --- |
+| `empty-body` | A post or page whose sanitized body has fewer than 200 characters of text (`minBodyTextChars` in `web/tools/wp-import/content-gates.ts`): a heading with little else, or a body that is only a shortcode. Events and initiatives (short summaries) are not gated. | The page would be nearly blank. |
+| `leftover-shortcode` | Any WordPress shortcode that survives conversion in a post, page, event or initiative: `[name key=value ...]` with an attribute, a closing `[/name]`, or a bare `[name]` whose name contains `_` or `-` (`[tt-event ...]`). Ordinary bracketed prose (`[sic]`, `[1]`, `[citation needed]`) does not match. | Raw shortcode text would appear on the page. |
+| `divi-layout-review` | The source used the Divi builder (`_et_pb_use_builder`). | The layout was flattened to text and basic HTML; an editor must compare it with the old page. |
+
+The safe report lists the **distinct leftover shortcode names with the number of documents** (names only, never attributes or
+surrounding text) under `contentGates.leftoverShortcodeNames`. `unresolved-links` (next section) does not block.
+
+**Per-document override after review.** Open the document in the CMS draft (or the old page), decide it is fine, then record
+that decision for that document only in a private JSON file passed to the planner with `--reviewed`:
+
+```json
+{ "kind": "wp-import-review", "schemaVersion": 1,
+  "reviewed": [ { "ordinal": 17, "sourceHash": "<64 hex from the safe report>", "flags": ["divi-layout-review"] } ] }
+```
+
+`ordinal` and `sourceHash` come from the safe report's `documents` list. Only `divi-layout-review`, `empty-body` and
+`leftover-shortcode` can be cleared; the flag becomes `<flag>-reviewed` (non-blocking, still visible in `wpReviewFlags`), so
+the review is on record. A decision applies only while the document's source hash is unchanged: if the export changes that
+record the decision is ignored (`reviewsUnmatched` counts them) and the flag blocks again. Every other blocking flag stays
+non-overridable. The applier re-validates that a `-reviewed` flag exists only for those three flags and never next to its original.
+The plan schema is now **version 2**; a version 1 plan is refused (plan again from the export).
+
+### Publishing already-imported drafts
+
+`apply --publish` only affects documents created by the same run, so an operator who imported drafts first used to have to roll
+back to publish. `publish --plan PLAN` does it explicitly: it validates the plan, then publishes each plan document that is
+**publish-eligible, already imported as a draft, still exactly as imported, and not edited**, as its own journaled run
+(`wp-import-runs`/`wp-import-journal`). It never touches a document that is already published (`already-published`), that an editor
+changed since the import, drafts included (`locally-edited`), whose stored content differs from this plan (`differs-from-plan`), that was never imported
+(`not-imported`), or that the plan does not mark eligible. Redirect rows of each published document are activated by the same transaction
+(next section) and the report says how many (`redirectsActivated`). `--dry-run` reports what would be published and writes nothing.
+It is safe to repeat. `rollback --run ID` of a publish run sets exactly those documents back to draft (their redirects deactivate with them) and refuses with
+`status-changed-since-import` if an editor changed a document's publication since.
 
 ### HTML and shortcodes
 
@@ -131,16 +179,39 @@ listed as unmapped with `redirect-query-or-fragment-route`, `redirect-foreign-or
 `redirect-site-root` or `redirect-duplicate-source-path`; queries are never dropped to force a match. Source paths
 are stored without the trailing slash; the redirect layer must trim one trailing slash before lookup (the tests use
 `resolveOldUrl`, which does). Dry runs put the map in the report; apply writes it to `redirects` as 301s with
-`active: false` until the target is published, so nothing public redirects to a draft. A later apply run activates the
-redirect once its document is published. Served-in-place pages need no row. Sources that are, or sit under (case-insensitively), routes the new site serves or reserves (`/members`, `/auth`, `/preview`, `/api`, `/admin`, `/_app`, `/events`, `/newsletter`, `/news`, `/pages`, `/donate`, and the top-level pages) are never redirected (`redirect-reserved-route`), and a source equal to its destination is skipped. Existing redirects on the same source path
+`active: false` until the target is published, so nothing public redirects to a draft. **Publication keeps the rows in step in the CMS**:
+`afterChange`/`afterDelete` hooks on Posts, Pages, Events, Newsletters and Initiatives (`cms/src/collections/redirect-sync.ts`) activate the importer's
+redirect rows of a document when an editor (or the `publish` command) publishes it and deactivate them on unpublish or delete, inside the same
+transaction, without re-running `apply`. A draft saved over a published document does not unpublish it, so its redirect stays active; a renamed slug moves the
+destination along. Only a row that belongs to the document is touched: it carries the importer's run id, the document's WordPress ID, its destination is
+that collection's route and nobody edited it since the importer wrote it (an editor-changed row is theirs). Activation also needs the same-site rules:
+a local source that is not a route the site serves or reserves (below), a local destination and a source different from the destination; deactivation is
+always allowed. The hook keeps the importer's hashes consistent, so the next `apply` finds the row unchanged, and `rollback` does not count the
+activation flip as an edit. Served-in-place pages need no row. Sources that are, or sit under (case-insensitively), routes the new site serves or reserves are never redirected (`redirect-reserved-route`), and a source equal to its destination is skipped (a WordPress page at `/join` or `/apply` therefore gets no row: the site has those routes). **The reserved list is derived, not hand-kept**: `web/tools/route-manifest.ts` scans `web/src/routes` (a directory with a `+page` or `+server` file is a route; a route with a dynamic segment reserves everything below its static part) and writes the checked-in manifests `web/src/lib/route-manifest.ts` and `cms/src/lib/route-manifest.ts`, plus the explicit prefixes (`/members`, `/auth`, `/preview`, `/api`, `/admin`, `/_app`, `/events`, `/newsletter`, `/news`, `/pages`, `/donate`). `bun test` fails when either manifest no longer matches the route tree, and the planner refuses to run against a stale one (`bun web/tools/route-manifest.ts` regenerates them), so a new route can never be shadowed or yield a dead row. The planner, the applier's validation, the website's redirect consumer and the CMS hook all use that one list. Existing redirects on the same source path
 that the importer did not create are left alone (`source-path-taken`).  The frontend consumes the active rows (see [Frontend](#frontend)).
+
+### Links in imported bodies
+
+The planner audits the links of every post and page body (paths only, offline). Two non-fatal findings are reported in the safe
+report under `links` and flag the document `unresolved-links` (**non-blocking**):
+
+- **Unresolved internal targets**: a link to the old site (relative, or on the old hosts) that the new site will not answer once the plan is applied with
+  `--publish`: not an app route, not a redirect source of a publish-eligible document and not the new path of one. A link to a document that stays a draft counts
+  too (it would 404 until that document is published), and so does a link with a query string (the redirect layer never matches one).
+  Listed once each as `unresolvedInternalTargets`.
+- **Old-site upload links**: links and images that point at `/wp-content/uploads/...`, absolute (`https://<old host>/wp-content/uploads/...`) or relative. They keep working only while the old site
+  is up, so they break at cutover; the render policy already drops body images that are not on the CMS media path. Listed once each as `oldSiteUploadLinks`
+  with per-document counts (`perDocument`: ordinal, unresolved targets, upload links, upload images).
+
+When the Kinsta ZIP supplies the media bytes, `UploadLinkRewriter` in `web/tools/wp-import/zip-hooks.ts` (typed, `null` today, status `uploadLinkRewrite: todo-kinsta-zip`)
+is where an old upload path will be mapped to its local Media record so the planner can rewrite those links. Nothing is downloaded or rewritten without a verified local file.
 
 ## Reports
 
 - **Planner report** (`kind: wp-import-dry-run-report`): counts by source type and status, mapped counts by collection,
   unmapped counts by reason, review-flag counts, per-document `sourceHash` (raw source fields) and `targetHash` (mapped
   document), unmapped list, redirect map, a reproduction check against the preflight (`itemCount`,
-  publish-status candidates) and the deferred-to-ZIP status. Documents are identified by source ordinal only. No titles,
+  publish-status candidates), the content-gate summary (leftover shortcode names with counts, reviews applied) and link findings (paths only), and the deferred-to-ZIP status. Documents are identified by source ordinal only. No titles,
   bodies, author names, emails, WordPress IDs, GUIDs or metadata values. Redirect paths appear only for published,
   unprotected items, which are public URLs.
 - **CMS report** (`wp-import-run-report`): created/updated/skipped/failed per collection and for redirects, per-document
@@ -164,7 +235,7 @@ pre-image of the managed fields. Every write is tagged with the run ID in `wpImp
   (`run-not-stale` otherwise). Lowering the threshold needs the extra explicit `--stale-after-minutes N` (an integer of at least 1); the threshold exists to avoid taking over a live apply.
 
 Otherwise it processes rows newest first inside **one transaction that first locks the run row and re-checks every precondition** (any failure changes nothing, so a retry is always safe). Every apply write takes the same lock first and requires the run to still be `running`, so an in-flight apply that is taken over is refused at its next write, stops, and its final status update (conditional on `running`) cannot overwrite `rolled-back`. It deletes documents the run created and restores updated documents from
-their pre-image (published documents receive the restored content as a draft version), then marks the run `rolled-back`. Journal rows written before `postStatus` existed skip the status check. Rollback is covered by tests for
+their pre-image (published documents receive the restored content as a draft version), then marks the run `rolled-back`. A `publish` run's rows are undone by setting the documents back to draft. Journal rows written before `postStatus` existed skip the status check. A redirect row whose only change since the run is `active` (flipped with its document's publication) is not an edit. Rollback is covered by tests for
 refusal and success paths.
 
 A failed document does not stop the run: it is counted as failed with a fixed reason code, the run is marked `failed`,
@@ -185,6 +256,7 @@ this job; the typed hooks are in `web/tools/wp-import/zip-hooks.ts` and report a
 | ZIP content | Adds | Hook / where it plugs in |
 | --- | --- | --- |
 | `public/wp-content/uploads/` bytes | Original files for every Media reference, with SHA-256 reconciliation of derivatives, the missing attachments the export lacks (18 referenced IDs, 28 body URLs), PDFs for newsletters. Needed before any Media can be public and before newsletters, events with posters, and initiatives with images can publish. | `MediaBytesProvider.find()`; the CMS stage then updates each reference with `file` (the Media hook already accepts that and keeps `public: false` until an editor approves). Planner would clear `media-bytes-pending` once bytes verify. |
+| Same uploads | Rewrite of old-site upload links (`oldSiteUploadLinks` in the report) in bodies to the local copies. | `UploadLinkRewriter.rewrite()`; the planner would clear `unresolved-links` for them. |
 | SQL dump, menus (`nav_menu_item`, term relationships) | Real menu structure for the 11 menu items the WXR only names; category/term relationships for Pages. | `DatabaseTableProvider.menus()` feeding a future navigation collection. |
 | SQL dump, plugin options | Divi, The Events Calendar, Yoast, redirect-plugin and Gravity Forms settings (site-wide settings not in the WXR); real redirect rules to merge with this map. | `DatabaseTableProvider.pluginOption(name)` with an allowlist; secrets must never be persisted. |
 | SQL dump, `wp_users`/`wp_usermeta`, entries | Not imported: no WordPress accounts become users, and Gravity Forms entries stay excluded. | none by design |
@@ -262,9 +334,9 @@ is null), before rendering the 404, for GET and HEAD. So a redirect row can neve
 
 - Path normalisation: one trailing slash trimmed, case matched exactly as stored. Only paths that could be stored sources
   (`/a/b-c_d`, at most 500 characters, no `//`, no dots or percent-encoding, so no static asset or `__data.json`) reach the CMS.
-- Never answered, never queried: `/members`, `/auth`, `/preview`, `/api`, `/admin`, `/_app`, `/events`, `/newsletter`, `/news`,
-  `/pages`, `/donate` and their sub-paths, plus the exact top-level routes (`/about`, `/contact`, `/join`, `/apply`,
-  `/merchandise`, `/shows-archive`, `/initiatives`; their old sub-paths such as `/about/history` may redirect).
+- Never answered, never queried: the generated route manifest (`web/src/lib/route-manifest.ts`, derived from the route tree): every exact app route (`/about`, `/contact`, `/join`, `/apply`,
+  `/merchandise`, `/shows-archive`, `/initiatives`, ...; their old sub-paths such as `/about/history` may redirect) and every prefix with its sub-paths (`/members`, `/auth`, `/preview`, `/api`, `/admin`, `/_app`, `/events`, `/newsletter`, `/news`,
+  `/pages`, `/donate`).
 - Only the `active` row for the exact source is used (the CMS also hides inactive rows from the public API, and the client
   re-checks). The destination must be a same-site path: external URLs, `//`, backslashes, schemes, dot segments, queries and
   fragments are refused, and so is a destination equal to its source. A trailing slash is added to avoid a second hop.
@@ -276,7 +348,7 @@ is null), before rendering the 404, for GET and HEAD. So a redirect row can neve
   timeout. The cache is per server process and is not purged when an editor changes a redirect, so a change can take
   up to five minutes to appear (use the one-minute miss window for new rows).
 - Fail open: an unreachable, slow or malformed CMS answer is the ordinary 404 page. With the CMS unreachable, each distinct unmatched path waits up to 1.5 s once, then the 10 s failure cache answers instantly.
-- A redirect whose destination is a draft redirects and then shows the 404, so redirects must be activated only after their target is published (the importer already does this).
+- A redirect whose destination is a draft redirects and then shows the 404, so redirects must be activated only after their target is published (the importer and the CMS publication hooks do this).
 - Limits: it relies on the public API hiding inactive rows (`activeRedirectOrStaff`); a 302 or 301 from a cache outlives a
   later deactivation in browsers (`Cache-Control: public, max-age=300` is sent). Redirect rules held only by Kinsta or
   Nginx are not part of this.
@@ -296,3 +368,17 @@ Dry run only, report written `0600` beside the preflight report. It reproduces t
 1 initiative); 30 records unmapped by design (11 venues/organizers, 11 menu items, 4 Divi layouts, 3 style records, 1
 event with no start date); 88 published items yield 86 redirects (80 redirect, 6 served in place) and two explicit gaps
 (the site root and one source that collides with a reserved route; this is the final dry run, after the reserved-route rule); 56 documents are publish-eligible by status and review flags (everything else needs review first).
+
+### Real export after the quality gates and publishing workflow (2026-11-18)
+
+Planner dry run, then a rehearsal apply on a throwaway local database (aggregate counts only; nothing was applied to any real target).
+The 245 items and 87 publish-status candidates still reproduce the preflight. **Publish-eligible documents fell from 56 to 36**: 20 were
+blocked by the new gates, 11 of them carrying `empty-body` (9 pages and 2 posts; the pages are headings with under 200 characters), 5
+documents carry `leftover-shortcode` (distinct names: `integrate_google_drive`, `simpay_error`, `simpay_payment_receipt`, `tt-event`; the post whose whole body is a raw `tt-event`
+shortcode is one of them) and 24 documents carry `divi-layout-review`, which now blocks (14 of the 20 newly blocked have only or also that flag). Redirects are 85 (79 redirect, 6 served in place): the
+dead `/join` row is gone and three explicit gaps remain (the site root and two reserved routes). Link findings (non-blocking `unresolved-links`): 15 documents, 5 distinct unresolved internal
+targets and 39 distinct old-site upload paths.
+
+Rehearsal on the local stack: `apply` created 215 documents and 79 redirects (inactive); `publish --dry-run` and `publish` published the 36 eligible drafts and activated their 36
+redirects; a second `publish` published nothing; re-applying the plan was a no-op; unpublishing and publishing one post in the Payload admin flipped its redirect immediately; and `rollback` of the
+publish run, then of the apply run, left no imported rows.

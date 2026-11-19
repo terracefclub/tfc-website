@@ -1,6 +1,7 @@
 import type { Payload } from 'payload'
 import { applicationTtlMs, graceMs } from './policy'
 import { reconcileMirror } from './outbox'
+import { countUnlinkedRedeemed } from './linking'
 import { hideTargets, pool } from './visibility'
 
 /** Withdraw pending applications nobody reviewed within the (placeholder) time limit. */
@@ -47,6 +48,21 @@ export async function sweep(payload: Payload, options: { purgeModerated?: boolea
   }
   const offboarded = await q.query(`SELECT count(*)::int AS n FROM member_offboardings WHERE state = 'offboarded' AND grace_ends_at < now()`)
   const applicationsWithdrawn = await expireStaleApplications(payload)
+  // Report only. Nothing is ever linked by guessing from names: an administrator links these with the member picker.
+  const unlinkedRedeemedApplications = await countUnlinkedRedeemed(payload).catch(() => -1)
   const mirror = await reconcileMirror(payload).catch(() => ({ redacted: 0, written: 0, failed: true }))
-  return { mirror, applicationsWithdrawn, invitationsExpired: expired.rowCount ?? 0, moderatedPastGrace: pastGrace, moderatedPurged: purged, offboardedPastGrace: Number(offboarded.rows[0].n) }
+  return { mirror, unlinkedRedeemedApplications, applicationsWithdrawn, invitationsExpired: expired.rowCount ?? 0, moderatedPastGrace: pastGrace, moderatedPurged: purged, offboardedPastGrace: Number(offboarded.rows[0].n) }
+}
+
+/**
+ * Exit code for the scheduled sweep: 0 when everything it set out to do was done. Non-zero (with a labelled line for each cause) when mirror
+ * files failed, when the unlinked-application count could not be read, or, in a public deployment, when the outbox directory is unset.
+ */
+export function sweepExit(summary: { mirror: { skipped?: string; failed?: number | boolean }; unlinkedRedeemedApplications: number }, env: Record<string, string | undefined> = process.env): { code: number; lines: string[] } {
+  const lines: string[] = []
+  // A public deployment cannot start without the directory (runtime-policy), so this is defence in depth for a misconfigured timer environment.
+  if (summary.mirror.skipped && env.CMS_PUBLIC_DEPLOYMENT === '1') lines.push(`lifecycle sweep: ${summary.mirror.skipped}`)
+  if (summary.mirror.failed) lines.push('lifecycle sweep: some mirror files could not be written or redacted')
+  if (summary.unlinkedRedeemedApplications < 0) lines.push('lifecycle sweep: could not count unlinked redeemed applications')
+  return { code: lines.length ? 1 : 0, lines }
 }

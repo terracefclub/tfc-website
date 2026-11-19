@@ -1,7 +1,11 @@
 import { createRemoteJWKSet, customFetch, jwtVerify, type JWTPayload } from 'jose'
 import { memberRoles, type MemberRole } from '../access/members'
 
-export type MemberClaims = { issuer: string; subject: string; displayName: string; roles: MemberRole[] }
+/**
+ * `contactEmail` is present only when the realm vouches for the address (`email_verified`). It is used once, to
+ * bind a first sign-in to the applicant's redeemed invitation (lifecycle/linking.ts); it is never stored on the member.
+ */
+export type MemberClaims = { issuer: string; subject: string; displayName: string; roles: MemberRole[]; contactEmail?: string }
 export type KeycloakConfig = { issuer: string; audience: string; clientId: string; introspectionClientId: string; introspectionSecret: string }
 
 export function keycloakConfig(env = process.env, prefix = 'MEMBER_AUTH'): KeycloakConfig | null {
@@ -22,7 +26,8 @@ export function approvedClaims(payload: JWTPayload, config: KeycloakConfig): Mem
   const roles = Array.isArray(suppliedRoles) ? memberRoles.filter((role) => suppliedRoles.includes(role)) : []
   if (typeof payload.sub !== 'string' || !payload.sub || payload.sub.length > 255 || payload.azp !== config.clientId || payload.typ !== 'Bearer' || roles.length === 0) throw new Error('Member access denied.')
   const name = typeof payload.name === 'string' ? payload.name : typeof payload.preferred_username === 'string' ? payload.preferred_username : 'Terran'
-  return { issuer: config.issuer, subject: payload.sub, displayName: name.trim().slice(0, 120) || 'Terran', roles }
+  const email = typeof payload.email === 'string' && payload.email_verified === true && payload.email.length <= 254 ? payload.email.trim().toLowerCase() : ''
+  return { issuer: config.issuer, subject: payload.sub, displayName: name.trim().slice(0, 120) || 'Terran', roles, ...(email ? { contactEmail: email } : {}) }
 }
 
 type Fetcher = (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => Promise<Response>
@@ -52,6 +57,8 @@ export function createMemberVerifier(config: KeycloakConfig, request: Fetcher = 
 }
 
 let verifier: ReturnType<typeof createMemberVerifier> | undefined
+/** Tests that point the process at their own identity stub call this before and after, so no verifier outlives its settings. */
+export function resetMemberVerifier(): void { verifier = undefined }
 export async function verifyMemberToken(token: string): Promise<MemberClaims> {
   if (!verifier) {
     const config = keycloakConfig()

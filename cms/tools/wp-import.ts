@@ -7,15 +7,15 @@
 import { closeSync, constants, fstatSync, openSync, readSync } from 'node:fs'
 import { getPayload } from 'payload'
 import { writePrivateJson } from '../../web/tools/private-output'
-import { apply, dryRun, rollback } from './wp-import/apply'
+import { apply, dryRun, publishExisting, rollback } from './wp-import/apply'
 
-const usage = 'Usage: wp-import.ts dry-run|apply --plan PLAN [--report OUT] [--publish] [--run-id ID] [--overwrite-edited] | rollback --run ID [--report OUT] [--discard-edits] [--take-over-stale [--stale-after-minutes N]] [--allow-nonlocal-database]'
+const usage = 'Usage: wp-import.ts dry-run|apply --plan PLAN [--report OUT] [--publish] [--run-id ID] [--overwrite-edited] | publish --plan PLAN [--report OUT] [--run-id ID] [--dry-run] | rollback --run ID [--report OUT] [--discard-edits] [--take-over-stale [--stale-after-minutes N]] [--allow-nonlocal-database]'
 const valueFlags = new Set(['--plan', '--report', '--run-id', '--run', '--stale-after-minutes'])
-const boolFlags = new Set(['--publish', '--overwrite-edited', '--discard-edits', '--take-over-stale', '--allow-nonlocal-database'])
+const boolFlags = new Set(['--publish', '--overwrite-edited', '--dry-run', '--discard-edits', '--take-over-stale', '--allow-nonlocal-database'])
 
 export function parseArgs(argv: string[]) {
   const [command, ...rest] = argv
-  if (!['dry-run', 'apply', 'rollback'].includes(command)) throw new Error(usage)
+  if (!['dry-run', 'apply', 'publish', 'rollback'].includes(command)) throw new Error(usage)
   const values: Record<string, string> = {}, flags = new Set<string>()
   for (let i = 0; i < rest.length; i++) {
     const flag = rest[i]
@@ -23,6 +23,7 @@ export function parseArgs(argv: string[]) {
     else if (valueFlags.has(flag) && rest[i + 1] && !rest[i + 1].startsWith('--') && !(flag in values)) values[flag] = rest[++i]
     else throw new Error(usage)
   }
+  if ((flags.has('--dry-run') && command !== 'publish') || (command === 'publish' && (flags.has('--publish') || flags.has('--overwrite-edited')))) throw new Error(usage)
   if (values['--stale-after-minutes'] !== undefined && (command !== 'rollback' || !flags.has('--take-over-stale') || !/^[1-9]\d{0,6}$/.test(values['--stale-after-minutes']))) throw new Error(usage)
   if (command === 'rollback' ? !values['--run'] || values['--plan'] : !values['--plan'] || values['--run']) throw new Error(usage)
   return { command, values, flags }
@@ -71,6 +72,10 @@ if (import.meta.main) {
       const result = await rollback(payload, values['--run'], { discardEdits: flags.has('--discard-edits'), takeOverStale: flags.has('--take-over-stale'), ...(values['--stale-after-minutes'] ? { staleAfterMs: Number(values['--stale-after-minutes']) * 60_000 } : {}) })
       report = result; summary = { ...result }
       if (!result.ok) exit = 1
+    } else if (command === 'publish') {
+      const run = await publishExisting(payload, readPlan(values['--plan']), { write: !flags.has('--dry-run'), runId: values['--run-id'] })
+      report = run; summary = { mode: run.mode, runId: run.runId, counts: run.counts }
+      if (run.counts.failed) exit = 1
     } else {
       const plan = readPlan(values['--plan'])
       const run = command === 'apply'

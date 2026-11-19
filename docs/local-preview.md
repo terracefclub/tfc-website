@@ -118,6 +118,31 @@ independently using the owner's recorded identities, then a new startup from the
 retained state will create current ownership records. Old state is never removed
 to bypass this check.
 
+## Sample content versus published content
+
+A fresh local preview shows **sample content**, not what is in the CMS: `/events/`, `/newsletter/` and the like show the
+labelled fixtures, and `/news/` and `/pages/{slug}/` show their empty states, even when the CMS holds published (or imported
+and published) documents. The website reads the CMS only after the **published-preview cookie** is set in your browser:
+
+1. Open the website at its preview origin (`http://127.0.0.1:4194/` by default, which is also the only origin the toggle is
+   offered on unless `TERRACE_LOCAL_PREVIEW_ORIGIN` names another exact loopback origin) in the browser you will check with.
+2. Press **View published site** in the page header (a small form button next to **Editor sign-in**). It POSTs to
+   `/preview/source/published/`, which sets the cookie `terrace_published_preview_4194` (`HttpOnly`, `SameSite=Strict`, path `/`)
+   and sends you to `/events/`. The same button then reads **View sample site**, which clears the cookie.
+3. Reload the page you were checking. Only **published** documents appear; drafts never do (there is no draft preview, see
+   [wordpress-import.md](wordpress-import.md#frontend)).
+
+Without a browser, the same switch works from the command line (the `Origin` header must equal the preview origin):
+
+```sh
+curl -si -c /tmp/preview.jar -X POST -H 'Origin: http://127.0.0.1:4194' http://127.0.0.1:4194/preview/source/published/ | head -1   # 303
+curl -s -b /tmp/preview.jar http://127.0.0.1:4194/news/ | grep -c '<article'    # published posts, not the empty state
+```
+
+The switch exists only in the local development server (`TERRACE_LOCAL_PREVIEW=1`, `CMS_ORIGIN` set); a production build with
+`CMS_ORIGIN` reads the CMS directly and has no toggle. The cookie name is fixed to the default port, so a stack on other ports
+still uses `terrace_published_preview_4194`; `tools/local-stack` sets `TERRACE_LOCAL_PREVIEW_ORIGIN` to the stack's own website origin, so the button appears there and the `Origin` header in the command above must be that origin.
+
 ## Member lifecycle
 
 Application, approval, invitation, offboarding, moderation, export and erasure flows, with their

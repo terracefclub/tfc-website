@@ -11,6 +11,16 @@ export interface MediaBytesProvider {
   find(attachment: { wpId: number; sourceFile: string | undefined; sourceUrl: string }): Promise<UploadedFile | null>;
 }
 
+/**
+ * TODO(kinsta-zip): once media bytes are imported, links to the old site's uploads (`/wp-content/uploads/...`, reported as
+ * `oldSiteUploadLinks` by the planner) can be rewritten to the local Media record. The planner reports them now and flags
+ * the documents `unresolved-links` (non-blocking); it never rewrites a link without a verified local file.
+ */
+export interface UploadLinkRewriter {
+  /** Return the public path of the local copy (for example `/api/media/file/name.jpg`) of an old upload path, or null when none exists. Must not touch the network. */
+  rewrite(oldUploadPath: string): { mediaWpId: number; publicPath: string } | null;
+}
+
 export type WpMenu = { slug: string; items: { title: string; target: string; parent: number | null; order: number }[] };
 /** TODO(kinsta-zip): tables only the SQL dump holds (menus, term relationships, plugin options, redirects plugin rules). */
 export interface DatabaseTableProvider {
@@ -21,13 +31,15 @@ export interface DatabaseTableProvider {
 
 export interface ExtensionHooks {
   media: MediaBytesProvider | null;
+  uploadLinks: UploadLinkRewriter | null;
   database: DatabaseTableProvider | null;
   /** Static status block written to the plan summary so reports always say what is still deferred. */
-  status(): { mediaBytes: string; menus: string; pluginSettings: string };
+  status(): { mediaBytes: string; menus: string; pluginSettings: string; uploadLinkRewrite: string };
 }
 
 export const noExtensions: ExtensionHooks = {
   media: null,
+  uploadLinks: null,
   database: null,
-  status: () => ({ mediaBytes: 'todo-kinsta-zip', menus: 'todo-kinsta-zip', pluginSettings: 'todo-kinsta-zip' }),
+  status: () => ({ mediaBytes: 'todo-kinsta-zip', menus: 'todo-kinsta-zip', pluginSettings: 'todo-kinsta-zip', uploadLinkRewrite: 'todo-kinsta-zip' }),
 };

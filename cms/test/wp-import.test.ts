@@ -275,25 +275,25 @@ describe('publication is explicit', () => {
 })
 
 describe('later editorial publication', () => {
-  test('publishing in the CMS activates its redirect on the next apply, and rollback then refuses to unpublish it', async () => {
+  test('publishing in the CMS activates its redirect at once, and rollback still works afterwards', async () => {
     const id = runId()
     await apply(payload, original, { runId: id })
     const page = (await payload.find({ collection: 'pages', where: { wpId: { equals: 1006 } }, overrideAccess: true })).docs[0] as any
     const row = async () => (await payload.find({ collection: 'redirects', where: { wpId: { equals: 1006 } }, overrideAccess: true })).docs[0] as any
     expect((await row()).active).toBe(false)
     await payload.update({ collection: 'pages', id: page.id, data: { _status: 'published' } as any, overrideAccess: true })
+    expect((await row()).active).toBe(true) // no re-run of apply needed
     const again = runId()
     const report = await apply(payload, original, { runId: again })
     expect(report.counts).toMatchObject({ created: 0, updated: 0, failed: 0 })
-    expect(report.counts.redirects).toMatchObject({ updated: 1, created: 0, failed: 0 })
+    expect(report.counts.redirects).toMatchObject({ updated: 0, created: 0, failed: 0 }) // the hook left the row exactly as apply would
     expect((await row()).active).toBe(true)
-    expect((await rollback(payload, id)).refusals.map(item => item.reason)).toContain('later-run-depends-on-document')
     expect((await rollback(payload, again)).ok).toBe(true)
-    expect((await row()).active).toBe(false)
     const refused = await rollback(payload, id)
     expect(refused.refusals.map(item => item.reason)).toContain('published-since-import')
     expect((await rollback(payload, id, { discardEdits: true })).ok).toBe(true)
     expect(await payload.count({ collection: 'pages', where: { wpId: { exists: true } }, overrideAccess: true })).toMatchObject({ totalDocs: 0 })
+    expect(await payload.count({ collection: 'redirects', where: { wpId: { exists: true } }, overrideAccess: true })).toMatchObject({ totalDocs: 0 })
   })
 })
 

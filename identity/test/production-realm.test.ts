@@ -37,9 +37,23 @@ function rejected(run: ReturnType<typeof cli>) {
 test('production artifact derives its clients, audiences and disjoint scope roles from the local contract', () => {
   const artifact = productionRealm(web, cms, secrets)
   expect(artifact).toMatchObject({ realm: 'terrace', enabled: true, registrationAllowed: false, resetPasswordAllowed: false,
-    sslRequired: 'all', verifyEmail: true, duplicateEmailsAllowed: false, bruteForceProtected: true,
+    sslRequired: 'all', verifyEmail: true, duplicateEmailsAllowed: false, editUsernameAllowed: false, bruteForceProtected: true,
     accessTokenLifespan: 60, ssoSessionIdleTimeout: 1800, ssoSessionMaxLifespan: 28800, revokeRefreshToken: true, refreshTokenMaxReuse: 0 })
   expect(artifact.roles.realm).toEqual(realmRoleNames.map(name => ({ name })))
+  // The first-sign-in binding relies on three realm facts, all asserted here: unique addresses, verification and an administrator-only email attribute.
+  expect(artifact.verifyEmail).toBe(true)
+  expect(artifact.duplicateEmailsAllowed).toBe(false)
+  // The only component the artifact may carry is the user profile (nothing like LDAP or key providers).
+  expect(Object.keys(artifact.components)).toEqual(['org.keycloak.userprofile.UserProfileProvider'])
+  const provider = artifact.components['org.keycloak.userprofile.UserProfileProvider']
+  expect(provider).toHaveLength(1)
+  expect(Object.keys(provider[0].subComponents ?? {})).toEqual([])
+  const profile = JSON.parse(provider[0].config['kc.user.profile.config'][0])
+  expect(profile.attributes.find((attribute: { name: string }) => attribute.name === 'email').permissions.edit).toEqual(['admin'])
+  expect(profile.attributes.map((attribute: { name: string }) => attribute.name)).toEqual(['username', 'email', 'firstName', 'lastName'])
+  const scopes = (id: string) => artifact.clients.find(client => client.clientId === id)!.defaultClientScopes
+  expect(scopes('terrace-web')).toContain('email')
+  expect(scopes('terrace-cms')).not.toContain('email')
   expect(artifact.scopeMappings).toEqual(Object.entries(roleScopeMappings).map(([client, roles]) => ({ client, roles: [...roles] })))
   const expected = clientSettings(secrets, { webOrigins: [web], cmsOrigins: [cms] })
   expect(artifact.clients).toEqual(expected.map(client => ({ ...client, ...clientSecuritySettings,
@@ -50,7 +64,8 @@ test('production artifact derives its clients, audiences and disjoint scope role
       serviceAccountsEnabled: false, fullScopeAllowed: false, protocol: 'openid-connect' })
     if (client.standardFlowEnabled) {
       expect(client.attributes?.['pkce.code.challenge.method']).toBe('S256')
-      expect(client.defaultClientScopes).toEqual(['basic', 'profile', 'roles'])
+      // Only the member client releases the verified `email` claim (first sign-in binding); the editorial client does not.
+      expect(client.defaultClientScopes).toEqual(client.clientId === 'terrace-web' ? ['basic', 'profile', 'email', 'roles'] : ['basic', 'profile', 'roles'])
       expect(client.optionalClientScopes).toEqual([])
       expect(client.protocolMappers?.[0].config['id.token.claim']).toBe('false')
       expect(client.protocolMappers?.[0].config['access.token.claim']).toBe('true')
@@ -66,7 +81,7 @@ test('production artifact derives its clients, audiences and disjoint scope role
   const json = JSON.stringify(artifact)
   expect(Buffer.byteLength(json)).toBeLessThan(1024 * 1024)
   for (const forbidden of ['users', 'federatedUsers', 'identityProviders', 'identityProviderMappers', 'userFederationProviders',
-    'userFederationMappers', 'components', 'smtpServer', 'admin-cli', 'realm-management', 'local-member', 'local-editorial-admin', '127.0.0.1']) {
+    'userFederationMappers', 'smtpServer', 'admin-cli', 'realm-management', 'local-member', 'local-editorial-admin', '127.0.0.1']) {
     expect(json).not.toContain(forbidden)
   }
 })

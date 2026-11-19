@@ -1,5 +1,6 @@
 import type { CollectionConfig } from 'payload'
 import { publishedOrStaff, staffOnly } from '@/access/rules'
+import { redirectHooks } from './redirect-sync'
 import { editorialAccess, publicMediaOnPublish, slugField, wpImportFields } from './shared'
 
 export const Newsletters: CollectionConfig = {
@@ -21,7 +22,7 @@ export const Newsletters: CollectionConfig = {
       return data
     },
     publicMediaOnPublish,
-  ] },
+  ], ...redirectHooks('newsletters') },
   fields: [
     slugField,
     { name: 'title', type: 'text', required: true },

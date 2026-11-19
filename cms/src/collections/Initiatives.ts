@@ -1,5 +1,6 @@
 import type { CollectionConfig } from 'payload'
 import { publishedOrStaff, staffOnly } from '@/access/rules'
+import { redirectHooks } from './redirect-sync'
 import { editorialAccess, publicMediaOnPublish, slugField, wpImportFields } from './shared'
 
 export const Initiatives: CollectionConfig = {
@@ -7,7 +8,7 @@ export const Initiatives: CollectionConfig = {
   admin: { useAsTitle: 'title' },
   versions: { drafts: true },
   access: { ...editorialAccess, read: publishedOrStaff, readVersions: staffOnly },
-  hooks: { beforeChange: [publicMediaOnPublish] },
+  hooks: { beforeChange: [publicMediaOnPublish], ...redirectHooks('initiatives') },
   fields: [
     slugField,
     { name: 'title', type: 'text', required: true },

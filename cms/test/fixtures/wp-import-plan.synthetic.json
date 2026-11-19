@@ -1,8 +1,8 @@
 {
- "schemaVersion": 1,
+ "schemaVersion": 2,
  "kind": "wp-import-plan",
- "sourceSha256": "d01ae0df82c3f02a0426f534d8e3992505870aa3b2eaa6483f82b90924c9e141",
- "sourceBytes": 41418,
+ "sourceSha256": "e2996bd6f52089431270872563df4518053e71c416e30d0a40b6f01c77400598",
+ "sourceBytes": 43178,
  "policy": {
   "mediaBytes": "not-downloaded-references-only",
   "gravityEntries": "excluded",
@@ -421,7 +421,7 @@
      "newsletter-without-pdf-evidence"
     ],
     "title": "Winter Newsletter Notes",
-    "bodyHtml": "<p>Notes with no PDF evidence.</p>",
+    "bodyHtml": "<p>Notes with no PDF evidence. Synthetic filler for the fixture: invented club news with enough plain text that the page is not a near-empty body, so quality gates can tell real content from a bare heading. It names nobody and describes nothing real.</p>",
     "authorName": "Fixture Author One",
     "publishedAt": "2024-12-01T14:00:00.000Z",
     "categories": [
@@ -434,8 +434,8 @@
    "flags": [
     "newsletter-without-pdf-evidence"
    ],
-   "sourceHash": "fc8f5821133e693984c6a30730d64efffaaa743ee6893ff82edb6579066a8d89",
-   "targetHash": "f9162b2133b4de71acafe139525fd247f168d8242cfd47b3975dc07c08aef85a"
+   "sourceHash": "b6986299fb8e2cac1b0fbfd4563c1c56404a6d033f18d5c2c834083202fe601c",
+   "targetHash": "9f02d729b28ddc3269f8379798dd532e52aa7ad706410bd2c5e981c22eda624b"
   },
   {
    "ordinal": 9,
@@ -451,6 +451,7 @@
     "wpStatus": "publish",
     "wpPasswordProtected": false,
     "wpReviewFlags": [
+     "empty-body",
      "unsafe-html-stripped"
     ],
     "title": "A Club Story",
@@ -468,10 +469,11 @@
     "featuredMedia": 3003
    },
    "flags": [
+    "empty-body",
     "unsafe-html-stripped"
    ],
    "sourceHash": "ec8c30b3ac20bc1f227e6d85c92aa39166895ce94c25657a17ad4da69c96eb0e",
-   "targetHash": "8b3fde7dc62f4220aa5fd8253daee984ccc0e25eda4236a0a4acce19b28d0f92"
+   "targetHash": "3d90bd03f372e8187633e90da3be7f404ba7a215884c48e1890d6e649bcb622f"
   },
   {
    "ordinal": 10,
@@ -490,7 +492,7 @@
      "slug-deduplicated"
     ],
     "title": "A Club Story",
-    "bodyHtml": "<p>Same slug as another post.</p>",
+    "bodyHtml": "<p>Same slug as another post. Synthetic filler for the fixture: invented club news with enough plain text that the page is not a near-empty body, so quality gates can tell real content from a bare heading. It names nobody and describes nothing real.</p>",
     "authorName": "Fixture Author One",
     "publishedAt": "2024-04-02T14:00:00.000Z",
     "categories": [],
@@ -501,8 +503,8 @@
    "flags": [
     "slug-deduplicated"
    ],
-   "sourceHash": "5126435aa030566cf6b62349dbac240e6bcda61c650422c746724d924f0e202b",
-   "targetHash": "c101b81331d09a06a2bb06fc7b41358398c1682854f1fd71d127300f9c83a071"
+   "sourceHash": "91054e22035231ba5a64e10fdbddfc4c1837be1793e860efdfadcaa12256b07e",
+   "targetHash": "ac9c2be41544c0bf4a7bfc17a68e156baf6002b53536f918d3a35afc315b17bf"
   },
   {
    "ordinal": 11,
@@ -517,6 +519,9 @@
     "wpGuid": "https://princetonterraceclub.org/?p=2005",
     "wpStatus": "draft",
     "wpPasswordProtected": false,
+    "wpReviewFlags": [
+     "empty-body"
+    ],
     "title": "Draft Story",
     "bodyHtml": "<p>Draft.</p>",
     "authorName": "Fixture Author One",
@@ -526,9 +531,11 @@
     "slug": "draft-story"
    },
    "refs": {},
-   "flags": [],
+   "flags": [
+    "empty-body"
+   ],
    "sourceHash": "1d00da688196eb496512b65e69dc8d150b40e02c524ad393cfd94d44724b17d4",
-   "targetHash": "1726e9a3d04bb50073b92bba6382cf44dce9d2609b0cfe79c91d9772cde1487d"
+   "targetHash": "5a9114f2ba41c3f5610f2fef87bbc75df5e5e6d8d3602127372ec2aa8751c9b7"
   },
   {
    "ordinal": 12,
@@ -543,6 +550,9 @@
     "wpGuid": "https://princetonterraceclub.org/?p=2006",
     "wpStatus": "pending",
     "wpPasswordProtected": false,
+    "wpReviewFlags": [
+     "empty-body"
+    ],
     "title": "Pending Story",
     "bodyHtml": "<p>Pending.</p>",
     "authorName": "Fixture Author One",
@@ -552,9 +562,11 @@
     "slug": "pending-story"
    },
    "refs": {},
-   "flags": [],
+   "flags": [
+    "empty-body"
+   ],
    "sourceHash": "896b5afa97c40c27fbdc9ff804eaecf7b5261eb6e402bbcca386604442725c7c",
-   "targetHash": "3d620f80a1f3a030cf60bbe17db9f9fade229311eec1bffcb73c0d8d8ec91f44"
+   "targetHash": "adae289d709a2ee2f3bf80f6bb7c62cc546cb40ea0e2528d0be92029287ac6ef"
   },
   {
    "ordinal": 13,
@@ -569,6 +581,9 @@
     "wpGuid": "https://princetonterraceclub.org/?p=2007",
     "wpStatus": "private",
     "wpPasswordProtected": false,
+    "wpReviewFlags": [
+     "empty-body"
+    ],
     "title": "Private Story",
     "bodyHtml": "<p>Private.</p>",
     "authorName": "Fixture Author One",
@@ -578,9 +593,11 @@
     "slug": "private-story"
    },
    "refs": {},
-   "flags": [],
+   "flags": [
+    "empty-body"
+   ],
    "sourceHash": "75dbe3ba058ae8e2f8aec8ff52ced8b9e6663b222f0d3643e8625569bffbe92d",
-   "targetHash": "ea9bbe6c077bb70d81f4b4719ebb503f04cd6d006c74882c03dfeddd08580a1d"
+   "targetHash": "738628a92e7339d140212c546d45ffa97aa92c9e122f7ba4fb8084a5224b7491"
   },
   {
    "ordinal": 14,
@@ -595,6 +612,9 @@
     "wpGuid": "https://princetonterraceclub.org/?p=2008",
     "wpStatus": "future",
     "wpPasswordProtected": false,
+    "wpReviewFlags": [
+     "empty-body"
+    ],
     "title": "Future Story",
     "bodyHtml": "<p>Scheduled.</p>",
     "authorName": "Fixture Author One",
@@ -604,9 +624,11 @@
     "slug": "future-story"
    },
    "refs": {},
-   "flags": [],
+   "flags": [
+    "empty-body"
+   ],
    "sourceHash": "3c1dcb392fd4e76d00d7b99ac1bd814b0d4d34bda5d96ce2549fd71526c98a54",
-   "targetHash": "73185eea2786e3a113f9771eee6ee6d7028405cc0ed930bbda453114865e714c"
+   "targetHash": "f557a378f509139b3519c9f180d5bf13b64d99d6ab6d6b655319b67ba323dfa3"
   },
   {
    "ordinal": 18,
@@ -622,7 +644,7 @@
     "wpStatus": "publish",
     "wpPasswordProtected": false,
     "title": "Query Link Story",
-    "bodyHtml": "<p>No pretty permalink.</p>",
+    "bodyHtml": "<p>No pretty permalink. Synthetic filler for the fixture: invented club news with enough plain text that the page is not a near-empty body, so quality gates can tell real content from a bare heading. It names nobody and describes nothing real.</p>",
     "authorName": "Fixture Author One",
     "publishedAt": "2024-03-05T15:00:00.000Z",
     "categories": [],
@@ -631,8 +653,8 @@
    },
    "refs": {},
    "flags": [],
-   "sourceHash": "51a1118afe24d2e3c1b1d1ea11d1fd810cb785535254620541c9a578d083f2cf",
-   "targetHash": "fcc00820021ca920b9605a41fca1e17d987e964fa3d1b22ebf02ebd7fd5d3b28"
+   "sourceHash": "d8b39e6c1f75b37bac6818b771346fdd18a90f42d8c29cfd8b219d5896c5430f",
+   "targetHash": "1981ac8a7ab585c28a459a68a777437647eecfa163b3a5dbb790e5e51d1c27ac"
   },
   {
    "ordinal": 19,
@@ -648,7 +670,7 @@
     "wpStatus": "publish",
     "wpPasswordProtected": false,
     "title": "Foreign Link Story",
-    "bodyHtml": "<p>Other host.</p>",
+    "bodyHtml": "<p>Other host. Synthetic filler for the fixture: invented club news with enough plain text that the page is not a near-empty body, so quality gates can tell real content from a bare heading. It names nobody and describes nothing real.</p>",
     "authorName": "Fixture Author One",
     "publishedAt": "2024-03-05T15:00:00.000Z",
     "categories": [],
@@ -657,8 +679,8 @@
    },
    "refs": {},
    "flags": [],
-   "sourceHash": "c3ef3509cd321a9ee0b8c9c5c515e6a5160e8a607c2c76d88624464eb3761b5e",
-   "targetHash": "fbab2471ec27a07c7156b734924303816ad8813b6c3b434e30d26f2fc2ce7dff"
+   "sourceHash": "1ec2180d97efd2772c2560004bc1417e77ad51b7196495e13c5d7892a123ee47",
+   "targetHash": "62b2dfa40da1595da39710fde58f99d9432124cbe465f69659a2b7f92657d8fd"
   },
   {
    "ordinal": 20,
@@ -674,7 +696,7 @@
     "wpStatus": "publish",
     "wpPasswordProtected": false,
     "title": "Dotted Path Story",
-    "bodyHtml": "<p>Path has a dot.</p>",
+    "bodyHtml": "<p>Path has a dot. Synthetic filler for the fixture: invented club news with enough plain text that the page is not a near-empty body, so quality gates can tell real content from a bare heading. It names nobody and describes nothing real.</p>",
     "authorName": "Fixture Author One",
     "publishedAt": "2024-03-05T15:00:00.000Z",
     "categories": [],
@@ -683,8 +705,8 @@
    },
    "refs": {},
    "flags": [],
-   "sourceHash": "fbfd37b652065f8f3fb37d88fbf33d334a51beac3865d6737c94c8feca908cc8",
-   "targetHash": "50709804c46484bf32a668531228858055032c747e59c563c4ce81c671b77313"
+   "sourceHash": "d36ecec646a87cae6e083733e33302ff6c950b6978e36a9736141fdffc3faf7a",
+   "targetHash": "a16c33949c3472510bedfed8298f9b5f0b2054930f6b5090dca96172a18f25e6"
   },
   {
    "ordinal": 1,
@@ -700,7 +722,7 @@
     "wpStatus": "publish",
     "wpPasswordProtected": false,
     "title": "About the Synthetic Club",
-    "bodyHtml": "<p>Welcome to the fixture club.</p>\n<p>This page is served in place.</p>",
+    "bodyHtml": "<p>Welcome to the fixture club.</p>\n<p>This page is served in place. Synthetic filler for the fixture: invented club news with enough plain text that the page is not a near-empty body, so quality gates can tell real content from a bare heading. It names nobody and describes nothing real.</p>",
     "authorName": "Fixture Author One",
     "publishedAt": "2024-03-05T15:00:00.000Z",
     "categories": [],
@@ -710,8 +732,8 @@
    },
    "refs": {},
    "flags": [],
-   "sourceHash": "bf37fe2808ffb66eac6e6f85da8d0e60486fa0b9832246c44f6247914ebc835e",
-   "targetHash": "9fb513349fedac52d07126ab1731db0baceecab548cde86242290b9730e9b7b3"
+   "sourceHash": "a35147e945fbd145cf55c4123d75f84fe981dd93792b6b407a373f5ecc21ea6c",
+   "targetHash": "04eb105360e1ae093b93d5c99b4b1ce5e035a6511e8fd2356621fbeebd7f60f1"
   },
   {
    "ordinal": 2,
@@ -729,7 +751,9 @@
     "wpReviewFlags": [
      "builder-code-dropped",
      "divi-layout-review",
+     "empty-body",
      "form-shortcode-dropped",
+     "unresolved-links",
      "unsafe-html-stripped"
     ],
     "title": "Membership Dues",
@@ -747,11 +771,13 @@
    "flags": [
     "builder-code-dropped",
     "divi-layout-review",
+    "empty-body",
     "form-shortcode-dropped",
+    "unresolved-links",
     "unsafe-html-stripped"
    ],
    "sourceHash": "42aa7381c6abe8264222938843e60b5f7e36bcc9d4e43710d452823b30b95638",
-   "targetHash": "eda906b374e808e4f4be8eef99c2028a896badedba70ac24b51884dcb53b6a5a"
+   "targetHash": "60d922a0dcf9b4d7926571fc1e4e873456a6967622f245bec4fed01100945524"
   },
   {
    "ordinal": 3,
@@ -766,6 +792,9 @@
     "wpGuid": "https://princetonterraceclub.org/?p=1003",
     "wpStatus": "draft",
     "wpPasswordProtected": false,
+    "wpReviewFlags": [
+     "empty-body"
+    ],
     "title": "Draft Page",
     "bodyHtml": "<p>Not ready.</p>",
     "authorName": "Fixture Author One",
@@ -776,9 +805,11 @@
     "slug": "draft-page"
    },
    "refs": {},
-   "flags": [],
+   "flags": [
+    "empty-body"
+   ],
    "sourceHash": "8dcd8a30920317bb2052d4a032830481290f91cceb4b91cffa322fbcb834d528",
-   "targetHash": "ef7f18c5a85d7f90ca33cc1fcc20dd855c525142d1f996e510f2d4b720867658"
+   "targetHash": "23102e6c2c20162634d484057fe8f23cdbbbc4aef19a0fdd9ab7539b8ce106c8"
   },
   {
    "ordinal": 4,
@@ -793,6 +824,9 @@
     "wpGuid": "https://princetonterraceclub.org/?p=1004",
     "wpStatus": "publish",
     "wpPasswordProtected": true,
+    "wpReviewFlags": [
+     "empty-body"
+    ],
     "title": "Members Only Page",
     "bodyHtml": "<p>Hidden behind a password.</p>",
     "authorName": "Fixture Author One",
@@ -803,9 +837,11 @@
     "slug": "members-only"
    },
    "refs": {},
-   "flags": [],
+   "flags": [
+    "empty-body"
+   ],
    "sourceHash": "8b054619173fcfab5b1875e87289eff23d17fe4fab72f8703fd3f2d9fdd6db25",
-   "targetHash": "aebb3649861b2e0f68a73699c5edf13c4e93efdf78240540710fc0d868a4725e"
+   "targetHash": "8492f643236b5831fa003924ffcf49b1775fcfcf828a0b660b8d51027eac2735"
   },
   {
    "ordinal": 5,
@@ -824,7 +860,7 @@
      "date-missing"
     ],
     "title": "Undated Page",
-    "bodyHtml": "<p>No date recorded.</p>",
+    "bodyHtml": "<p>No date recorded. Synthetic filler for the fixture: invented club news with enough plain text that the page is not a near-empty body, so quality gates can tell real content from a bare heading. It names nobody and describes nothing real.</p>",
     "authorName": "Fixture Author One",
     "categories": [],
     "tags": [],
@@ -835,8 +871,8 @@
    "flags": [
     "date-missing"
    ],
-   "sourceHash": "2c05f98a4ef6618fe5d6f721635751d702e5dae796e7d1191767103fff2c9f47",
-   "targetHash": "1d5aae6fd496f2087bbabf102ecbe349b28c27b3e30cadf764f375d9132d1138"
+   "sourceHash": "39c1acc074b4e9a01b4ae01fe0699e069cf7f2d25491141eb81ae78d316d2cc6",
+   "targetHash": "0c7dd74cf6e44a770957cf6b746377894d57eef81da1b578334223908af3aca1"
   },
   {
    "ordinal": 6,
@@ -852,7 +888,7 @@
     "wpStatus": "publish",
     "wpPasswordProtected": false,
     "title": "Child Page",
-    "bodyHtml": "<p>Child of about.</p>",
+    "bodyHtml": "<p>Child of about. Synthetic filler for the fixture: invented club news with enough plain text that the page is not a near-empty body, so quality gates can tell real content from a bare heading. It names nobody and describes nothing real.</p>",
     "authorName": "Fixture Author One",
     "publishedAt": "2024-03-05T15:00:00.000Z",
     "categories": [],
@@ -863,8 +899,8 @@
    },
    "refs": {},
    "flags": [],
-   "sourceHash": "6c2d63d92ad3969fcdfd6f6b11bfa88c33494aa3794c17fcdfcb2a198396ece7",
-   "targetHash": "502b55802c863d1150aee6fbf863536b03f019855b70056d98d92e43c6f93377"
+   "sourceHash": "209a19ebbcad10bf6ac1338630e1fb053360d1ab8e44e606db3557aab2a1a052",
+   "targetHash": "6e18d46d508d4959977f6e3889dfb38d266e0ef7fcd9dd4af36fdf4a6eb40a17"
   },
   {
    "ordinal": 37,
@@ -892,35 +928,35 @@
  ],
  "redirects": [
   {
-   "ordinal": 29,
-   "wpId": 4001,
-   "collection": "events",
-   "sourcePath": "/event/fixture-open-mic",
-   "destination": "/events/fixture-open-mic",
+   "ordinal": 1,
+   "wpId": 1001,
+   "collection": "pages",
+   "sourcePath": "/about",
+   "destination": "/about",
+   "mode": "served-in-place"
+  },
+  {
+   "ordinal": 2,
+   "wpId": 1002,
+   "collection": "pages",
+   "sourcePath": "/membership/dues",
+   "destination": "/pages/dues",
    "mode": "redirect"
   },
   {
-   "ordinal": 30,
-   "wpId": 4002,
-   "collection": "events",
-   "sourcePath": "/event/fixture-dinner",
-   "destination": "/events/fixture-dinner",
+   "ordinal": 5,
+   "wpId": 1005,
+   "collection": "pages",
+   "sourcePath": "/undated",
+   "destination": "/pages/undated",
    "mode": "redirect"
   },
   {
-   "ordinal": 33,
-   "wpId": 4005,
-   "collection": "events",
-   "sourcePath": "/event/all-day-fair",
-   "destination": "/events/all-day-fair",
-   "mode": "redirect"
-  },
-  {
-   "ordinal": 34,
-   "wpId": 4006,
-   "collection": "events",
-   "sourcePath": "/event/backwards-event",
-   "destination": "/events/backwards-event",
+   "ordinal": 6,
+   "wpId": 1006,
+   "collection": "pages",
+   "sourcePath": "/about/history",
+   "destination": "/pages/history",
    "mode": "redirect"
   },
   {
@@ -956,35 +992,35 @@
    "mode": "redirect"
   },
   {
-   "ordinal": 1,
-   "wpId": 1001,
-   "collection": "pages",
-   "sourcePath": "/about",
-   "destination": "/about",
-   "mode": "served-in-place"
-  },
-  {
-   "ordinal": 2,
-   "wpId": 1002,
-   "collection": "pages",
-   "sourcePath": "/membership/dues",
-   "destination": "/pages/dues",
+   "ordinal": 29,
+   "wpId": 4001,
+   "collection": "events",
+   "sourcePath": "/event/fixture-open-mic",
+   "destination": "/events/fixture-open-mic",
    "mode": "redirect"
   },
   {
-   "ordinal": 5,
-   "wpId": 1005,
-   "collection": "pages",
-   "sourcePath": "/undated",
-   "destination": "/pages/undated",
+   "ordinal": 30,
+   "wpId": 4002,
+   "collection": "events",
+   "sourcePath": "/event/fixture-dinner",
+   "destination": "/events/fixture-dinner",
    "mode": "redirect"
   },
   {
-   "ordinal": 6,
-   "wpId": 1006,
-   "collection": "pages",
-   "sourcePath": "/about/history",
-   "destination": "/pages/history",
+   "ordinal": 33,
+   "wpId": 4005,
+   "collection": "events",
+   "sourcePath": "/event/all-day-fair",
+   "destination": "/events/all-day-fair",
+   "mode": "redirect"
+  },
+  {
+   "ordinal": 34,
+   "wpId": 4006,
+   "collection": "events",
+   "sourcePath": "/event/backwards-event",
+   "destination": "/events/backwards-event",
    "mode": "redirect"
   },
   {
@@ -1198,6 +1234,7 @@
    "builder-code-dropped": 1,
    "date-missing": 1,
    "divi-layout-review": 1,
+   "empty-body": 8,
    "event-category-defaulted": 2,
    "event-date-review": 1,
    "event-end-invalid": 1,
@@ -1208,6 +1245,7 @@
    "mime-unknown": 1,
    "newsletter-without-pdf-evidence": 1,
    "slug-deduplicated": 1,
+   "unresolved-links": 1,
    "unsafe-html-stripped": 2
   },
   "unmappedByReason": {
@@ -1235,8 +1273,30 @@
   "extensions": {
    "mediaBytes": "todo-kinsta-zip",
    "menus": "todo-kinsta-zip",
-   "pluginSettings": "todo-kinsta-zip"
+   "pluginSettings": "todo-kinsta-zip",
+   "uploadLinkRewrite": "todo-kinsta-zip"
+  },
+  "contentGates": {
+   "minBodyTextChars": 200,
+   "leftoverShortcodeNames": {},
+   "reviewsApplied": 0,
+   "reviewsUnmatched": 0
+  },
+  "links": {
+   "documentsWithFindings": 1,
+   "unresolvedInternalTargets": [],
+   "oldSiteUploadLinks": [
+    "/wp-content/uploads/2024/03/hall.jpg"
+   ],
+   "perDocument": [
+    {
+     "ordinal": 2,
+     "unresolved": 0,
+     "uploads": 1,
+     "uploadImages": 1
+    }
+   ]
   }
  },
- "planSha256": "8ed46b690bc1fbb91cd2face399fab20e09f92c7d5b852b3a35a4b817604f8ab"
+ "planSha256": "a61d8325cfff9898b7560993ab4ebce7bb547355f958d31818368f7eccfeef42"
 }

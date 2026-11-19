@@ -3,10 +3,13 @@
 // it is handed, including re-checking HTML with the sanitizer, so a hand-edited or
 // corrupted plan file cannot smuggle unsafe markup or unknown fields into the CMS.
 import { createHash } from 'node:crypto';
-import { isSafeHtml } from './sanitize';
+import { isNearEmpty, leftoverShortcodes, overridableFlags, reviewedFlag } from './content-gates';
+import { htmlToText, isSafeHtml } from './sanitize';
 
 export const planKind = 'wp-import-plan';
-export const planSchemaVersion = 1;
+// Version 2: `empty-body`, `leftover-shortcode` and `divi-layout-review` became blocking, `<flag>-reviewed` flags exist and
+// the route manifest decides reserved redirect sources. A version 1 plan is refused: plan again from the export.
+export const planSchemaVersion = 2;
 
 export const collections = ['media', 'events', 'newsletters', 'posts', 'pages', 'initiatives'] as const;
 export type PlanCollection = typeof collections[number];
@@ -37,10 +40,16 @@ export const publicMediaRequired: readonly PlanCollection[] = ['events', 'newsle
 export const routes: Record<Exclude<PlanCollection, 'media'>, string> = {
   events: '/events/{slug}', newsletters: '/newsletter/{slug}', initiatives: '/initiatives', posts: '/news/{slug}', pages: '/pages/{slug}',
 };
-import { isReservedSource, reservedSourcePrefix, servedInPlace } from '../../src/lib/site-routes';
-export { isReservedSource, reservedSourcePrefix, servedInPlace };
+import { isReservedSource, servedInPlace } from '../../src/lib/site-routes';
+export { isReservedSource, servedInPlace };
 
-export const blockingFlags = ['unsafe-html-stripped', 'builder-code-dropped', 'event-date-review', 'event-timezone-review', 'event-venue-missing', 'event-end-invalid', 'form-shortcode-dropped', 'plugin-shortcode-dropped', 'media-bytes-pending'] as const;
+/**
+ * Review flags that keep a document from being published automatically. `divi-layout-review` blocks because an editor must
+ * compare the flattened layout with the old page; `empty-body` and `leftover-shortcode` block because the page would be nearly
+ * blank or show raw shortcode text. An operator who reviewed one document clears one of these three for that document only
+ * (`<flag>-reviewed`, see content-gates.ts); the remaining flags are never overridable.
+ */
+export const blockingFlags = ['unsafe-html-stripped', 'builder-code-dropped', 'event-date-review', 'event-timezone-review', 'event-venue-missing', 'event-end-invalid', 'form-shortcode-dropped', 'plugin-shortcode-dropped', 'media-bytes-pending', 'divi-layout-review', 'empty-body', 'leftover-shortcode'] as const;
 
 export type PlanDoc = {
   ordinal: number; wpId: number; collection: PlanCollection; sourceType: string; sourceStatus: string;
@@ -103,6 +112,11 @@ export function validatePlan(input: unknown): Plan {
     if (!['draft', 'published', 'inherit'].includes(doc.desiredStatus) || typeof doc.publishEligible !== 'boolean') fail('status');
     if (typeof doc.sourceStatus !== 'string' || doc.data.wpStatus !== doc.sourceStatus) fail('status mismatch');
     if (canonicalJson(doc.data.wpReviewFlags ?? []) !== canonicalJson(doc.flags)) fail('review flags mismatch');
+    // A `-reviewed` flag exists only for an overridable flag and never beside the flag it replaces.
+    for (const flag of doc.flags.filter(item => item.endsWith('-reviewed'))) {
+      const original = flag.slice(0, -'-reviewed'.length);
+      if (!(overridableFlags as readonly string[]).includes(original) || doc.flags.includes(original) || reviewedFlag(original) !== flag) fail('review flags mismatch');
+    }
     // Publication is derived from source facts here, never trusted from the plan: only a publish-status, unprotected
     // document with no blocking review flag can be published. (The plan hash is an integrity check, not authenticity.)
     const eligible = doc.collection !== 'media' && doc.sourceStatus === 'publish' && doc.data.wpPasswordProtected !== true && !doc.flags.some(flag => (blockingFlags as readonly string[]).includes(flag));
@@ -128,6 +142,13 @@ export function validatePlan(input: unknown): Plan {
       if (['allDay', 'public', 'wpPasswordProtected'].includes(name) && typeof value !== 'boolean') fail('boolean');
       if (['categories', 'tags'].includes(name) && !(Array.isArray(value) && value.length <= 50 && value.every(item => typeof item === 'string' && item.length <= 100))) fail('terms');
     }
+    // The content gates are recomputed here from the stored body with the planner's own functions, so a hand-edited plan cannot drop
+    // `empty-body` or `leftover-shortcode`: the document must carry the blocking flag or its reviewed form. (`divi-layout-review` depends on
+    // source metadata the plan does not carry, so it cannot be recomputed.)
+    const carries = (flag: string) => doc.flags.includes(flag) || doc.flags.includes(reviewedFlag(flag));
+    if ((doc.collection === 'posts' || doc.collection === 'pages') && isNearEmpty(String(doc.data.bodyHtml ?? '')) && !carries('empty-body')) fail('empty body not flagged');
+    const bodyText = doc.collection === 'posts' || doc.collection === 'pages' ? htmlToText(String(doc.data.bodyHtml ?? '')) : doc.collection === 'events' || doc.collection === 'initiatives' ? String(doc.data.body ?? '') : '';
+    if (leftoverShortcodes(bodyText).length && !carries('leftover-shortcode')) fail('leftover shortcode not flagged');
     for (const [name, target] of Object.entries(doc.refs)) {
       if (!refFields[doc.collection].includes(name) || !isInt(target)) fail('reference');
       if (!plan.docs.some(other => other.collection === 'media' && other.wpId === target)) fail('dangling reference');

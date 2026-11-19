@@ -4,7 +4,7 @@ import { execFileSync, spawn } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
-import { keycloakOrigin, realm, realmSettings, clientSettings, localClientOrigins, clientSecuritySettings, realmRoleNames, roleScopeMappings, syntheticIdentityRoles } from './realm-config'
+import { restrictEmailEdit, type UserProfile, keycloakOrigin, realm, realmSettings, clientSettings, localClientOrigins, clientSecuritySettings, realmRoleNames, roleScopeMappings, syntheticIdentityRoles } from './realm-config'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const state = resolve(root, '.state')
@@ -82,6 +82,13 @@ async function api(path: string, method = 'GET', data?: unknown) {
 
 if ((await api(`realms/${realm}`)).status === 404) await api('realms', 'POST', realmSettings)
 else await api(`realms/${realm}`, 'PUT', realmSettings)
+// The member's verified address binds their first sign-in to their invitation, so only an administrator may set it:
+// keep Keycloak's own user profile and restrict who may edit `email` (idempotent).
+{
+  const profile = await (await api(`realms/${realm}/users/profile`)).json() as UserProfile
+  const before = JSON.stringify(profile)
+  if (JSON.stringify(restrictEmailEdit(profile)) !== before) await api(`realms/${realm}/users/profile`, 'PUT', profile)
+}
 for (const name of realmRoleNames) {
   if ((await api(`realms/${realm}/roles/${name}`)).status === 404) await api(`realms/${realm}/roles`, 'POST', { name })
 }
@@ -94,7 +101,7 @@ for (const client of clientSettings({ webSecret: credentials.webSecret, introspe
   const clientPath = `realms/${realm}/clients/${current[0].id}`
   if (client.clientId === 'terrace-web' || client.clientId === 'terrace-cms') {
     const scopes = await (await api(`realms/${realm}/client-scopes`)).json() as { id: string; name: string }[]
-    for (const name of ['basic', 'profile', 'roles']) {
+    for (const name of client.defaultClientScopes ?? []) {
       const scope = scopes.find((entry) => entry.name === name)
       if (!scope) throw new Error('Required Keycloak client scope is missing.')
       await api(`${clientPath}/default-client-scopes/${scope.id}`, 'PUT')

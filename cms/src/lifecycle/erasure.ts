@@ -26,17 +26,24 @@ export type Erasure = {
  *    keeps only the one-way identity hash, so a still-live realm account cannot re-enter.
  *
  * Applications and outbox rows are matched only through links: applications linked to the member (by
- * member link or through their invitations), plus UNLINKED applications with the same contact email as
- * one of those. The offboarding notice address is free text and is never a match key.
+ * member link or through their invitations; first sign-in sets that link automatically, see linking.ts),
+ * plus UNLINKED applications with the same contact email as one of those. Outbox rows are matched by their
+ * invitation link, by those emails, or by `Member #id`. The offboarding notice address is free text and is never a match key.
  */
 export async function eraseMember(payload: Payload, memberId: number, req?: PayloadRequest): Promise<Erasure> {
   const q = pool(payload, req)
   const counts: Record<string, number> = {}
+  // Lock the member first: a sign-in binding applications (linking.ts) takes the same lock and re-checks the status, so it can
+  // neither bind after the lookup below nor be bound under an erased member.
+  await q.query(`SELECT id FROM members WHERE id = $1 FOR UPDATE`, [memberId])
 
   const storyIds = (await q.query(`SELECT id FROM member_stories WHERE author_id = $1`, [memberId])).rows.map((row) => Number(row.id))
   const linked = await q.query(`SELECT a.id, a.contact_email FROM member_applications a WHERE a.member_id = $1 UNION SELECT a.id, a.contact_email FROM member_invitations i JOIN member_applications a ON a.id = i.application_id WHERE i.member_id = $1`, [memberId])
   const ids = linked.rows.map((row) => Number(row.id))
   const emails = [...new Set(linked.rows.map((row) => String(row.contact_email).toLowerCase()))]
+  // Same lock order as a sign-in's bind (linking.ts): member, then applications by id, then invitations by id.
+  const candidates = (await q.query(`SELECT id FROM member_applications WHERE id = ANY($1::int[]) OR (member_id IS NULL AND lower(contact_email) = ANY($2::text[])) ORDER BY id FOR UPDATE`, [ids, emails])).rows.map((row) => Number(row.id))
+  await q.query(`SELECT id FROM member_invitations WHERE member_id = $1 OR application_id = ANY($2::int[]) ORDER BY id FOR UPDATE`, [memberId, candidates])
 
   for (const [collection, field] of [['member-stories', 'author'], ['member-profiles', 'member'], ['mentorship-offers', 'member'], ['group-memberships', 'member']] as const) {
     const result = await payload.delete({ collection, where: { [field]: { equals: memberId } }, overrideAccess: true, req })
@@ -54,12 +61,14 @@ export async function eraseMember(payload: Payload, memberId: number, req?: Payl
   await q.query(`UPDATE moderation_reports SET detail = NULL, resolution_note = NULL, snapshot_title = $2, snapshot_body = $2, reporter_id = NULL WHERE reporter_id = $1`, [memberId, REMOVED])
   await q.query(`UPDATE member_offboardings SET reason = NULL, notice_email = NULL, state = 'erased' WHERE member_id = $1`, [memberId])
   counts['applications-anonymised'] = (await q.query(
-    `UPDATE member_applications SET name = 'Erased applicant', contact_email = 'erased@terrace.invalid', note = NULL, decision_note = NULL, class_year = NULL
+    `UPDATE member_applications SET name = 'Erased applicant', contact_email = 'erased@terrace.invalid', note = NULL, decision_note = NULL, class_year = NULL, status = 'withdrawn'
      WHERE id = ANY($1::int[]) OR (member_id IS NULL AND lower(contact_email) = ANY($2::text[]))`, [ids, emails])).rowCount ?? 0
   // A still-pending invitation must not stay redeemable after its person is erased.
   counts['invitations-revoked'] = (await q.query(`UPDATE member_invitations SET status = 'revoked' WHERE status = 'pending' AND (member_id = $1 OR application_id = ANY($2::int[]))`, [memberId, ids])).rowCount ?? 0
   const outbox = await q.query(
-    `UPDATE message_outbox SET recipient_email = NULL, recipient_label = 'Former member' WHERE lower(recipient_email) = ANY($1::text[]) OR recipient_label = $2 RETURNING id`, [emails, `Member #${memberId}`])
+    `UPDATE message_outbox SET recipient_email = NULL, recipient_label = 'Former member'
+      WHERE lower(recipient_email) = ANY($1::text[]) OR recipient_label = $2
+         OR invitation_id IN (SELECT id FROM member_invitations WHERE member_id = $3 OR application_id = ANY($4::int[])) RETURNING id`, [emails, `Member #${memberId}`, memberId, ids])
   counts['outbox-rows-redacted'] = outbox.rowCount ?? 0
 
   await payload.update({
