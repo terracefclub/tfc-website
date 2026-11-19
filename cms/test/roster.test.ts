@@ -333,7 +333,7 @@ test('the production guard needs the production configuration and an explicit co
   const unconfirmed = run(args, { ...production as Record<string, string>, ...remote, CMS_LOCAL_BOOTSTRAP: undefined, CMS_BOOTSTRAP_EMAIL: undefined, CMS_BOOTSTRAP_PASSWORD: undefined })
   expect(unconfirmed.code).toBe(1)
   expect(unconfirmed.err).toContain('--confirm-production')
-  const wrongPlan = run(['apply', '--file', file, '--operator', '1', '--plan-sha256', 'b'.repeat(64)])
+  const wrongPlan = run(['apply', '--file', file, '--operator', '1', '--plan-sha256', 'b'.repeat(64), '--confirm-production'], writer())
   expect(wrongPlan.code).toBe(1)
   expect(wrongPlan.err).toContain('plan hash')
   for (const output of [refused, unconfirmed, wrongPlan]) { expect(output.out).toBe(''); expect(output.err).not.toContain(suffix); expect(output.err).not.toContain('db.example.invalid') }
