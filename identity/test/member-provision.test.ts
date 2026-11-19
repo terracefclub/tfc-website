@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { assertLoopbackOrigin, offboardRealmUser, provisionMember, type Api } from '../tools/member-provision'
+import { approvedApplicationEmail, assertLoopbackOrigin, offboardRealmUser, provisionMember, type Api } from '../tools/member-provision'
 
 // A small in-memory Keycloak admin API: users, realm roles and role mappings.
 function fakeKeycloak() {
@@ -88,4 +88,13 @@ test('Keycloak failures surface without request details', async () => {
 test('the operator CLI never follows redirects when it authenticates or calls the admin API', async () => {
   const source = await Bun.file(new URL('../tools/provision-member.ts', import.meta.url)).text()
   expect(source.match(/redirect: 'error'/g)?.length).toBe(2)
+})
+
+test('the realm user email comes from an approved application, never free typing', async () => {
+  const lookup = async (id: number) => id === 7 ? 'Applicant@Terrace.Invalid' : null
+  expect(await approvedApplicationEmail('7', lookup)).toBe('Applicant@Terrace.Invalid')
+  expect(await approvedApplicationEmail('7', lookup, 'applicant@terrace.invalid')).toBe('Applicant@Terrace.Invalid')
+  await expect(approvedApplicationEmail('7', lookup, 'applicant+x@terrace.invalid')).rejects.toThrow('does not match')
+  await expect(approvedApplicationEmail('8', lookup)).rejects.toThrow('No approved application')
+  for (const bad of ['', '0', '7; drop table x', '-1', 'abc']) await expect(approvedApplicationEmail(bad, lookup)).rejects.toThrow('numeric id')
 })

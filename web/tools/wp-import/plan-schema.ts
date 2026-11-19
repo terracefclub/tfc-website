@@ -3,8 +3,8 @@
 // it is handed, including re-checking HTML with the sanitizer, so a hand-edited or
 // corrupted plan file cannot smuggle unsafe markup or unknown fields into the CMS.
 import { createHash } from 'node:crypto';
-import { overridableFlags, reviewedFlag } from './content-gates';
-import { isSafeHtml } from './sanitize';
+import { isNearEmpty, leftoverShortcodes, overridableFlags, reviewedFlag } from './content-gates';
+import { htmlToText, isSafeHtml } from './sanitize';
 
 export const planKind = 'wp-import-plan';
 // Version 2: `empty-body`, `leftover-shortcode` and `divi-layout-review` became blocking, `<flag>-reviewed` flags exist and
@@ -142,6 +142,13 @@ export function validatePlan(input: unknown): Plan {
       if (['allDay', 'public', 'wpPasswordProtected'].includes(name) && typeof value !== 'boolean') fail('boolean');
       if (['categories', 'tags'].includes(name) && !(Array.isArray(value) && value.length <= 50 && value.every(item => typeof item === 'string' && item.length <= 100))) fail('terms');
     }
+    // The content gates are recomputed here from the stored body with the planner's own functions, so a hand-edited plan cannot drop
+    // `empty-body` or `leftover-shortcode`: the document must carry the blocking flag or its reviewed form. (`divi-layout-review` depends on
+    // source metadata the plan does not carry, so it cannot be recomputed.)
+    const carries = (flag: string) => doc.flags.includes(flag) || doc.flags.includes(reviewedFlag(flag));
+    if ((doc.collection === 'posts' || doc.collection === 'pages') && isNearEmpty(String(doc.data.bodyHtml ?? '')) && !carries('empty-body')) fail('empty body not flagged');
+    const bodyText = doc.collection === 'posts' || doc.collection === 'pages' ? htmlToText(String(doc.data.bodyHtml ?? '')) : doc.collection === 'events' || doc.collection === 'initiatives' ? String(doc.data.body ?? '') : '';
+    if (leftoverShortcodes(bodyText).length && !carries('leftover-shortcode')) fail('leftover shortcode not flagged');
     for (const [name, target] of Object.entries(doc.refs)) {
       if (!refFields[doc.collection].includes(name) || !isInt(target)) fail('reference');
       if (!plan.docs.some(other => other.collection === 'media' && other.wpId === target)) fail('dangling reference');

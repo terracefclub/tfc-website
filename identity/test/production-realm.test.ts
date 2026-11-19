@@ -40,6 +40,19 @@ test('production artifact derives its clients, audiences and disjoint scope role
     sslRequired: 'all', verifyEmail: true, duplicateEmailsAllowed: false, editUsernameAllowed: false, bruteForceProtected: true,
     accessTokenLifespan: 60, ssoSessionIdleTimeout: 1800, ssoSessionMaxLifespan: 28800, revokeRefreshToken: true, refreshTokenMaxReuse: 0 })
   expect(artifact.roles.realm).toEqual(realmRoleNames.map(name => ({ name })))
+  // The first-sign-in binding relies on three realm facts, all asserted here: unique addresses, verification and an administrator-only email attribute.
+  expect(artifact.verifyEmail).toBe(true)
+  expect(artifact.duplicateEmailsAllowed).toBe(false)
+  // The only component the artifact may carry is the user profile (nothing like LDAP or key providers).
+  expect(Object.keys(artifact.components)).toEqual(['org.keycloak.userprofile.UserProfileProvider'])
+  const provider = artifact.components['org.keycloak.userprofile.UserProfileProvider']
+  expect(provider).toHaveLength(1)
+  const profile = JSON.parse(provider[0].config['kc.user.profile.config'][0])
+  expect(profile.attributes.find((attribute: { name: string }) => attribute.name === 'email').permissions.edit).toEqual(['admin'])
+  expect(profile.attributes.map((attribute: { name: string }) => attribute.name)).toEqual(['username', 'email', 'firstName', 'lastName'])
+  const scopes = (id: string) => artifact.clients.find(client => client.clientId === id)!.defaultClientScopes
+  expect(scopes('terrace-web')).toContain('email')
+  expect(scopes('terrace-cms')).not.toContain('email')
   expect(artifact.scopeMappings).toEqual(Object.entries(roleScopeMappings).map(([client, roles]) => ({ client, roles: [...roles] })))
   const expected = clientSettings(secrets, { webOrigins: [web], cmsOrigins: [cms] })
   expect(artifact.clients).toEqual(expected.map(client => ({ ...client, ...clientSecuritySettings,
@@ -67,7 +80,7 @@ test('production artifact derives its clients, audiences and disjoint scope role
   const json = JSON.stringify(artifact)
   expect(Buffer.byteLength(json)).toBeLessThan(1024 * 1024)
   for (const forbidden of ['users', 'federatedUsers', 'identityProviders', 'identityProviderMappers', 'userFederationProviders',
-    'userFederationMappers', 'components', 'smtpServer', 'admin-cli', 'realm-management', 'local-member', 'local-editorial-admin', '127.0.0.1']) {
+    'userFederationMappers', 'smtpServer', 'admin-cli', 'realm-management', 'local-member', 'local-editorial-admin', '127.0.0.1']) {
     expect(json).not.toContain(forbidden)
   }
 })

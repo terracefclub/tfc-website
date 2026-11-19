@@ -26,8 +26,7 @@ password protected, its `wpStatus` equals the source status, `wpReviewFlags` equ
 flag; redirect destinations are re-derived from the document slug. **The plan hash is an integrity check, not
 authenticity**: anyone who can write the plan file can re-seal it, so keep plan files private and only apply plans you
 generated. Blocking review flags and sanitizer findings are
-**supplied by the plan and are not re-derived by the applier** (the applier cannot see the source markup or WXR), so a
-consistently rewritten plan can clear them. Treat the plan file as trusted operator input protected by its file mode, and
+**supplied by the plan**; the applier re-derives only these from the stored text, with the planner's own functions: HTML safety, `empty-body` (a post or page body under 200 characters) and `leftover-shortcode` (a document must carry the flag or its `-reviewed` form), plus publication eligibility, flag consistency and redirect destinations. It **cannot** re-derive the other flags (`divi-layout-review`, the builder, form and plugin shortcode flags, event date and media flags), because they depend on source markup and metadata the plan does not carry, so a consistently rewritten plan can still clear those. Treat the plan file as trusted operator input protected by its file mode, and
 re-run the planner from the WXR instead of ever editing a plan. Validation cannot know the real WordPress status of a record whose status fields were rewritten consistently.
 
 The plan file holds titles and bodies. Treat it like the export itself: a private, owner-only directory outside every
@@ -46,7 +45,7 @@ one `git add -f`, backup or sync away from leaving the machine. The refusal says
 direnv exec web bun web/tools/wp-import/import.ts dry-run --report $PRIV/wp-import-dryrun-DATE.safe.json < $EXPORT
 
 # 2. Plan: same, plus the full private plan the CMS stage applies. Add --reviewed $PRIV/review.json after you reviewed documents
-#    (see "Content quality gates"); the planner also refuses to run against a stale route manifest (see "Redirect map").
+#    (see "Content quality gates"); `buildPlan` itself refuses to run against a stale route manifest (see "Redirect map").
 direnv exec web bun web/tools/wp-import/import.ts plan --out $PRIV/wp-import-plan.json --report $PRIV/plan-report.json < $EXPORT
 
 # 3. Against the local preview CMS (`tools/local-stack`, migrations applied; see docs/local-preview.md):

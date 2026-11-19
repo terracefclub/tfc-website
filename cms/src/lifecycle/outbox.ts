@@ -131,7 +131,7 @@ export async function markMirrored(payload: Payload, id: number, req?: PayloadRe
   else await pool(payload).query(`UPDATE message_outbox SET mirrored_at = now() WHERE id = $1 AND mirrored_at IS NULL`, [id])
 }
 
-export type MirrorReport = { redacted: number; written: number; failed?: number; undeliverable?: number[]; staleTemporaryRemoved?: number }
+export type MirrorReport = { redacted: number; written: number; skipped?: string; failed?: number; undeliverable?: number[]; staleTemporaryRemoved?: number }
 export type InvitationState = 'live' | 'redeemed' | 'revoked' | 'expired' | 'unknown'
 
 /**
@@ -191,7 +191,8 @@ type Client = { query: (text: string, values?: unknown[]) => Promise<{ rows: Arr
  */
 export async function reconcileMirror(payload: Payload, seams: { beforeWrite?: (id: number) => Promise<void> } = {}): Promise<MirrorReport> {
   const directory = process.env.LIFECYCLE_OUTBOX_DIR
-  if (!directory) return { redacted: 0, written: 0 }
+  // Said out loud: nothing was redacted or written because there is nowhere to write (the sweep exits non-zero in a public deployment).
+  if (!directory) return { redacted: 0, written: 0, skipped: 'outbox directory not configured' }
   const staleTemporaryRemoved = removeStaleTemporaryFiles(directory)
   const rows = (await pool(payload).query(`SELECT id, kind, recipient_label, mirrored_at FROM message_outbox WHERE recipient_label = 'Former member' OR mirrored_at IS NULL ORDER BY id`)).rows
   let redacted = 0

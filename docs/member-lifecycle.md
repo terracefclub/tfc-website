@@ -127,11 +127,12 @@ account still needs a realm role. The operator creates it, repeatably:
 ```sh
 # Keycloak realm user for the local synthetic realm (loopback only; the admin password is read
 # from the protected identity/.state/credentials.json and never printed)
-KEYCLOAK_HTTP_PORT=8186 direnv exec identity bun identity/tools/provision-member.ts provision \
-  --username verify.alumna --email person@example.org --name "Verify Alumna" --role alumni
+# the email is read from the APPROVED application (id from the admin URL) in the local CMS database, never typed
+cd cms && direnv exec . tools/with-local env KEYCLOAK_HTTP_PORT=8186 bun ../identity/tools/provision-member.ts provision \
+  --username verify.alumna --application 123 --name "Verify Alumna" --role alumni
 ```
 
-* **`--email` must be the application's contact email**: it is what binds the person's first sign-in to their application and invitation (next subsection). The script marks it verified.
+* **The email is taken from the approved application**: `--application ID` is required, the script reads that application's contact email (status must be `approved`; `psql` and `DATABASE_URI`, so run it through `cms/tools/with-local`) and a typed `--email` is only accepted if it equals it. That address is what binds the person's first sign-in to their application and invitation (next subsection). The script marks it verified.
 * A new user gets a temporary password (change forced at first sign-in), written to
   `identity/.state/provisioned/<username>.txt` (mode 0600), never printed. Deliver it privately.
 * Running it again for an existing user keeps their credentials, re-enables the account and sets
@@ -146,7 +147,7 @@ Erasure and export find a person's application, invitation and messages through 
 the system at first sign-in, not by hand**. Redeeming a link (above) and signing in are separate events: the browser that redeems has no
 identity yet, and the member row is created later, from the verified Keycloak token. They are bound like this:
 
-1. The operator creates the realm user for exactly one applicant with `provision-member.ts --email <the application's contact email>`.
+1. The operator creates the realm user for exactly one applicant with `provision-member.ts --application <id>` (the address is the approved application's contact email).
    Registration is off, addresses are unique in the realm (`duplicateEmailsAllowed: false`), usernames are fixed (`editUsernameAllowed: false`), and the local
    bootstrap makes the `email` profile attribute administrator-edit-only. The production realm has `verifyEmail: true`, so an address a member changes becomes unverified and the CMS ignores it; keep the
    `email` attribute administrator-edit-only there too. The member browser client (`terrace-web`) releases the `email` scope, so the access token carries `email` and
@@ -154,7 +155,7 @@ identity yet, and the member row is created later, from the verified Keycloak to
 2. On every authenticated request the CMS reads the **verified** address from the signature-checked, introspected token (never from anything the browser sent), and in one conditional
    statement links every invitation that is **redeemed** (someone holding the one-time link accepted it), whose application is **approved**, whose application
    contact email equals that address (case-insensitively) and whose `member` link is **still empty**, together with its application (`cms/src/lifecycle/linking.ts`).
-   It runs when the member row is first created and again until something is bound, so a person who signs in before accepting the link is bound at their next request after redeeming.
+   It runs right after the member row is created, and afterwards only when one cheap query finds a redeemed, unlinked invitation for that address (so an ordinary request costs one read); a person who signs in before accepting the link is therefore bound at their next request after redeeming. The bind locks the member row and re-checks its status (erasure takes the same lock first, so a sign-in can never bind after an erasure), then locks the candidate applications and invitations in id order, so concurrent first sign-ins queue instead of deadlocking.
 3. A link, once set, is never overwritten: a second person presenting the same address binds nothing, and neither does an unverified or missing address, a pending, expired or
    revoked invitation, or an application with a different address. An administrator's manual link is never replaced either. The address itself is not stored on the member (members have no email on file).
 
@@ -163,10 +164,20 @@ the invitation must already be redeemed; and each row can be bound once. A perso
 that person does. Operators must not create a second realm user with someone else's address (the realm refuses duplicates). If the realm's token has no `email` (an older realm that was not
 re-applied: re-run the identity bootstrap), nothing is bound automatically.
 
-**Backfill.** For members who signed in before this existed, `lifecycle:sweep` runs `backfillLinks`: it binds a redeemed, unlinked invitation to a member only when the applicant name
-equals the member's display name (case-insensitively), exactly one member has that name, no other redeemed unlinked invitation has it, and that member has no linked application yet.
-Anything ambiguous is left alone and counted (`links.ambiguous` in the sweep summary) for an administrator. The administrator's **member** picker on an application or invitation
-(next section) remains the manual fallback.
+**No automatic matching beyond the address.** There is no name-based or other guessing: a person who shares or chose an applicant's name must never be bound to that application. If a person's token carries no verified email (an older realm), or the address did not match, the application stays unlinked. `lifecycle:sweep` only **reports** `unlinkedRedeemedApplications`, a count with no names or emails, of approved applications whose invitation was redeemed but that no member is linked to; an administrator links each through the **member** picker (next section) after checking who the person is. Two applications sharing one address both bind to the first member who signs in with it.
+
+**What the session holds.** Because the member client now releases `email`, the access token the website keeps in the member's server-side session contains their email address. The CMS reads it only to bind and never stores it; nothing else in the website or CMS persists or logs it.
+
+### Existing realm: operator checklist
+
+A realm import is create-only, so a realm created before this change needs these by hand (Keycloak admin console or the identity bootstrap; the production realm artifact from `identity/tools/production-realm.ts` already has them and `identity-policy` CI asserts them):
+
+1. Add the built-in `email` scope as a **default client scope on `terrace-web` only** (not on `terrace-cms`).
+2. Realm settings: `editUsernameAllowed: false`, `duplicateEmailsAllowed: false`, `verifyEmail: true` (production).
+3. User profile: make the `email` attribute **editable by administrators only** (permissions `edit: [admin]`).
+4. For every provisioned user, the email equals the application's contact email and is verified.
+
+Provisioning a user with a mistyped email binds that user to whoever applied with that address, which is why the tool reads it from the application. Plus-addressing and dot variants (`a+x@`, `a.b@` against `ab@`) do not match: those people fall back to the manual picker.
 
 ## 5. Offboard
 
@@ -252,7 +263,7 @@ emails, to `Member #id`, or announcing one of those invitations (`invitation_id`
 returned (member erasure) so the blast radius is visible. **Email-reuse caveat:** if two different people
 share one contact address (a family address, a club mailbox), erasing one also anonymises other unlinked
 applications and outbox rows to that address; check before erasing. An application that was
-never linked (the person never signed in, or the realm token carried no verified email and the backfill found no unambiguous match) is the one case left to an administrator:
+never linked (the person never signed in, or the realm token carried no verified email or it did not match an application) is the one case left to an administrator:
 set the **member** picker on it before erasing. An unlinked, never-invited application with a different email cannot be tied to a person.
 
 *Files.* The database erasure commits first; local mirror files are rewritten only after the commit (a
@@ -273,12 +284,14 @@ and audit rows may be retained, and for how long.
 
 ## 9. Housekeeping
 
+The sweep ends by itself (it closes the adapter and exits; a 120 s timer bounds a stuck run), so it is safe under a systemd timer: exit code 0, or non-zero when mirror work failed or, with `CMS_PUBLIC_DEPLOYMENT=1`, when `LIFECYCLE_OUTBOX_DIR` is unset. Without that directory the summary says `mirror.skipped: outbox directory not configured` because no file can be redacted or written.
+
 ```sh
 cd cms && direnv exec . tools/with-local bun run lifecycle:sweep               # expire invitations, report
 cd cms && direnv exec . tools/with-local bun run lifecycle:sweep -- --purge-moderated
 ```
 
-The sweep expires stale invitations, withdraws unreviewed applications, links unambiguous earlier sign-ins to their applications (`links`), completes any pending mirror
+The sweep expires stale invitations, withdraws unreviewed applications, reports `unlinkedRedeemedApplications`, completes any pending mirror
 redaction after an erasure, and reports content past its grace period. It deletes
 moderation-hidden content only with `--purge-moderated` (in one transaction, memberships and stories of a
 purged group first) and blanks the snapshots of reports about what it deleted; offboarded members are never

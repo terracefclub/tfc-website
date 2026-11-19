@@ -11,7 +11,6 @@ import { stdin } from 'node:process';
 import { maxBytes } from '../wxr-preflight';
 import { readFileSync } from 'node:fs';
 import { OutputRefused, writePrivateJson } from '../private-output';
-import { staleManifests } from '../route-manifest';
 import { parseReviewFile } from './content-gates';
 import { buildPlan } from './map';
 import { dryRunReport } from './report';
@@ -40,9 +39,6 @@ if (import.meta.main) {
     let size = 0;
     for await (const chunk of stdin) { size += chunk.length; if (size > maxBytes) throw new Error('too large'); chunks.push(chunk); }
     const xml = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(Buffer.concat(chunks));
-    // The reserved routes come from the route manifest; planning against a manifest that no longer matches the route tree
-    // could hide a dead redirect row, so it is refused (regenerate with `bun web/tools/route-manifest.ts`).
-    if (staleManifests().length) throw new Error('Stale route manifest: run `bun web/tools/route-manifest.ts` and commit the result.');
     const reviews = args.reviewed ? parseReviewFile(JSON.parse(readFileSync(args.reviewed, 'utf8'))) : undefined;
     const plan = buildPlan(xml, undefined, { reviews });
     const report = dryRunReport(plan, xml);

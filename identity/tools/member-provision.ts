@@ -77,3 +77,16 @@ export async function offboardRealmUser(api: Api, username: string) {
   await ok(await api(`realms/${realm}/users/${id}/logout`, 'POST'))
   return { found: true, rolesRemoved: have.length }
 }
+
+/**
+ * The address a realm user gets must be the contact email of an APPROVED application: it is what binds the person's first sign-in to
+ * their invitation, so it is read from the application record, never typed. `lookup` returns that application's contact email when
+ * its status is approved (the CLI queries the local CMS database), else null. A given `--email` must equal it (case-insensitively).
+ */
+export async function approvedApplicationEmail(applicationId: string, lookup: (id: number) => Promise<string | null>, typed?: string): Promise<string> {
+  if (!/^[1-9]\d{0,9}$/.test(applicationId)) throw new Error('--application must be the numeric id of an approved application.');
+  const email = await lookup(Number(applicationId));
+  if (!email) throw new Error('No approved application with that id; nothing was changed.');
+  if (typed !== undefined && typed.trim().toLowerCase() !== email.toLowerCase()) throw new Error('--email does not match the application\'s contact email; nothing was changed.');
+  return email;
+}

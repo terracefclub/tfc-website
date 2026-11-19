@@ -4,7 +4,7 @@ import { execFileSync, spawn } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
-import { keycloakOrigin, realm, realmSettings, clientSettings, localClientOrigins, clientSecuritySettings, realmRoleNames, roleScopeMappings, syntheticIdentityRoles } from './realm-config'
+import { restrictEmailEdit, type UserProfile, keycloakOrigin, realm, realmSettings, clientSettings, localClientOrigins, clientSecuritySettings, realmRoleNames, roleScopeMappings, syntheticIdentityRoles } from './realm-config'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const state = resolve(root, '.state')
@@ -85,12 +85,9 @@ else await api(`realms/${realm}`, 'PUT', realmSettings)
 // The member's verified address binds their first sign-in to their invitation, so only an administrator may set it:
 // keep Keycloak's own user profile and restrict who may edit `email` (idempotent).
 {
-  const profile = await (await api(`realms/${realm}/users/profile`)).json() as { attributes?: { name: string; permissions?: { view?: string[]; edit?: string[] } }[] }
-  const email = profile.attributes?.find((attribute) => attribute.name === 'email')
-  if (email && JSON.stringify(email.permissions?.edit) !== JSON.stringify(['admin'])) {
-    email.permissions = { view: email.permissions?.view ?? ['admin', 'user'], edit: ['admin'] }
-    await api(`realms/${realm}/users/profile`, 'PUT', profile)
-  }
+  const profile = await (await api(`realms/${realm}/users/profile`)).json() as UserProfile
+  const before = JSON.stringify(profile)
+  if (JSON.stringify(restrictEmailEdit(profile)) !== before) await api(`realms/${realm}/users/profile`, 'PUT', profile)
 }
 for (const name of realmRoleNames) {
   if ((await api(`realms/${realm}/roles/${name}`)).status === 404) await api(`realms/${realm}/roles`, 'POST', { name })

@@ -7,7 +7,9 @@ import { getPayload, handleEndpoints, type Payload } from 'payload'
 import config from '../src/payload.config'
 import { resetMemberVerifier, type KeycloakConfig } from '../src/auth/keycloak'
 import { intake, own } from '../src/lifecycle/endpoints'
-import { backfillLinks } from '../src/lifecycle/linking'
+import { countUnlinkedRedeemed, linkMemberToApplications } from '../src/lifecycle/linking'
+import { reconcileMirror } from '../src/lifecycle/outbox'
+import { spawnSync } from 'node:child_process'
 import { invitationState } from '../src/lifecycle/outbox'
 import { sweep } from '../src/lifecycle/sweep'
 import { pool } from '../src/lifecycle/visibility'
@@ -273,20 +275,61 @@ test('binding refuses what it cannot vouch for, never overwrites a link, and can
   expect((await links(manual.application.id, manual.invitation.id)).invitation).toBe(chosen.id)
 })
 
-test('the sweep backfills only unambiguous links by applicant and display name', async () => {
-  const one = await applyApproveRedeem(`Backfill One ${suffix}`, `bf-one-${suffix}@terrace.invalid`)
-  const two = await applyApproveRedeem(`Backfill Two ${suffix}`, `bf-two-${suffix}@terrace.invalid`)
-  const three = await applyApproveRedeem(`Backfill Three ${suffix}`, `bf-three-${suffix}@terrace.invalid`)
-  for (const entry of [one, two, three]) await redeem(entry.token)
-  const first = await makeMember(`backfill one ${suffix}`)
-  await makeMember(`Backfill Two ${suffix}`)
-  await makeMember(`Backfill Two ${suffix}`) // two members with one name: ambiguous
-  const result = await backfillLinks(payload)
-  expect(result.invitations).toBeGreaterThanOrEqual(1)
-  expect(await links(one.application.id, one.invitation.id)).toEqual({ application: first.id, invitation: first.id })
-  expect(await links(two.application.id, two.invitation.id)).toEqual({ application: null, invitation: null })
-  expect(await links(three.application.id, three.invitation.id)).toEqual({ application: null, invitation: null }) // nobody with that name
-  expect((await sweep(payload)).links).toMatchObject({ invitations: 0 })
+test('nothing is ever linked by guessing from names: a same-named member is not bound by sweeps, and the sweep only reports', async () => {
+  const one = await applyApproveRedeem(`Samename ${suffix}`, `same-${suffix}@terrace.invalid`)
+  await redeem(one.token)
+  const impostor = await makeMember(`samename ${suffix}`) // another person who chose, or happens to share, the applicant's name
+  const before = await countUnlinkedRedeemed(payload)
+  expect(before).toBeGreaterThanOrEqual(1)
+  const summary = await sweep(payload)
+  expect(summary).not.toHaveProperty('links')
+  expect(summary.unlinkedRedeemedApplications).toBeGreaterThanOrEqual(1)
+  expect(await links(one.application.id, one.invitation.id)).toEqual({ application: null, invitation: null })
+  // The impostor cannot read the application, and the real person can still be bound at their own verified sign-in.
+  expect((await payload.find({ collection: 'member-applications', user: impostor, overrideAccess: false })).docs.map((doc) => doc.id)).not.toContain(one.application.id)
+  const real = await signIn(`sub-same-${suffix}`, { name: `Samename ${suffix}`, email: `same-${suffix}@terrace.invalid`, email_verified: true })
+  expect(await links(one.application.id, one.invitation.id)).toEqual({ application: real.id, invitation: real.id })
+  expect(JSON.stringify(summary)).not.toContain(suffix) // counts only: no names or emails
+})
+
+test('binding is bounded: an ordinary request runs one read, and a sign-in racing an erasure never binds afterwards', async () => {
+  const email = `race-${suffix}@terrace.invalid`
+  const { application, invitation, token } = await applyApproveRedeem(`Racer ${suffix}`, email)
+  await redeem(token)
+  const member = await makeMember(`Racer Member ${suffix}`)
+  expect(await linkMemberToApplications(payload, member.id, `nobody-${suffix}@terrace.invalid`)).toEqual({ invitations: 0, applications: 0 }) // nothing waiting: no transaction
+  // Erasure takes the member lock first (it is in the middle of erasing); the sign-in's bind waits for it, then sees an erased member.
+  const holder = await (payload.db as any).pool.connect()
+  try {
+    await holder.query('BEGIN')
+    await holder.query(`SELECT id FROM members WHERE id = $1 FOR UPDATE`, [member.id])
+    const binding = linkMemberToApplications(payload, member.id, email)
+    await Bun.sleep(300)
+    await holder.query(`UPDATE members SET status = 'erased' WHERE id = $1`, [member.id])
+    await holder.query('COMMIT')
+    expect(await binding).toEqual({ invitations: 0, applications: 0 })
+  } finally { holder.release() }
+  expect(await links(application.id, invitation.id)).toEqual({ application: null, invitation: null })
+  // And the other way round: erasure's lookup waits for a bind in progress, so it sees the links it created.
+  const sourceErasure = await Bun.file(new URL('../src/lifecycle/erasure.ts', import.meta.url)).text()
+  expect(sourceErasure.indexOf('FROM members WHERE id = $1 FOR UPDATE')).toBeLessThan(sourceErasure.indexOf('const linked = await q.query'))
+})
+
+test('concurrent first sign-ins for one address queue on locks: no deadlock, exactly one member wins, both applications bind to them', async () => {
+  const email = `twice-${suffix}@terrace.invalid`
+  const first = await applyApproveRedeem(`Twice One ${suffix}`, email)
+  await q(`UPDATE member_applications SET status = 'withdrawn' WHERE id = $1`, [first.application.id]) // allow a second application for the address
+  await q(`UPDATE member_applications SET status = 'approved' WHERE id = $1`, [first.application.id])
+  const second = await q(`INSERT INTO member_applications (name, affiliation, contact_email, status, grant_role, updated_at, created_at) VALUES ($1, 'alumni', $2, 'approved', 'alumni', now(), now()) RETURNING id`, [`Twice Two ${suffix}`, email])
+  const secondInvitation = await q(`INSERT INTO member_invitations (application_id, token_hash, role, status, expires_at, redeemed_at, updated_at, created_at) VALUES ($1, $2, 'alumni', 'redeemed', now() + interval '1 day', now(), now(), now()) RETURNING id`, [second.rows[0].id, `h-${suffix}-twice`])
+  await redeem(first.token)
+  const ids = await Promise.all([1, 2, 3, 4].map(async (n) => (await makeMember(`Twice Member ${n} ${suffix}`)).id))
+  const results = await Promise.all(ids.map((id) => linkMemberToApplications(payload, id, email)))
+  expect(results.filter((result) => result.invitations > 0).length).toBe(1)
+  const winner = ids[results.findIndex((result) => result.invitations > 0)]
+  expect(await links(first.application.id, first.invitation.id)).toEqual({ application: winner, invitation: winner })
+  expect((await q(`SELECT member_id FROM member_applications WHERE id = $1`, [second.rows[0].id])).rows[0].member_id).toBe(winner) // both applications bind to the first member
+  expect((await q(`SELECT member_id FROM member_invitations WHERE id = $1`, [secondInvitation.rows[0].id])).rows[0].member_id).toBe(winner)
 })
 
 test('an outbox message finds its invitation through the foreign key; only old rows use the email heuristic', async () => {
@@ -309,4 +352,50 @@ test('an outbox message finds its invitation through the foreign key; only old r
   await q(`UPDATE message_outbox SET invitation_id = $2 WHERE id = $1`, [row.id, invitation.id])
   await q(`DELETE FROM member_invitations WHERE id = $1`, [invitation.id])
   expect((await q(`SELECT invitation_id FROM message_outbox WHERE id = $1`, [row.id])).rows[0].invitation_id).toBeNull()
+})
+
+// ---- the Members list: sort, select, count and populated relations expose nothing hidden ---------------------------
+
+test('REST: sort is allow-listed, and select, count and populated relations never reveal a hidden member field', async () => {
+  const subject = await makeMember(`Exposure ${suffix}`)
+  const adminToken = await login(admin, await passwordOf(admin))
+  const auth = { headers: { authorization: `JWT ${adminToken}` } }
+  for (const field of ['identityKey', 'subject', 'issuer', 'statusChangedAt', '-identityKey', 'roles']) expect((await rest(`/members?sort=${field}&limit=2`, auth)).status).toBe(400)
+  expect((await rest(`/members?sort=-displayName&limit=2`, auth)).status).toBe(200)
+  expect((await rest(`/members?sort=createdAt&limit=2`, auth)).status).toBe(200)
+  const selected = await rest(`/members?select[identityKey]=true&select[displayName]=true&limit=3`, auth)
+  expect(JSON.stringify(await selected.json())).not.toMatch(/identityKey|issuer|subject|statusChangedAt/)
+  expect((await rest(`/members/count?where[identityKey][like]=x`, auth)).status).toBeGreaterThanOrEqual(400)
+  expect((await rest(`/members/count?where[subject][equals]=x`, auth)).status).toBeGreaterThanOrEqual(400)
+  expect((await rest(`/members/count`, auth)).status).toBe(200)
+  // Populated through each relation, at depth.
+  const application = await payload.create({ collection: 'member-applications', overrideAccess: true, data: { name: `Expo ${suffix}`, affiliation: 'alumni', contactEmail: `expo-${suffix}@terrace.invalid`, member: subject.id } })
+  const invitation = await payload.create({ collection: 'member-invitations', overrideAccess: true, data: { application: application.id, tokenHash: `h-${suffix}-expo`, role: 'alumni', status: 'pending', expiresAt: new Date(Date.now() + 86_400_000).toISOString(), member: subject.id } })
+  const offboarding = await payload.create({ collection: 'member-offboardings', data: { member: subject.id }, user: admin, overrideAccess: false })
+  const request = await payload.create({ collection: 'data-requests', overrideAccess: true, context: { memberFlow: true }, data: { member: subject.id, kind: 'export', status: 'completed', requestedBy: 'member' } })
+  for (const path of [`/member-applications/${application.id}?depth=3`, `/member-invitations/${invitation.id}?depth=3`, `/member-offboardings/${offboarding.id}?depth=3`, `/data-requests/${request.id}?depth=3`, `/message-outbox?depth=3&limit=3`, `/moderation-reports?depth=3&limit=3`]) {
+    const text = JSON.stringify(await (await rest(path, auth)).json())
+    expect(text).not.toMatch(/identityKey|statusChangedAt|"issuer"|tokenHash/)
+    expect(text).not.toContain(settings.issuer)
+    expect(text).not.toContain(String(subject.subject))
+  }
+  const populated = await (await rest(`/member-offboardings/${offboarding.id}?depth=1`, auth)).json() as any
+  expect(Object.keys(populated.member).filter((key) => key !== 'collection').sort()).toEqual(['createdAt', 'displayName', 'id', 'status', 'updatedAt'])
+  await q(`DELETE FROM data_requests WHERE id = $1`, [request.id])
+  await q(`DELETE FROM member_offboardings WHERE id = $1`, [offboarding.id])
+  await q(`DELETE FROM member_invitations WHERE id = $1`, [invitation.id])
+})
+
+// ---- the sweep as a scheduled job ----------------------------------------------------------------------------------
+
+test('the sweep process exits by itself with code 0 within a bound, and says when it skipped mirror work', async () => {
+  const started = Date.now()
+  const run = spawnSync(process.execPath, [new URL('../src/scripts/lifecycle-sweep.ts', import.meta.url).pathname], { env: { ...process.env, LIFECYCLE_OUTBOX_DIR: outbox }, encoding: 'utf8', timeout: 90_000, cwd: new URL('..', import.meta.url).pathname })
+  expect(run.error).toBeUndefined()
+  expect(run.status).toBe(0)
+  expect(Date.now() - started).toBeLessThan(60_000)
+  expect(JSON.parse(run.stdout.slice(run.stdout.indexOf('{\n  "mirror"'))).mirror).not.toHaveProperty('skipped')
+  const saved = process.env.LIFECYCLE_OUTBOX_DIR
+  delete process.env.LIFECYCLE_OUTBOX_DIR
+  try { expect(await reconcileMirror(payload)).toMatchObject({ redacted: 0, written: 0, skipped: 'outbox directory not configured' }) } finally { process.env.LIFECYCLE_OUTBOX_DIR = saved }
 })

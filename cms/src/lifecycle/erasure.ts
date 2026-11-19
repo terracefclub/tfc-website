@@ -33,6 +33,9 @@ export type Erasure = {
 export async function eraseMember(payload: Payload, memberId: number, req?: PayloadRequest): Promise<Erasure> {
   const q = pool(payload, req)
   const counts: Record<string, number> = {}
+  // Lock the member first: a sign-in binding applications (linking.ts) takes the same lock and re-checks the status, so it can
+  // neither bind after the lookup below nor be bound under an erased member.
+  await q.query(`SELECT id FROM members WHERE id = $1 FOR UPDATE`, [memberId])
 
   const storyIds = (await q.query(`SELECT id FROM member_stories WHERE author_id = $1`, [memberId])).rows.map((row) => Number(row.id))
   const linked = await q.query(`SELECT a.id, a.contact_email FROM member_applications a WHERE a.member_id = $1 UNION SELECT a.id, a.contact_email FROM member_invitations i JOIN member_applications a ON a.id = i.application_id WHERE i.member_id = $1`, [memberId])

@@ -1,7 +1,7 @@
 import { constants, closeSync, fstatSync, lstatSync, openSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { clientSecuritySettings, clientSettings, realmRoleNames, realmSettings, roleScopeMappings, type ClientCredentials } from './realm-config'
+import { clientSecuritySettings, clientSettings, memberUserProfile, realmRoleNames, realmSettings, roleScopeMappings, type ClientCredentials } from './realm-config'
 import { productionOrigin, productionSecret } from '../../cms/src/auth/production-input'
 
 const invalid = (): never => { throw new Error('Invalid production realm input.') }
@@ -28,6 +28,8 @@ export function productionRealm(web: unknown, cms: unknown, secrets: unknown) {
   return {
     ...realmSettings, sslRequired: 'all', verifyEmail: true,
     roles: { realm: realmRoleNames.map(name => ({ name })) },
+    // Members cannot change their own address: it binds their first sign-in to their invitation (docs/member-lifecycle.md).
+    components: { 'org.keycloak.userprofile.UserProfileProvider': [{ providerId: 'declarative-user-profile', subComponents: {}, config: { 'kc.user.profile.config': [JSON.stringify(memberUserProfile())] } }] },
     clients: clientSettings(credentials(secrets), origins).map(client => ({
       ...client, ...clientSecuritySettings, clientAuthenticatorType: 'client-secret', serviceAccountsEnabled: false,
     })),

@@ -9,6 +9,7 @@ import { appExactRoutes } from '../../src/lib/route-manifest';
 import { oldSiteHosts } from '../../src/lib/site-routes';
 import { applyReviews, bodyGatedCollections, isNearEmpty, leftoverShortcodes, minBodyTextChars, type ReviewFile } from './content-gates';
 import { auditLinks, type DocLinks } from './links';
+import { staleManifests } from '../route-manifest';
 
 export const metaKeys = new Set([
   '_EventStartDate', '_EventEndDate', '_EventStartDateUTC', '_EventEndDateUTC', '_EventTimezone', '_EventAllDay', '_EventVenueID', '_EventOrganizerID',
@@ -74,7 +75,7 @@ function serializedSize(meta: string | undefined): { width?: number; height?: nu
 }
 
 type Draft = { ordinal: number; record: WxrRecord; collection: PlanCollection; data: Record<string, unknown>; refs: Record<string, number>; flags: Set<string>; slug?: string; findings: Findings; shortcodes?: string[] };
-export type BuildOptions = { /** Operator review decisions (see content-gates.ts); a flag is cleared only for a document whose ordinal and source hash match. */ reviews?: ReviewFile };
+export type BuildOptions = { /** Route tree to check the manifest against (tests only); defaults to web/src/routes. */ routesDir?: string; /** Operator review decisions (see content-gates.ts); a flag is cleared only for a document whose ordinal and source hash match. */ reviews?: ReviewFile };
 
 // --- source path / redirect -------------------------------------------------------------------
 
@@ -93,6 +94,9 @@ export function sourcePathOf(link: string, hosts: ReadonlySet<string>): { path: 
 // --- the planner ------------------------------------------------------------------------------
 
 export function buildPlan(xml: string, hooks: ExtensionHooks = noExtensions, options: BuildOptions = {}): Plan {
+  // Reserved redirect sources come from the route manifest; planning against one that no longer matches the route tree could hide a
+  // dead redirect row (regenerate with `bun web/tools/route-manifest.ts`).
+  if (staleManifests(options.routesDir).length) throw new Error('Stale route manifest: run `bun web/tools/route-manifest.ts` and commit the result.');
   const read = readWxr(xml, metaKeys);
   const { records, authors, safeHosts } = read;
   const byId = new Map<number, WxrRecord>();

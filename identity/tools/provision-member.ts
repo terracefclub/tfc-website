@@ -2,18 +2,20 @@ import { randomBytes } from 'node:crypto'
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { assertLoopbackOrigin, isMemberRole, offboardRealmUser, provisionMember, type Api } from './member-provision'
+import { execFileSync } from 'node:child_process'
+import { approvedApplicationEmail, assertLoopbackOrigin, isMemberRole, offboardRealmUser, provisionMember, type Api } from './member-provision'
 import { keycloakOrigin } from './realm-config'
 
 // Operator tool for the LOCAL synthetic realm. See docs/member-lifecycle.md.
-//   bun identity/tools/provision-member.ts provision --username u --email e --name "N" --role alumni
+//   bun identity/tools/provision-member.ts provision --username u --application ID --name "N" --role alumni
+// The email comes from the approved application (read from the local CMS database named by DATABASE_URI with psql), never typed.
 //   bun identity/tools/provision-member.ts offboard --username u
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const state = resolve(root, '.state')
 const [command, ...rest] = process.argv.slice(2)
 const args: Record<string, string> = {}
 for (let index = 0; index < rest.length; index += 2) {
-  if (!rest[index]?.startsWith('--') || rest[index + 1] === undefined) throw new Error('Usage: provision-member.ts provision|offboard --username ... [--email ... --name ... --role ...]')
+  if (!rest[index]?.startsWith('--') || rest[index + 1] === undefined) throw new Error('Usage: provision-member.ts provision|offboard --username ... [--application ID --name ... --role ...]')
   args[rest[index].slice(2)] = rest[index + 1]
 }
 if (!['provision', 'offboard'].includes(command ?? '')) throw new Error('Usage: provision-member.ts provision|offboard --username ...')
@@ -39,7 +41,13 @@ if (command === 'offboard') {
   console.log(result.found ? `Disabled ${args.username}; removed ${result.rolesRemoved} member role(s); sessions ended.` : `No realm user named ${args.username}; nothing to do.`)
 } else {
   if (!isMemberRole(args.role)) throw new Error('--role must be current-member or alumni.')
-  const result = await provisionMember(api, { username: args.username ?? '', email: args.email ?? '', name: args.name ?? '', role: args.role, temporaryPassword: () => randomBytes(18).toString('base64url') })
+  const lookup = async (id: number) => {
+    if (!process.env.DATABASE_URI) throw new Error('DATABASE_URI (the local CMS database) is required to read the application; run through cms/tools/with-local.')
+    const out = execFileSync('psql', [process.env.DATABASE_URI, '-Atq', '-v', `id=${id}`], { encoding: 'utf8', input: "select contact_email from member_applications where id = :id and status = 'approved'" }).trim()
+    return out || null
+  }
+  const email = await approvedApplicationEmail(args.application ?? '', lookup, args.email)
+  const result = await provisionMember(api, { username: args.username ?? '', email, name: args.name ?? '', role: args.role, temporaryPassword: () => randomBytes(18).toString('base64url') })
   if (result.password) {
     // The temporary password is written to a private file for the operator to deliver; it is never printed.
     const directory = resolve(state, 'provisioned')

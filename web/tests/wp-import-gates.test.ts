@@ -174,3 +174,36 @@ describe('redirect rows for real site routes', () => {
     expect(() => validatePlan({ ...rest, planSha256: planHash(rest) })).toThrow('redirect destination');
   });
 });
+
+describe('the applier-side validation recomputes the content gates', () => {
+  const tamper = (wpId: number, collection: string, change: (item: PlanDoc) => PlanDoc) => reseal(plan.docs.map(item => item.wpId === wpId && item.collection === collection ? change(item) : item));
+  const unflag = (flag: string) => (item: PlanDoc): PlanDoc => {
+    const flags = item.flags.filter(entry => entry !== flag);
+    const data = { ...item.data, wpReviewFlags: flags.length ? flags : undefined };
+    return JSON.parse(JSON.stringify({ ...item, flags, data, targetHash: hashOf({ data: JSON.parse(JSON.stringify(data)), refs: item.refs }), publishEligible: item.sourceStatus === 'publish', desiredStatus: item.sourceStatus === 'publish' ? 'published' : 'draft' }));
+  };
+  test('dropping empty-body or leftover-shortcode from a plan is refused even when the plan is re-sealed', () => {
+    expect(() => validatePlan(tamper(1020, 'pages', unflag('empty-body')))).toThrow('empty body not flagged');
+    expect(() => validatePlan(tamper(1022, 'posts', unflag('leftover-shortcode')))).toThrow('leftover shortcode not flagged');
+    expect(() => validatePlan(tamper(1021, 'posts', unflag('leftover-shortcode')))).toThrow(); // also near-empty
+    expect(validatePlan(JSON.parse(JSON.stringify(plan)))).toBeTruthy();
+  });
+  test('a body edited to hide a shortcode or to grow past the threshold in the plan is judged on the stored body', () => {
+    const longer = (item: PlanDoc): PlanDoc => { const data = { ...item.data, bodyHtml: `<p>${'word '.repeat(60)}</p>` }; return { ...item, data, targetHash: hashOf({ data, refs: item.refs }) }; };
+    // A plan whose body really is long needs no flag, so the planner's flag may be absent or present; the check is on the body.
+    expect(validatePlan(tamper(1020, 'pages', item => unflag('empty-body')(longer(item)))).docs.length).toBe(plan.docs.length);
+    const shortened = (item: PlanDoc): PlanDoc => { const data = { ...item.data, bodyHtml: '<p>tiny</p>' }; return { ...item, data, targetHash: hashOf({ data, refs: item.refs }) }; };
+    expect(() => validatePlan(tamper(1023, 'posts', shortened))).toThrow('empty body not flagged');
+  });
+  test('a reviewed flag satisfies the gate; buildPlan itself refuses a stale route manifest', () => {
+    const one = doc(1020);
+    const reviewed = buildPlan(gatesXml, undefined, { reviews: parseReviewFile({ kind: 'wp-import-review', schemaVersion: 1, reviewed: [{ ordinal: one.ordinal, sourceHash: one.sourceHash, flags: ['empty-body'] }] }) });
+    expect(validatePlan(JSON.parse(JSON.stringify(reviewed)))).toBeTruthy();
+    const root = mkdtempSync(join(tmpdir(), 'routes-stale-'));
+    try {
+      mkdirSync(join(root, 'brand-new'));
+      writeFileSync(join(root, 'brand-new', '+page.svelte'), '');
+      expect(() => buildPlan(gatesXml, undefined, { routesDir: root })).toThrow('Stale route manifest');
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+});
