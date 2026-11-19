@@ -91,7 +91,7 @@ other way: the collection has no create access, even for staff.
 
 In the Payload admin, an editor or administrator opens **Member applications**, chooses the role to
 grant (`current-member` or `alumni`, which may differ from what the applicant claimed) and sets the
-status to `approved` or `denied` (optionally a decision note). The server records the reviewer and
+status to `approved` or `denied` (optionally a decision note). **Approving needs both fields: set _Status_ to `approved` and choose _Grant Role_.** Saving an approval without a role is refused with "Choose the role to grant before approving." and nothing changes. The server records the reviewer and
 `decidedAt`, and the decision is final. **Approving never creates a sign-in account.** It issues an
 invitation (next section). Denying appends a denial notice to the outbox. `withdrawn` is for an
 applicant who asks to cancel.
