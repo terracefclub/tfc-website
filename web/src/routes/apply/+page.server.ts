@@ -1,13 +1,13 @@
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { applyGuard, intakeSecret } from '$lib/server/apply-guard';
+import { applyGuard, clientAddressConfigured, intakeSecret } from '$lib/server/apply-guard';
 import { intake } from '$lib/server/lifecycle';
 
 const headers = { 'cache-control': 'private, no-store', 'x-robots-tag': 'noindex, nofollow' } as const;
 
-export const load: PageServerLoad = ({ setHeaders }) => {
+export const load: PageServerLoad = ({ setHeaders, getClientAddress }) => {
   setHeaders(headers);
-  try { intakeSecret(); return { open: true, token: applyGuard.issue() }; }
+  try { intakeSecret(); if (!clientAddressConfigured()) throw new Error('proxy'); return { open: true, token: applyGuard.issue(getClientAddress()) }; }
   catch { return { open: false, token: '' }; }
 };
 
@@ -24,7 +24,7 @@ export const actions: Actions = {
     setHeaders(headers);
     const form = await request.formData();
     let verdict: ReturnType<typeof applyGuard.check>;
-    try { verdict = applyGuard.check({ token: form.get('t'), honeypot: form.get('website'), client: getClientAddress() }); }
+    try { if (!clientAddressConfigured()) throw new Error('proxy'); verdict = applyGuard.check({ token: form.get('t'), honeypot: form.get('website'), client: getClientAddress() }); }
     catch { return fail(503, { error: 'Applications are not open right now. Please check back soon.' }); }
     // A tripped honeypot gets the same answer as success, so a script learns nothing.
     if (verdict === 'bot') return { received: true };
@@ -44,6 +44,7 @@ export const actions: Actions = {
     try {
       const result = await intake('apply', data);
       if (result.status !== 202) return fail(400, { error: 'Please check the fields and try again.' });
+      applyGuard.spend(String(form.get('t')));
     } catch { return fail(503, { error: 'Applications are temporarily unavailable. Nothing was saved; please try again shortly.' }); }
     return { received: true };
   },

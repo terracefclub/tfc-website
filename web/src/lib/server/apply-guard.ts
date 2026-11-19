@@ -1,4 +1,4 @@
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 export type GuardResult = 'ok' | 'bot' | 'too-fast' | 'expired' | 'rate-limited';
 export interface GuardOptions {
@@ -27,12 +27,16 @@ export function createApplyGuard(secret: () => string, options: GuardOptions = {
   const windowMs = options.windowMs ?? 60 * 60_000;
   const globalLimit = options.globalLimit ?? 60;
   const minFillMs = options.minFillMs ?? 3000;
-  const maxAgeMs = options.maxAgeMs ?? 2 * 60 * 60_000;
+  const maxAgeMs = options.maxAgeMs ?? 30 * 60_000;
   const maxClients = options.maxClients ?? 5000;
   const clients = new Map<string, { count: number; resets: number }>();
   let all = { count: 0, resets: 0 };
+  // Tokens already used, until they would have expired anyway. A token is single use.
+  const used = new Map<string, number>();
   const key = () => createHash('sha256').update(`apply-form\0${secret()}`).digest();
-  const mac = (stamp: string) => createHmac('sha256', key()).update(stamp).digest('base64url');
+  // The signature covers the client too, so a token issued to one visitor is useless to another.
+  const bind = (client: string) => createHash('sha256').update(client).digest('base64url').slice(0, 22);
+  const mac = (stamp: string, nonce: string, client: string) => createHmac('sha256', key()).update(`${stamp}.${nonce}.${bind(client)}`).digest('base64url');
 
   function limited(client: string): boolean {
     const time = now();
@@ -50,18 +54,27 @@ export function createApplyGuard(secret: () => string, options: GuardOptions = {
   }
 
   return {
-    issue(): string { const stamp = String(now()); return `${stamp}.${mac(stamp)}`; },
+    issue(client: string): string { const stamp = String(now()); const nonce = randomBytes(12).toString('base64url'); return `${stamp}.${nonce}.${mac(stamp, nonce, client)}`; },
+    /** Mark a token spent once its submission was accepted, so it cannot be replayed. */
+    spend(token: string): void {
+      const [stamp, nonce] = token.split('.');
+      const time = now();
+      for (const [id, expires] of used) if (expires <= time) used.delete(id);
+      if (used.size >= maxClients * 2) used.delete(used.keys().next().value as string);
+      if (stamp && nonce) used.set(nonce, Number(stamp) + maxAgeMs);
+    },
     check(input: { token: unknown; honeypot: unknown; client: string }): GuardResult {
       if (limited(input.client)) return 'rate-limited';
       if (typeof input.honeypot === 'string' ? input.honeypot !== '' : input.honeypot != null) return 'bot';
       if (typeof input.token !== 'string') return 'bot';
-      const [stamp, signature, extra] = input.token.split('.');
-      if (!stamp || !signature || extra !== undefined || !/^\d{10,16}$/.test(stamp)) return 'bot';
-      const expected = Buffer.from(mac(stamp));
+      const [stamp, nonce, signature, extra] = input.token.split('.');
+      if (!stamp || !nonce || !signature || extra !== undefined || !/^\d{10,16}$/.test(stamp) || !/^[A-Za-z0-9_-]{16}$/.test(nonce)) return 'bot';
+      const expected = Buffer.from(mac(stamp, nonce, input.client));
       const given = Buffer.from(signature);
       if (expected.length !== given.length || !timingSafeEqual(expected, given)) return 'bot';
       const age = now() - Number(stamp);
       if (age < 0) return 'bot';
+      if (used.has(nonce)) return 'bot';
       if (age < minFillMs) return 'too-fast';
       if (age > maxAgeMs) return 'expired';
       return 'ok';
@@ -76,3 +89,14 @@ export function intakeSecret(): string {
 }
 
 export const applyGuard = createApplyGuard(intakeSecret);
+
+/**
+ * Behind a proxy the socket address is the proxy's, which would put every visitor in one rate-limit
+ * bucket. adapter-node reads the real address only from ADDRESS_HEADER (with XFF_DEPTH for
+ * X-Forwarded-For); in production the form stays closed until that is configured, or the operator
+ * states there is no proxy with LIFECYCLE_DIRECT_CLIENTS=1.
+ */
+export function clientAddressConfigured(env: Record<string, string | undefined> = process.env): boolean {
+  if (env.NODE_ENV !== 'production') return true;
+  return Boolean(env.ADDRESS_HEADER) || env.LIFECYCLE_DIRECT_CLIENTS === '1';
+}

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from 'bun:test';
 import { createServer, type ViteDevServer } from 'vite';
 import { parseHTML } from 'linkedom';
-import { createApplyGuard } from '../src/lib/server/apply-guard';
+import { clientAddressConfigured, createApplyGuard } from '../src/lib/server/apply-guard';
 
 const secret = `synthetic-intake-secret-${crypto.randomUUID()}`;
 const member = { id: 11, subject: 'synthetic-member', displayName: 'Synthetic Terran', roles: ['alumni'] as const };
@@ -18,14 +18,17 @@ const api = Bun.serve({ hostname: '127.0.0.1', port: 0, async fetch(request) {
 let vite: ViteDevServer;
 let render: typeof import('svelte/server').render;
 const saved = { origin: process.env.CMS_ORIGIN, secret: process.env.LIFECYCLE_INTAKE_SECRET };
+const authEnv = { MEMBER_AUTH_ISSUER: 'http://127.0.0.1:8999/realms/terrace', MEMBER_AUTH_CLIENT_ID: 'terrace-web', MEMBER_AUTH_CLIENT_SECRET: 'synthetic', MEMBER_AUTH_ORIGIN: 'http://127.0.0.1:4999' };
 
 beforeAll(async () => {
   process.env.CMS_ORIGIN = `http://127.0.0.1:${api.port}`;
   process.env.LIFECYCLE_INTAKE_SECRET = secret;
+  Object.assign(process.env, authEnv);
   vite = await createServer({ server: { middlewareMode: true }, logLevel: 'silent' });
   render = (await vite.ssrLoadModule('svelte/server')).render;
 });
 afterAll(async () => {
+  for (const name of Object.keys(authEnv)) delete process.env[name];
   await vite?.close(); api.stop(true);
   for (const [name, value] of [['CMS_ORIGIN', saved.origin], ['LIFECYCLE_INTAKE_SECRET', saved.secret]] as const) { if (value === undefined) delete process.env[name]; else process.env[name] = value; }
 });
@@ -40,7 +43,7 @@ function guard(overrides: Parameters<typeof createApplyGuard>[1] = {}) {
 
 test('the guard accepts a human-paced submission and rejects a filled honeypot', () => {
   const { instance, advance } = guard();
-  const token = instance.issue();
+  const token = instance.issue('a');
   advance(10_000);
   expect(instance.check({ token, honeypot: '', client: 'a' })).toBe('ok');
   expect(instance.check({ token, honeypot: 'http://spam.invalid', client: 'a' })).toBe('bot');
@@ -48,118 +51,160 @@ test('the guard accepts a human-paced submission and rejects a filled honeypot',
   expect(instance.check({ token, honeypot: undefined, client: 'a' })).toBe('ok');
 });
 
-test('the guard enforces a minimum fill time and a maximum token age', () => {
+test('the guard enforces a minimum fill time and a short token life', () => {
   const { instance, advance } = guard();
-  const token = instance.issue();
+  const token = instance.issue('a');
   advance(500);
   expect(instance.check({ token, honeypot: '', client: 'a' })).toBe('too-fast');
   advance(10_000);
   expect(instance.check({ token, honeypot: '', client: 'a' })).toBe('ok');
-  advance(3 * 60 * 60_000);
+  advance(31 * 60_000);
   expect(instance.check({ token, honeypot: '', client: 'a' })).toBe('expired');
+});
+
+test('a token is bound to the client it was issued to', () => {
+  const { instance, advance } = guard();
+  const token = instance.issue('visitor-1');
+  advance(10_000);
+  expect(instance.check({ token, honeypot: '', client: 'visitor-2' })).toBe('bot');
+  expect(instance.check({ token, honeypot: '', client: 'visitor-1' })).toBe('ok');
+});
+
+test('a spent token cannot be replayed, but a rejected attempt does not spend it', () => {
+  const { instance, advance } = guard();
+  const token = instance.issue('a');
+  advance(10_000);
+  expect(instance.check({ token, honeypot: '', client: 'a' })).toBe('ok');
+  expect(instance.check({ token, honeypot: '', client: 'a' })).toBe('ok'); // not yet accepted, so a corrected resubmission works
+  instance.spend(token);
+  expect(instance.check({ token, honeypot: '', client: 'a' })).toBe('bot');
 });
 
 test('forged, tampered, future-dated or missing timing tokens are treated as bots', () => {
   const { instance, advance } = guard();
-  const token = instance.issue();
+  const token = instance.issue('a');
   advance(10_000);
-  const [stamp, mac] = token.split('.');
-  const other = createApplyGuard(() => `other-${secret}`, { now: () => 1_800_000_000_000 }).issue();
-  for (const bad of [undefined, null, 42, '', 'x', `${stamp}`, `${stamp}.`, `${Number(stamp) - 20_000}.${mac}`, `${stamp}.${mac}.extra`, other, `${Number(stamp) + 99_000_000}.${mac}`]) {
+  const [stamp, nonce, mac] = token.split('.');
+  const other = createApplyGuard(() => `other-${secret}`, { now: () => 1_800_000_000_000 }).issue('a');
+  for (const bad of [undefined, null, 42, '', 'x', `${stamp}`, `${stamp}.${nonce}`, `${stamp}.${nonce}.`, `${Number(stamp) - 20_000}.${nonce}.${mac}`, `${stamp}.${nonce}.${mac}.extra`, `${stamp}.short.${mac}`, other, `${Number(stamp) + 99_000_000}.${nonce}.${mac}`]) {
     expect(instance.check({ token: bad, honeypot: '', client: `c-${String(bad)}` })).toBe('bot');
   }
 });
 
 test('the guard rate-limits per client and overall, resets after the window, and bounds memory', () => {
   const { instance, advance } = guard({ limit: 3, globalLimit: 5, maxClients: 2, windowMs: 60_000 });
-  const token = instance.issue();
+  const tokens: Record<string, string> = Object.fromEntries(['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((name) => [name, instance.issue(name)]));
   advance(10_000);
-  const send = (client: string) => instance.check({ token, honeypot: '', client });
+  const send = (client: string) => instance.check({ token: tokens[client], honeypot: '', client });
   expect([send('a'), send('a'), send('a'), send('a')]).toEqual(['ok', 'ok', 'ok', 'rate-limited']);
   expect(send('b')).toBe('ok');
   expect(send('b')).toBe('ok');
   expect(send('c')).toBe('rate-limited'); // overall limit of five reached
   advance(61_000);
   expect(send('a')).toBe('ok');
-  // More distinct clients than the cap never grows the table beyond it.
   for (const client of ['d', 'e', 'f', 'g']) send(client);
+});
+
+test('client addresses behind a proxy must be configured before the form opens in production', () => {
+  expect(clientAddressConfigured({ NODE_ENV: 'production' })).toBe(false);
+  expect(clientAddressConfigured({ NODE_ENV: 'production', ADDRESS_HEADER: 'X-Forwarded-For', XFF_DEPTH: '1' })).toBe(true);
+  expect(clientAddressConfigured({ NODE_ENV: 'production', LIFECYCLE_DIRECT_CLIENTS: '1' })).toBe(true);
+  expect(clientAddressConfigured({})).toBe(true);
 });
 
 // ---- apply route --------------------------------------------------------------------------
 async function applyModule() { return await vite.ssrLoadModule('/src/routes/apply/+page.server.ts'); }
-const sent = (values: Record<string, string>) => new Request('http://127.0.0.1/apply', { method: 'POST', body: new URLSearchParams(values) });
+const sent = (values: Record<string, string>, headers: Record<string, string> = {}) => new Request('http://127.0.0.1/apply', { method: 'POST', body: new URLSearchParams(values), headers });
 const headersOf = () => ({ setHeaders: () => undefined });
-let issued: Promise<string> | undefined;
-async function readyForm(extra: Record<string, string> = {}) {
-  // One real wait covers every test: the signed token stays valid for two hours.
-  issued ??= (async () => { const { load } = await applyModule(); const { token } = (load as any)({ setHeaders: () => undefined }); await Bun.sleep(3100); return token as string; })();
-  const token = await issued;
-  return { t: token, name: 'Pat Terran', affiliation: 'alumni', classYear: '2004', contactEmail: 'pat@terrace.invalid', note: 'Hello.', website: '', ...extra };
+// Tokens are bound to a client, so each test client gets its own, issued once and aged by one real wait.
+const slots = Array.from({ length: 12 }, (_, index) => `apply-test-${index}`);
+let issued: Promise<Record<string, string>> | undefined;
+async function ready(client: string, extra: Record<string, string> = {}) {
+  issued ??= (async () => {
+    const { load } = await applyModule();
+    const tokens = Object.fromEntries(slots.map((slot) => [slot, ((load as any)({ setHeaders: () => undefined, getClientAddress: () => slot }) as any).token as string]));
+    await Bun.sleep(3100);
+    return tokens;
+  })();
+  return { t: (await issued)[client], name: 'Pat Terran', affiliation: 'alumni', classYear: '2004', contactEmail: 'pat@terrace.invalid', note: 'Hello.', website: '', ...extra };
 }
-let sequence = 0;
-const client = () => `apply-test-${++sequence}`;
+const run = async (client: string, values: Record<string, string>, headers: Record<string, string> = {}) => ((await applyModule()).actions as any).default({ request: sent(values, headers), getClientAddress: () => client, ...headersOf() });
 
 test('a valid application reaches the CMS with the secret and only the fields the review needs', async () => {
-  const { actions } = await applyModule();
-  const values = await readyForm();
   respond = () => Response.json({ received: true }, { status: 202 });
-  const result: any = await (actions as any).default({ request: sent(values), getClientAddress: client, ...headersOf() });
+  const result: any = await run(slots[0], await ready(slots[0]));
   expect(result).toEqual({ received: true });
   expect(calls).toHaveLength(1);
   expect(calls[0].path).toBe('/api/lifecycle/apply');
   expect(calls[0].headers.get('x-terrace-intake')).toBe(secret);
   expect(calls[0].headers.get('authorization')).toBeNull();
   expect(calls[0].body).toEqual({ name: 'Pat Terran', affiliation: 'alumni', classYear: 2004, contactEmail: 'pat@terrace.invalid', note: 'Hello.' });
+  // The accepted token is spent: replaying it is dropped without reaching the CMS.
+  calls.length = 0;
+  expect(await run(slots[0], await ready(slots[0]))).toEqual({ received: true });
+  expect(calls).toHaveLength(0);
 }, 15_000);
 
-test('the honeypot, a too-fast submit and invalid input never reach the CMS', async () => {
-  const { actions, load } = await applyModule();
-  const action = (values: Record<string, string>, who = client()) => (actions as any).default({ request: sent(values), getClientAddress: () => who, ...headersOf() });
-  const values = await readyForm();
-  expect(await action({ ...values, website: 'https://spam.invalid' })).toEqual({ received: true }); // silently dropped
-  const fresh = (load as any)({ setHeaders: () => undefined }).token;
-  expect((await action({ ...values, t: fresh })).status).toBe(400); // too fast
+test('the honeypot, a too-fast submit, a stolen token and invalid input never reach the CMS', async () => {
+  const { load } = await applyModule();
+  const values = await ready(slots[1]);
+  expect(await run(slots[1], { ...values, website: 'https://spam.invalid' })).toEqual({ received: true }); // silently dropped
+  const fresh = (load as any)({ setHeaders: () => undefined, getClientAddress: () => slots[1] }).token;
+  expect(((await run(slots[1], { ...values, t: fresh })) as any).status).toBe(400); // too fast
+  expect(await run(slots[2], values)).toEqual({ received: true }); // someone else's token: dropped
   for (const bad of [{ name: '' }, { affiliation: 'staff' }, { classYear: '1800' }, { classYear: 'abcd' }, { contactEmail: 'nope' }, { note: 'x'.repeat(1001) }, { name: 'n'.repeat(121) }, { t: 'forged' }]) {
-    const result: any = await action({ ...values, ...bad });
-    expect(result.status === 400 || result.received === true).toBe(true);
+    const result: any = await run(slots[1], { ...values, ...bad });
+    expect([400, 429].includes(result.status) || result.received === true).toBe(true); // 429 once this client's allowance is used
   }
   expect(calls).toHaveLength(0);
 }, 15_000);
 
-test('rate limiting stops a client after the allowed number of attempts', async () => {
-  const { actions } = await applyModule();
-  const values = await readyForm();
+test('a corrected resubmission after a validation error still works', async () => {
   respond = () => Response.json({ received: true }, { status: 202 });
-  const who = client();
+  const values = await ready(slots[3]);
+  expect(((await run(slots[3], { ...values, contactEmail: 'nope' })) as any).status).toBe(400);
+  expect(await run(slots[3], values)).toEqual({ received: true });
+  expect(calls).toHaveLength(1);
+}, 15_000);
+
+test('rate limiting stops a client after the allowed number of attempts, whatever proxy headers say', async () => {
+  respond = () => Response.json({ received: true }, { status: 202 });
+  const values = await ready(slots[4]);
   const statuses: unknown[] = [];
   for (let attempt = 0; attempt < 7; attempt++) {
-    const result: any = await (actions as any).default({ request: sent(values), getClientAddress: () => who, ...headersOf() });
+    // A forged X-Forwarded-For must not give each request a fresh identity: only getClientAddress counts.
+    const result: any = await run(slots[4], { ...values, contactEmail: 'nope' }, { 'x-forwarded-for': `203.0.113.${attempt}`, forwarded: `for=198.51.100.${attempt}`, 'x-real-ip': `192.0.2.${attempt}` });
     statuses.push(result.status ?? 'ok');
   }
-  expect(statuses).toEqual(['ok', 'ok', 'ok', 'ok', 'ok', 429, 429]);
-  expect(calls).toHaveLength(5);
+  expect(statuses).toEqual([400, 400, 400, 400, 400, 429, 429]);
+  expect(calls).toHaveLength(0);
 }, 15_000);
 
 test('an unconfigured or failing CMS fails closed with a generic message and no detail', async () => {
-  const { actions, load } = await applyModule();
-  const values = await readyForm();
+  const { load } = await applyModule();
+  const values = await ready(slots[5]);
   respond = () => new Response('private upstream detail: db password', { status: 500 });
-  const failed: any = await (actions as any).default({ request: sent(values), getClientAddress: client, ...headersOf() });
+  const failed: any = await run(slots[5], values);
   expect(failed.status).toBe(503);
   expect(JSON.stringify(failed)).not.toContain('private upstream');
   respond = () => new Response(null, { status: 403 });
-  expect(((await (actions as any).default({ request: sent(values), getClientAddress: client, ...headersOf() })) as any).status).toBe(503);
+  expect(((await run(slots[5], values)) as any).status).toBe(503);
   delete process.env.LIFECYCLE_INTAKE_SECRET;
   try {
-    expect(((load as any)({ setHeaders: () => undefined }))).toEqual({ open: false, token: '' });
-    expect(((await (actions as any).default({ request: sent(values), getClientAddress: client, ...headersOf() })) as any).status).toBe(503);
+    expect((load as any)({ setHeaders: () => undefined, getClientAddress: () => slots[5] })).toEqual({ open: false, token: '' });
+    expect(((await run(slots[5], values)) as any).status).toBe(503);
   } finally { process.env.LIFECYCLE_INTAKE_SECRET = secret; }
+  // Production without a configured client-address header closes the form instead of sharing one bucket.
+  const oldEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  try { expect((load as any)({ setHeaders: () => undefined, getClientAddress: () => slots[5] })).toEqual({ open: false, token: '' }); }
+  finally { process.env.NODE_ENV = oldEnv; }
 }, 15_000);
 
 test('the application page renders a hidden honeypot and the page is not indexable or cacheable', async () => {
   const { load } = await applyModule();
   const headers: Record<string, string> = {};
-  const data = (load as any)({ setHeaders: (value: Record<string, string>) => Object.assign(headers, value) });
+  const data = (load as any)({ setHeaders: (value: Record<string, string>) => Object.assign(headers, value), getClientAddress: () => 'page' });
   expect(headers['cache-control']).toBe('private, no-store');
   expect(headers['x-robots-tag']).toContain('noindex');
   const component = (await vite.ssrLoadModule('/src/routes/apply/+page.svelte')).default;
@@ -172,55 +217,56 @@ test('the application page renders a hidden honeypot and the page is not indexab
 
 // ---- redeem route -------------------------------------------------------------------------
 const token = 'A'.repeat(43);
-async function joinModule() { return await vite.ssrLoadModule('/src/routes/join/[token]/+page.server.ts'); }
+async function joinModule() { return await vite.ssrLoadModule('/src/routes/join/+page.server.ts'); }
+const joinRequest = (values: Record<string, string>) => new Request('http://127.0.0.1/join/', { method: 'POST', body: new URLSearchParams(values) });
 
-test('a link is checked without being used up, then redeemed once, with referrer and cache protection', async () => {
+test('the token is redeemed once from a POST body, never from the URL, with referrer and cache protection', async () => {
   const { load, actions } = await joinModule();
   const headers: Record<string, string> = {};
-  respond = (_request, body) => Response.json({ valid: true, role: 'alumni', name: 'Pat' }, { status: 200 });
-  expect(await (load as any)({ params: { token }, setHeaders: (value: Record<string, string>) => Object.assign(headers, value) })).toEqual({ state: 'ready', role: 'alumni', name: 'Pat' });
+  expect(await (load as any)({ setHeaders: (value: Record<string, string>) => Object.assign(headers, value) })).toEqual({});
   expect(headers['referrer-policy']).toBe('no-referrer');
   expect(headers['cache-control']).toBe('private, no-store');
-  expect(calls[0].body).toEqual({ token });
+  expect(calls).toHaveLength(0); // loading the page, as a link scanner would, uses nothing up
+  respond = () => Response.json({ valid: true, role: 'alumni', name: 'Pat' });
+  expect(await (actions as any).default({ request: joinRequest({ token }), setHeaders: () => undefined })).toEqual({ state: 'accepted' });
+  expect(calls[0].body).toEqual({ token, consume: true });
+  expect(calls[0].path).toBe('/api/lifecycle/redeem');
   expect(calls[0].headers.get('x-terrace-intake')).toBe(secret);
-  expect(await (actions as any).default({ params: { token }, setHeaders: () => undefined })).toEqual({ state: 'accepted' });
-  expect(calls[1].body).toEqual({ token, consume: true });
   respond = () => Response.json({ valid: false }, { status: 404 });
-  const again: any = await (actions as any).default({ params: { token }, setHeaders: () => undefined });
-  expect(again.status).toBe(404);
+  expect(((await (actions as any).default({ request: joinRequest({ token }), setHeaders: () => undefined })) as any).status).toBe(404);
 });
 
 test('malformed tokens never reach the CMS; outages are not reported as invalid links', async () => {
-  const { load, actions } = await joinModule();
+  const { actions } = await joinModule();
   for (const bad of ['short', 'A'.repeat(44), '../../etc/passwd', 'A'.repeat(42) + '!', '']) {
-    expect(await (load as any)({ params: { token: bad }, setHeaders: () => undefined })).toEqual({ state: 'invalid' });
-    expect(((await (actions as any).default({ params: { token: bad }, setHeaders: () => undefined })) as any).status).toBe(404);
+    expect(((await (actions as any).default({ request: joinRequest({ token: bad }), setHeaders: () => undefined })) as any).status).toBe(404);
   }
+  expect(((await (actions as any).default({ request: joinRequest({}), setHeaders: () => undefined })) as any).status).toBe(404);
   expect(calls).toHaveLength(0);
   respond = () => new Response(null, { status: 500 });
-  expect(await (load as any)({ params: { token }, setHeaders: () => undefined })).toEqual({ state: 'unavailable' });
-  expect(((await (actions as any).default({ params: { token }, setHeaders: () => undefined })) as any).status).toBe(503);
+  expect(((await (actions as any).default({ request: joinRequest({ token }), setHeaders: () => undefined })) as any).status).toBe(503);
 });
 
-test('the invitation page states what happens next and that no account exists yet', async () => {
-  const component = (await vite.ssrLoadModule('/src/routes/join/[token]/+page.svelte')).default;
-  const view = (data: any, form: any = null) => parseHTML(`<html><body>${render(component, { props: { data, form } }).body}</body></html>`).document.documentElement.textContent ?? '';
-  expect(view({ state: 'ready', role: 'alumni', name: 'Pat' })).toContain('Accept your invitation');
-  expect(view({ state: 'ready', role: 'alumni', name: 'Pat' }, { state: 'accepted' })).toContain('operator');
-  expect(view({ state: 'invalid' })).toContain('not valid');
+test('the invitation page offers a paste field without script, and says what happens next', async () => {
+  const component = (await vite.ssrLoadModule('/src/routes/join/+page.svelte')).default;
+  const view = (form: any = null) => parseHTML(`<html><body>${render(component, { props: { data: {}, form } }).body}</body></html>`).document;
+  expect(view().querySelector('input[name="token"]')).not.toBeNull();
+  expect(view({ state: 'accepted' }).documentElement.textContent).toContain('operator');
+  expect(view({ state: 'invalid' }).documentElement.textContent).toContain('not valid');
 });
 
 // ---- member data: export, erasure, reports ----------------------------------------------------
+const exportRequest = (origin: string | null = 'http://127.0.0.1:4999') => new Request('http://127.0.0.1:4999/members/account/export', { method: 'POST', headers: origin ? { origin } : {} });
 async function exportModule() { return await vite.ssrLoadModule('/src/routes/members/account/export/+server.ts'); }
 
 test('export requires a signed-in member and forwards only that session to the CMS', async () => {
   const { POST } = await exportModule();
   for (const anonymous of [{ member: null, memberAccessToken: null }, { member, memberAccessToken: null }]) {
-    await expect((POST as any)({ locals: anonymous })).rejects.toMatchObject({ status: 401 });
+    await expect((POST as any)({ locals: anonymous, request: exportRequest() })).rejects.toMatchObject({ status: 401 });
   }
   expect(calls).toHaveLength(0);
   respond = () => Response.json({ format: 'terrace-member-export/1', member: { id: 11 } });
-  const response: Response = await (POST as any)({ locals });
+  const response: Response = await (POST as any)({ locals, request: exportRequest() });
   expect(calls[0].path).toBe('/api/lifecycle/export');
   expect(calls[0].headers.get('authorization')).toBe('Bearer synthetic-access');
   expect(calls[0].headers.get('x-terrace-intake')).toBeNull();
@@ -229,15 +275,21 @@ test('export requires a signed-in member and forwards only that session to the C
   expect((await response.json()).format).toBe('terrace-member-export/1');
 });
 
+test('export refuses a request without a matching origin before contacting the CMS', async () => {
+  const { POST } = await exportModule();
+  for (const origin of [null, 'https://attacker.invalid', 'http://127.0.0.1:4998']) await expect((POST as any)({ locals, request: exportRequest(origin) })).rejects.toMatchObject({ status: 403 });
+  expect(calls).toHaveLength(0);
+});
+
 test('export surfaces refusals and outages without upstream detail, and allows larger files than ordinary calls', async () => {
   const { POST } = await exportModule();
   for (const [upstream, expected] of [[401, 401], [403, 403], [500, 503]] as const) {
     respond = () => new Response('private detail', { status: upstream });
-    await expect((POST as any)({ locals })).rejects.toMatchObject({ status: expected });
+    await expect((POST as any)({ locals, request: exportRequest() })).rejects.toMatchObject({ status: expected });
   }
   const big = { stories: Array.from({ length: 30 }, () => 'x'.repeat(50_000)) };
   respond = () => Response.json(big);
-  expect(((await (POST as any)({ locals })) as Response).status).toBe(200);
+  expect(((await (POST as any)({ locals, request: exportRequest() })) as Response).status).toBe(200);
 });
 
 test('erasure is two steps, needs the typed confirmation, and ends the session afterwards', async () => {
