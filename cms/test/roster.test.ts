@@ -30,6 +30,21 @@ const server = Bun.serve({ hostname: '127.0.0.1', port: 0, async fetch(request) 
 } })
 const settings: KeycloakConfig = { issuer: `http://127.0.0.1:${server.port}/realms/terrace-test`, audience: 'terrace-community', clientId: 'terrace-web', introspectionClientId: 'test-introspection', introspectionSecret: 'synthetic-secret' }
 
+function productionEnv(): NodeJS.ProcessEnv {
+  const realm = productionRealm('https://www.terrace.example', 'https://editor.terrace.example', { webSecret: 'synthetic-web-'.repeat(4), introspectionSecret: 'synthetic-community-'.repeat(4), cmsSecret: 'synthetic-editor-'.repeat(4), editorialSecret: 'synthetic-editorial-'.repeat(4) })
+  const editorClient = realm.clients.find((client) => client.redirectUris.some((uri) => uri.endsWith('/api/editorial/callback')))!
+  const memberClient = realm.clients.find((client) => client.redirectUris.some((uri) => uri.endsWith('/auth/callback')))!
+  const resource = (client: typeof editorClient) => client.protocolMappers![0].config['included.custom.audience']
+  const identity = 'https://identity.terrace.example/realms/terrace'
+  return {
+    NODE_ENV: 'test', CMS_PUBLIC_DEPLOYMENT: '1', CMS_ORIGIN: 'https://editor.terrace.example', CMS_MEDIA_DIR: '/var/lib/terrace-media', PAYLOAD_SECRET: 'synthetic-payload-'.repeat(4),
+    CMS_AUTH_ISSUER: identity, CMS_AUTH_CLIENT_ID: editorClient.clientId, CMS_AUTH_AUDIENCE: resource(editorClient), CMS_AUTH_CLIENT_SECRET: editorClient.secret,
+    CMS_AUTH_INTROSPECTION_CLIENT_ID: resource(editorClient), CMS_AUTH_INTROSPECTION_SECRET: 'synthetic-editorial-'.repeat(4),
+    MEMBER_AUTH_ISSUER: identity, MEMBER_AUTH_CLIENT_ID: memberClient.clientId, MEMBER_AUTH_AUDIENCE: resource(memberClient), MEMBER_AUTH_INTROSPECTION_CLIENT_ID: resource(memberClient), MEMBER_AUTH_INTROSPECTION_SECRET: 'synthetic-community-'.repeat(4),
+    LIFECYCLE_OUTBOX_DIR: '/var/lib/terrace-outbox', LIFECYCLE_PUBLIC_ORIGIN: 'https://www.terrace.example',
+    DATABASE_URI: 'postgresql:///terrace_cms?host=/var/run/postgresql',
+  }
+}
 const cmsDirectory = join(import.meta.dir, '..')
 const suffix = crypto.randomUUID().slice(0, 8)
 const secret = `synthetic-intake-secret-${crypto.randomUUID()}`
@@ -91,6 +106,9 @@ async function everyTable(needles: string[]) {
   for (const table of tables) if (Number((await q(`SELECT count(*)::int AS n FROM "${table}" x WHERE x::text ILIKE ANY($1)`, [needles.map((needle) => `%${needle}%`)])).rows[0].n)) hits.push(table)
   return hits
 }
+// Writes through the command line go the production way (public-deployment configuration plus --confirm-production), whatever the database is: CI's
+// database is a service host, and this also exercises the production confirmation end to end.
+const writer = () => ({ ...productionEnv(), DATABASE_URI: process.env.DATABASE_URI, LIFECYCLE_OUTBOX_DIR: outbox, CMS_LOCAL_BOOTSTRAP: undefined, CMS_BOOTSTRAP_EMAIL: undefined, CMS_BOOTSTRAP_PASSWORD: undefined })
 const apply = (roster: ReturnType<typeof parsed>, limit?: number) => applyRoster(payload, roster, { operatorId: Number(admin.id), planSha256: roster.planSha256, limit })
 
 beforeAll(async () => {
@@ -293,19 +311,7 @@ test('apply refuses a different file, missing delivery configuration and a non-a
 })
 
 test('the production guard needs the production configuration and an explicit confirmation', () => {
-  const realm = productionRealm('https://www.terrace.example', 'https://editor.terrace.example', { webSecret: 'synthetic-web-'.repeat(4), introspectionSecret: 'synthetic-community-'.repeat(4), cmsSecret: 'synthetic-editor-'.repeat(4), editorialSecret: 'synthetic-editorial-'.repeat(4) })
-  const editorClient = realm.clients.find((client) => client.redirectUris.some((uri) => uri.endsWith('/api/editorial/callback')))!
-  const memberClient = realm.clients.find((client) => client.redirectUris.some((uri) => uri.endsWith('/auth/callback')))!
-  const resource = (client: typeof editorClient) => client.protocolMappers![0].config['included.custom.audience']
-  const identity = 'https://identity.terrace.example/realms/terrace'
-  const production: NodeJS.ProcessEnv = {
-    NODE_ENV: 'test', CMS_PUBLIC_DEPLOYMENT: '1', CMS_ORIGIN: 'https://editor.terrace.example', CMS_MEDIA_DIR: '/var/lib/terrace-media', PAYLOAD_SECRET: 'synthetic-payload-'.repeat(4),
-    CMS_AUTH_ISSUER: identity, CMS_AUTH_CLIENT_ID: editorClient.clientId, CMS_AUTH_AUDIENCE: resource(editorClient), CMS_AUTH_CLIENT_SECRET: editorClient.secret,
-    CMS_AUTH_INTROSPECTION_CLIENT_ID: resource(editorClient), CMS_AUTH_INTROSPECTION_SECRET: 'synthetic-editorial-'.repeat(4),
-    MEMBER_AUTH_ISSUER: identity, MEMBER_AUTH_CLIENT_ID: memberClient.clientId, MEMBER_AUTH_AUDIENCE: resource(memberClient), MEMBER_AUTH_INTROSPECTION_CLIENT_ID: resource(memberClient), MEMBER_AUTH_INTROSPECTION_SECRET: 'synthetic-community-'.repeat(4),
-    LIFECYCLE_OUTBOX_DIR: '/var/lib/terrace-outbox', LIFECYCLE_PUBLIC_ORIGIN: 'https://www.terrace.example',
-    DATABASE_URI: 'postgresql:///terrace_cms?host=/var/run/postgresql',
-  }
+  const production = productionEnv()
   // Local database, no public deployment: no confirmation needed.
   expect(productionGuard({ DATABASE_URI: 'postgresql:///terrace_cms?host=/tmp/socket&port=55432' }, false)).toEqual({ production: false })
   // Public deployment: valid configuration and the flag, even though the database is a local socket.
@@ -335,25 +341,28 @@ test('the production guard needs the production configuration and an explicit co
 
 test('the command line applies a reviewed dry run end to end, prints no personal data and rolls back', async () => {
   const file = csvFile(csv(person('Cli One'), person('Cli Two', 'current-member', '')))
+  const unconfirmed = run(['apply', '--file', file, '--operator', String(admin.id), '--plan-sha256', 'a'.repeat(64)], writer())
+  expect(unconfirmed.code).toBe(1)
+  expect(unconfirmed.err).toContain('--confirm-production')
   const dry = summaryOf(run(['dry-run', '--file', file, '--report', reportPath()]).out)
   const missing = run(['apply', '--file', file, '--operator', String(admin.id)])
   expect(missing.code).toBe(1)
   expect(missing.err).toContain('Usage')
-  const notAdmin = run(['apply', '--file', file, '--operator', String(editor.id), '--plan-sha256', dry.planSha256])
+  const notAdmin = run(['apply', '--file', file, '--operator', String(editor.id), '--plan-sha256', dry.planSha256, '--confirm-production'], writer())
   expect(notAdmin.code).toBe(1)
   expect(notAdmin.err).toContain('administrator')
   const baseline = (await counts()).applications
   expect(baseline).toBeGreaterThanOrEqual(0)
-  const applied = run(['apply', '--file', file, '--operator', admin.email, '--plan-sha256', dry.planSha256, '--report', reportPath()])
+  const applied = run(['apply', '--file', file, '--operator', admin.email, '--plan-sha256', dry.planSha256, '--report', reportPath(), '--confirm-production'], writer())
   expect(applied.code).toBe(0)
   const summary = summaryOf(applied.out)
   expect(summary.counts).toMatchObject({ created: 2, failed: 0 })
   expect((await counts()).applications).toBe(baseline + 2)
   for (const needle of [suffix, 'Roster', '@terrace.invalid', 'join/#']) { expect(applied.out).not.toContain(needle); expect(applied.err).not.toContain(needle) }
-  const noop = run(['apply', '--file', file, '--operator', admin.email, '--plan-sha256', dry.planSha256])
+  const noop = run(['apply', '--file', file, '--operator', admin.email, '--plan-sha256', dry.planSha256, '--confirm-production'], writer())
   expect(summaryOf(noop.out).counts).toMatchObject({ created: 0, skip: 2 })
   expect((await counts()).applications).toBe(baseline + 2)
-  const back = run(['rollback', '--run', summary.runId, '--operator', String(admin.id)])
+  const back = run(['rollback', '--run', summary.runId, '--operator', String(admin.id), '--confirm-production'], writer())
   expect(back.code).toBe(0)
   expect(summaryOf(back.out)).toMatchObject({ ok: true, revoked: 2, withdrawn: 2 })
   expect(back.out + back.err).not.toContain(suffix)
