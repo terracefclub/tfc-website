@@ -87,7 +87,7 @@ try {
   await reader.screenshot({ path: '.state/report-member.png', fullPage: true })
   assert(await reader.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Mobile report form overflows')
   await report.getByRole('button', { name: 'Send report', exact: true }).click()
-  await reader.getByRole('status').filter({ hasText: 'Your report was sent to the Terrace administrators.' }).waitFor()
+  await reader.getByRole('status').filter({ hasText: 'Your report was sent to the Terrace moderators.' }).waitFor()
   count++
 
   stage = 'administrator queue API'
@@ -100,15 +100,16 @@ try {
     assert((await login.json()).user?.role === 'admin', 'Synthetic account lacks administrator role')
     assert((await adminContext.cookies()).some((cookie) => cookie.name === 'payload-token'), 'Administrator session cookie missing')
   }
-  const query = `${cms}/api/story-reports?where[storyId][equals]=${storyId}`
+  // Reports live in the moderation queue (member lifecycle); the legacy story-reports collection is no longer written.
+  const query = `${cms}/api/moderation-reports?where[targetType][equals]=story&where[targetId][equals]=${storyId}`
   const queued = await admin.request.get(query, { headers: { origin: cms } })
   assert(queued.ok(), `Administrator queue access denied (HTTP ${queued.status()})`)
   const snapshot = (await queued.json()).docs[0]
   reportId = snapshot?.id
-  assert(snapshot?.storyTitle === title && snapshot?.reason === 'privacy' && snapshot?.status === 'open', 'Wrong report snapshot')
-  assert(!snapshot.reportKey, 'Reporter key exposed')
+  assert(snapshot?.snapshotTitle === title && snapshot?.reason === 'privacy' && snapshot?.status === 'open', 'Wrong report snapshot')
+  assert(!snapshot.reportKey && !('reporter' in snapshot), 'Reporter identity exposed')
 
-  stage = 'ordinary editor API denial'
+  stage = 'ordinary editor moderation access'
   const editorContext = await browser.newContext(); contexts.push(editorContext)
   const editorPage = await editorContext.newPage()
   if (editorialSSO) await editorial(editorPage, 'local-editorial-editor', credentials.editorialEditorPassword, 'editor')
@@ -120,27 +121,28 @@ try {
     assert((await editorContext.request.post(`${cms}/api/users/login`, { data: { email, password } })).ok(), 'Synthetic editor login failed')
     await editorPage.goto(`${cms}/admin`)
   }
-  assert(await editorPage.locator('a[href="/admin/collections/story-reports"]').count() === 0, 'Editor dashboard exposes the report queue')
-  assert((await editorContext.request.get(`${cms}/api/story-reports`, { headers: { origin: cms } })).status() === 403, 'Editor listed the report queue')
-  for (const method of ['get', 'patch', 'delete'] as const) {
-    const response = await editorContext.request[method](`${cms}/api/story-reports/${reportId}`, { headers: { origin: cms }, ...(method === 'patch' ? { data: { status: 'reviewed' } } : {}) })
-    assert(response.status() === 403, `Editor ${method} was not denied`)
-  }
+  // Editors read and resolve reports but never see who reported, and cannot delete a report.
+  const editorRead = await editorContext.request.get(`${cms}/api/moderation-reports/${reportId}`, { headers: { origin: cms } })
+  assert(editorRead.ok(), `Editor could not read the moderation queue (HTTP ${editorRead.status()})`)
+  const editorView = await editorRead.json()
+  assert(editorView.snapshotTitle === title && !('reporter' in editorView) && !editorView.reportKey, 'Editor sees reporter identity')
+  assert((await editorContext.request.delete(`${cms}/api/moderation-reports/${reportId}`, { headers: { origin: cms } })).status() === 403, 'Editor delete was not denied')
+  assert((await editorContext.request.get(`${cms}/api/story-reports`, { headers: { origin: cms } })).status() === 403, 'Editor listed the legacy report queue')
 
   stage = 'native reviewer interface'
-  await admin.goto(`${cms}/admin/collections/story-reports`)
+  await admin.goto(`${cms}/admin/collections/moderation-reports`)
   await admin.getByRole('link', { name: title, exact: true }).click()
   await admin.locator('#field-status').click()
-  await admin.getByRole('option', { name: 'reviewed', exact: true }).click()
+  await admin.getByRole('option', { name: 'resolved', exact: true }).click()
   await admin.getByRole('button', { name: /^save$/i }).click()
   await admin.waitForFunction(async ({ cms, id }) => {
-    const response = await fetch(`${cms}/api/story-reports/${id}`)
-    return response.ok && (await response.json()).status === 'reviewed'
+    const response = await fetch(`${cms}/api/moderation-reports/${id}`)
+    return response.ok && (await response.json()).status === 'resolved'
   }, { cms, id: reportId }, { timeout: 20_000 })
   count++
   await admin.reload({ waitUntil: 'networkidle' })
   await admin.screenshot({ path: '.state/report-reviewer.png', fullPage: true })
-  assert(await admin.locator('#field-storyBody').inputValue() === 'Original synthetic story <script>literal text</script>.', 'Reviewer snapshot changed')
+  assert(await admin.locator('#field-snapshotBody').inputValue() === 'Original synthetic story <script>literal text</script>.', 'Reviewer snapshot changed')
 
   stage = 'snapshot survives story edits'
   const edit = author.locator('article').filter({ has: author.getByRole('heading', { name: title, exact: true }) }).locator('form[action="?/edit"]')
@@ -148,22 +150,22 @@ try {
   await edit.locator('[name=body]').fill('Changed synthetic story.')
   await edit.getByRole('button', { name: 'Save changes', exact: true }).click()
   await author.getByRole('status').filter({ hasText: 'Your story is updated.' }).waitFor()
-  const unchanged = await admin.request.get(`${cms}/api/story-reports/${reportId}`, { headers: { origin: cms } })
-  assert(unchanged.ok() && (await unchanged.json()).storyBody === snapshot.storyBody, 'Editing the story changed its report snapshot')
+  const unchanged = await admin.request.get(`${cms}/api/moderation-reports/${reportId}`, { headers: { origin: cms } })
+  assert(unchanged.ok() && (await unchanged.json()).snapshotBody === snapshot.snapshotBody, 'Editing the story changed its report snapshot')
 
   stage = 'snapshot survives story removal'
   const removal = await author.request.post(`${web}/members/stories/?/remove`, { headers: { origin: web }, form: { id: storyId! } })
   assert(removal.ok(), 'Author could not remove synthetic story')
   storyId = undefined
-  const retained = await admin.request.get(`${cms}/api/story-reports/${reportId}`, { headers: { origin: cms } })
-  assert(retained.ok() && (await retained.json()).storyTitle === title, 'Deleted story lost its report context')
-  console.log(`Reporting browser checks passed: ${count} assertions; member Keycloak login, ${editorialSSO ? 'editorial Keycloak SSO' : 'local password trial'}, disclosure, submission, editor API denial, native reviewer UI and retained snapshot.`)
+  const retained = await admin.request.get(`${cms}/api/moderation-reports/${reportId}`, { headers: { origin: cms } })
+  assert(retained.ok() && (await retained.json()).snapshotTitle === title, 'Deleted story lost its report context')
+  console.log(`Reporting browser checks passed: ${count} assertions; member Keycloak login, ${editorialSSO ? 'editorial Keycloak SSO' : 'local password trial'}, disclosure, submission, editor moderation access without reporter identity, native reviewer UI and retained snapshot.`)
 } catch (error) {
   console.error(`Reporting browser check failed at ${stage}. ${error instanceof CheckFailure ? error.message : 'Browser operation did not complete.'} Raw browser/auth errors suppressed.`)
   process.exitCode = 1
 } finally {
   if (storyId && author) await cleanup('story', () => author!.request.post(`${web}/members/stories/?/remove`, { headers: { origin: web }, form: { id: storyId! } }))
-  if (reportId) await cleanup('report', () => admin.request.delete(`${cms}/api/story-reports/${reportId}`, { headers: { origin: cms } }))
+  if (reportId) await cleanup('report', () => admin.request.delete(`${cms}/api/moderation-reports/${reportId}`, { headers: { origin: cms } }))
   if (editorId) await cleanup('trial editor', () => admin.request.delete(`${cms}/api/users/${editorId}`, { headers: { origin: cms } }))
   for (const context of contexts) await context.close()
   await browser.close()

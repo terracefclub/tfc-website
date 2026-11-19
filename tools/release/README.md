@@ -83,8 +83,8 @@ runtime configuration of `bin/start`, as the same operating-system account as th
 CMS (it writes `LIFECYCLE_OUTBOX_DIR`, forced to mode 0700 with 0600 files), on a
 daily timer and after every administrator-initiated erasure. It accepts only
 `--purge-moderated`. It prints one JSON line of counts and outbox row ids (never
-addresses or message text), always ends on its own (a 120 s bound), and exits
-non-zero with a labelled line when mirror work failed, the unlinked-application
+addresses or message text), always ends on its own (a 120 s bound; exit 2 means it timed out), and exits
+1 with a labelled line when mirror work failed, the unlinked-application
 count could not be read or, in a public deployment, the outbox directory is unset,
 so the timer unit shows the failure; the next run retries it. Like `bin/migrate`, it
 needs no `PORT` and opens no listener. A public CMS (`CMS_PUBLIC_DEPLOYMENT=1`)
@@ -148,8 +148,8 @@ immutable bundle, private writable cache/uploads/outbox and its fresh PostgreSQL
 The source checkout and build database are absent. It runs the extracted CMS
 migrator against the empty database and repeats it with an unchanged
 ledger, then runs the extracted `bin/sweep` to write a synthetic pending outbox
-copy (0600 in a 0700 directory) and, after a synthetic erasure of its recipient,
-to redact it, then normal editorial/member SSO, draft/publish/withdrawal and moderation
+copy (0600 in a 0700 directory), checks its JSON summary (counts only, no address)
+and, after a synthetic erasure of its recipient, redacts it, then normal editorial/member SSO, draft/publish/withdrawal and moderation
 browser checks. The final media check uploads synthetic PNGs, exercises native
 image optimization/cache and requests the exact private optimizer URL first with
 an editorial session and then anonymously; either must deny image bytes.
