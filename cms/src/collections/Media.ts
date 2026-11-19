@@ -1,6 +1,7 @@
 import type { CollectionConfig, PayloadRequest } from 'payload'
-import { memberOnly, publicMediaOrMember } from '@/access/rules'
+import { isMember, memberOnly, publicMediaOrMember } from '@/access/rules'
 import { mediaDirectory } from '../media-directory'
+import { wpImportFields } from './shared'
 
 async function assertNoPublishedReferences(req: PayloadRequest, id: string | number) {
   for (const [collection, field] of [
@@ -24,13 +25,21 @@ export const Media: CollectionConfig = {
     mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
     pasteURL: false,
     allowRestrictedFileTypes: false,
+    // WordPress import creates reference-only records (no bytes) until the Kinsta ZIP supplies the files.
+    filesRequiredOnCreate: false,
   },
   hooks: { beforeDelete: [async ({ req, id }) => assertNoPublishedReferences(req, id)], beforeChange: [async ({ req, data, originalDoc }) => {
     if (originalDoc?.public === true && data?.public === false) {
       await assertNoPublishedReferences(req, originalDoc.id)
     }
     const file = req.file
-    if (!file) return data
+    if (!file) {
+      // Without bytes a record must be an import reference: it names where the original lives and can never be public.
+      const reference = (data?.wpId ?? originalDoc?.wpId) && !(data?.filename ?? originalDoc?.filename)
+      if (!originalDoc && !reference) throw new Error('An upload is required.')
+      if (reference && (data?.public ?? originalDoc?.public) === true) throw new Error('A media reference without a file cannot be public.')
+      return data
+    }
     const bytes = file.data
     if (!bytes || bytes.length === 0 || bytes.length > 10 * 1024 * 1024) {
       throw new Error('Upload must contain at most 10 MiB of bytes.')
@@ -48,5 +57,8 @@ export const Media: CollectionConfig = {
     { name: 'caption', type: 'textarea', maxLength: 500, admin: { description: 'Optional visible caption.' } },
     { name: 'credit', type: 'text', maxLength: 200, admin: { description: 'Optional photographer, artist, or source credit.' } },
     { name: 'public', type: 'checkbox', defaultValue: false, required: true, admin: { description: 'Private uploads cannot be served to anonymous visitors.' } },
+    { name: 'sourceUrl', type: 'text', maxLength: 2000, access: { read: ({ req }) => isMember(req.user), update: () => false }, admin: { readOnly: true, description: 'WordPress URL of the original (import reference; bytes not yet copied).' } },
+    { name: 'sourceFile', type: 'text', maxLength: 500, access: { read: ({ req }) => isMember(req.user), update: () => false }, admin: { readOnly: true, description: 'Path of the original under wp-content/uploads.' } },
+    ...wpImportFields,
   ],
 }

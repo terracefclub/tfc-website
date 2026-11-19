@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
 import { publishedOrMember, memberOnly } from '@/access/rules'
-import { editorialAccess, publicMediaOnPublish, slugField } from './shared'
+import { editorialAccess, publicMediaOnPublish, slugField, wpImportFields } from './shared'
 
 export const Initiatives: CollectionConfig = {
   slug: 'initiatives',
@@ -16,5 +16,6 @@ export const Initiatives: CollectionConfig = {
     { name: 'ctaLabel', type: 'text' },
     { name: 'ctaUrl', type: 'text', validate: (value: unknown) => !value || typeof value === 'string' && /^https:\/\/[^\s]+$/.test(value) || 'Use an HTTPS URL.' },
     { name: 'coverImage', type: 'relationship', relationTo: 'media' },
+    ...wpImportFields,
   ],
 }

@@ -9,7 +9,8 @@
     "test": "bun test",
     "build": "node tools/run-sveltekit.mjs build",
     "preview": "node tools/run-sveltekit.mjs preview",
-    "ocr:newsletters": "bun tools/newsletter-ocr/ocr.ts"
+    "ocr:newsletters": "bun tools/newsletter-ocr/ocr.ts",
+    "import:wordpress": "bun tools/wp-import/import.ts"
   },
   "devDependencies": {
     "@rgrove/parse-xml": "5.0.0",
