@@ -8,6 +8,10 @@ import { createApplyGuard } from '../src/lib/server/apply-guard';
 // Every form is posted the way a browser without JavaScript does it: a form content type and
 // `Accept: text/html`, straight through the SvelteKit request handler (hooks, load, action, render).
 // Calling an action function directly misses failures that only appear when SvelteKit re-runs `load`.
+//
+// Fail-before-fix regressions (each returned 500 before policy headers moved into the hooks): every /apply/ and /join/
+// test in the first two describe blocks, including the 429, 503 and 404 results and the enhanced and __data.json
+// responses. Guards (they passed before the fix and pin behaviour that must not change): the member form tests.
 const secret = `synthetic-intake-secret-${crypto.randomUUID()}`;
 const goodToken = 'A'.repeat(43);
 const usedToken = 'B'.repeat(43);
@@ -187,6 +191,66 @@ describe('/apply/ without JavaScript', () => {
   }, 30000);
 });
 
+describe('other response types on /apply/ and /join/', () => {
+  const full = { 'cache-control': 'private, no-store', 'x-robots-tag': 'noindex, nofollow' };
+  const policies: Array<[string, Record<string, string>]> = [['/apply/', full], ['/join/', { ...full, 'referrer-policy': 'no-referrer' }]];
+  const expectPolicy = (response: Response, expected: Record<string, string>) => { for (const [name, value] of Object.entries(expected)) expect(response.headers.get(name)).toBe(value); };
+  for (const [path, expected] of policies) {
+    test(`${path} __data.json carries the policy`, async () => {
+      const response = await fetch(`${app.origin}${path}__data.json`);
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toContain('application/json');
+      expectPolicy(response, expected);
+    });
+    test(`${path} refuses a method it does not handle with a 405 that still carries the policy`, async () => {
+      const response = await fetch(`${app.origin}${path}`, { method: 'PUT', headers: { Origin: app.origin, Accept: 'text/html' } });
+      expect(response.status).toBe(405);
+      expectPolicy(response, expected);
+    });
+    test(`${path} without its trailing slash redirects, and the redirect is the one response outside the route policy`, async () => {
+      const response = await fetch(`${app.origin}${path.slice(0, -1)}`, { redirect: 'manual' });
+      expect(response.status).toBe(308);
+      expect(response.headers.get('location')).toBe(path);
+      // SvelteKit answers before it has matched a route, so the hooks see no route id. The redirect has no body and no
+      // token (a fragment never leaves the browser), so there is nothing private to protect on it.
+      expect(response.headers.get('cache-control')).toBeNull();
+      expect(await response.text()).toBe('');
+    });
+  }
+  test('an enhanced /apply/ submission answers in the JSON action protocol, with the policy', async () => {
+    const enhanced = await start();
+    const response = await fetch(`${enhanced.origin}/apply/`, { method: 'POST', body: new URLSearchParams(application(issued())), headers: { Origin: enhanced.origin, Accept: 'application/json', 'x-sveltekit-action': 'true' } });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('application/json');
+    expect(await response.json()).toMatchObject({ type: 'success' });
+    expectPolicy(response, full);
+  }, 30000);
+  test('an enhanced /join/ redemption answers in the JSON action protocol, with no-store, no-referrer and noindex', async () => {
+    const response = await fetch(`${app.origin}/join/`, { method: 'POST', body: new URLSearchParams({ token: usedToken }), headers: { Origin: app.origin, Accept: 'application/json', 'x-sveltekit-action': 'true' } });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ type: 'failure', status: 404 });
+    expectPolicy(response, policies[1][1]);
+  });
+  test('the closed /apply/ 503 and the refused-token /join/ 404 carry the policy', async () => {
+    const closed = await start();
+    const token = issued();
+    delete process.env.LIFECYCLE_INTAKE_SECRET;
+    try { const { response } = await post(closed, '/apply/', application(token)); expect(response.status).toBe(503); expectPolicy(response, full); }
+    finally { process.env.LIFECYCLE_INTAKE_SECRET = secret; }
+    const { response } = await post(app, '/join/', { token: usedToken });
+    expect(response.status).toBe(404);
+    expectPolicy(response, policies[1][1]);
+  }, 30000);
+  test('cross-site form posts: SvelteKit skips its origin check in dev, so the check must stay on in the production config', async () => {
+    // `vite dev` never runs the origin check (it is guarded by !__SVELTEKIT_DEV__), so a 403 cannot be observed here.
+    // In a production build (checked by hand against the built server) the 403 is a plain-text response produced before
+    // the hooks run, so it carries none of the hook headers, route policy included. It has no private content. What these tests can pin is that
+    // nobody turned the check off or trusted other origins.
+    const config = await Bun.file(`${import.meta.dir}/../svelte.config.js`).text();
+    expect(config).not.toMatch(/csrf|checkOrigin|trustedOrigins/);
+  });
+});
+
 describe('/join/ without JavaScript', () => {
   const policy = (response: Response) => {
     expect(response.headers.get('cache-control')).toBe('private, no-store');
@@ -211,6 +275,9 @@ describe('/join/ without JavaScript', () => {
     expect(response.status).toBe(404);
     policy(response);
     expect(document.querySelector('.intake-alert')!.textContent).toContain('not valid');
+    // A browser refresh after success re-posts a used token; say so rather than leave the visitor worried.
+    expect(document.querySelector('.intake-alert')!.textContent).toContain('just accepted this invitation, you are done');
+    expect(document.querySelector('.intake-alert a[href="/members/"]')).not.toBeNull();
     expect(document.querySelector('input[name="token"]')).not.toBeNull();
     expect(redeemed).toEqual([goodToken]);
   });

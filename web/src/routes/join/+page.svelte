@@ -53,6 +53,7 @@
           <div class="intake-alert" role="alert" tabindex="-1" bind:this={alertBox} aria-labelledby="join-alert-title">
             <h2 id="join-alert-title">This link is not valid</h2>
             <p>It may have expired or already been used.</p>
+            <p>If you have just accepted this invitation, you are done. You can <a href="/members/">continue to sign in</a>.</p>
             <p><a href="/apply/">Request to join again</a> or <a href="/contact/">contact the club</a>.</p>
           </div>
         {:else if form?.state === 'unavailable'}
