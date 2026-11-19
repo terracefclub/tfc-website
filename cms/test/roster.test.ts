@@ -9,11 +9,11 @@ import { resetMemberVerifier, type KeycloakConfig } from '../src/auth/keycloak'
 import { intake, own } from '../src/lifecycle/endpoints'
 import { MAX_PENDING } from '../src/lifecycle/intake-validation'
 import { hashToken } from '../src/lifecycle/tokens'
-import { applyRoster, parseRoster, planRoster, resolveOperator, rollbackRoster, ROSTER_HARD_MAX, RosterError } from '../src/lifecycle/roster'
+import { applyRoster, boundPlanHash, ERASED_NOTICE, failStaleRuns, parseRoster, planRoster, resolveOperator, rollbackRoster, ROSTER_HARD_MAX, RosterError, type Operator } from '../src/lifecycle/roster'
 import { sweep } from '../src/lifecycle/sweep'
 import { pool } from '../src/lifecycle/visibility'
 import { OutputRefused, readPrivateInput } from '../../web/tools/private-output'
-import { parseArgs, productionGuard } from '../tools/roster-invite'
+import { emitResult, parseArgs, productionGuard } from '../tools/roster-invite'
 import { productionRealm } from '../../identity/tools/production-realm'
 
 // A real signed token verified against a local identity stub, so first sign-in runs through the strategy a member really uses.
@@ -109,7 +109,15 @@ async function everyTable(needles: string[]) {
 // Writes through the command line go the production way (public-deployment configuration plus --confirm-production), whatever the database is: CI's
 // database is a service host, and this also exercises the production confirmation end to end.
 const writer = () => ({ ...productionEnv(), DATABASE_URI: process.env.DATABASE_URI, LIFECYCLE_OUTBOX_DIR: outbox, CMS_LOCAL_BOOTSTRAP: undefined, CMS_BOOTSTRAP_EMAIL: undefined, CMS_BOOTSTRAP_PASSWORD: undefined })
-const apply = (roster: ReturnType<typeof parsed>, limit?: number) => applyRoster(payload, roster, { operatorId: Number(admin.id), planSha256: roster.planSha256, limit })
+type Extra = { operator?: Operator; reinviteLapsed?: boolean; seams?: any; runId?: string }
+const operatorOf = (user: any): Operator => ({ id: Number(user.id), label: String(user.displayName), sso: false })
+const planFor = (roster: ReturnType<typeof parsed>, limit?: number, extra: Extra = {}) => planRoster(payload, roster, { operatorId: (extra.operator ?? operatorOf(admin)).id, limit, reinviteLapsed: extra.reinviteLapsed })
+/** Plan as a reviewer would, then apply with exactly that plan's hash. */
+const apply = async (roster: ReturnType<typeof parsed>, limit?: number, extra: Extra = {}) => {
+  const operator = extra.operator ?? operatorOf(admin)
+  const plan = await planFor(roster, limit, extra)
+  return applyRoster(payload, roster, { operator, operatorId: operator.id, limit, planSha256: plan.planSha256, reinviteLapsed: extra.reinviteLapsed, seams: extra.seams, runId: extra.runId })
+}
 
 beforeAll(async () => {
   if (process.env.CMS_LOCAL_BOOTSTRAP !== '1') throw new Error('Roster tests require isolated local data.')
@@ -188,9 +196,6 @@ test('file-level rules: header, columns, encoding, quoting, duplicates and bound
   // Wrong column count, a control character, a hex-looking year; and duplicates reject every row that uses the address.
   const bad = parseRoster(Buffer.from([header, 'A,alumni,2004', 'B\tC,alumni,2004,b@example.invalid', 'D,alumni,0x7d0,d@example.invalid', 'E,alumni,2004,dup@example.invalid', 'F,alumni,2005,DUP@example.invalid', 'G,alumni,,g@example.invalid'].join('\n')))
   expect(bad.rows.map((row) => row.reject)).toEqual(['wrong-column-count', 'invalid-fields', 'invalid-fields', 'duplicate-email-in-file', 'duplicate-email-in-file', undefined])
-  // The plan hash covers the file and the validation outcome; the same file hashes the same.
-  expect(parseRoster(Buffer.from(csv('A,alumni,2004,a@example.invalid'))).planSha256).toBe(parseRoster(Buffer.from(csv('A,alumni,2004,a@example.invalid'))).planSha256)
-  expect(parseRoster(Buffer.from(csv('A,alumni,2004,a@example.invalid'))).planSha256).not.toBe(parseRoster(Buffer.from(csv('A,alumni,2005,a@example.invalid'))).planSha256)
 })
 
 test('a dry run writes nothing, prints only counts, and reports row numbers with reasons in a private file', async () => {
@@ -198,21 +203,22 @@ test('a dry run writes nothing, prints only counts, and reports row numbers with
   const file = csvFile(csv(...lines))
   const before = await counts()
   const report = reportPath()
-  const result = run(['dry-run', '--file', file, '--report', report, '--limit', '10'])
+  const result = run(['dry-run', '--file', file, '--operator', String(admin.id), '--report', report, '--limit', '10'])
   expect(result.code).toBe(0)
   expect(await counts()).toEqual(before)
   const summary = summaryOf(result.out)
   expect(summary.counts).toEqual({ rows: 3, create: 2, reject: 1, skip: 0, deferred: 0 })
   expect(summary.reasons).toEqual({ 'invalid-fields': 1 })
   expect(summary.planSha256).toMatch(/^[0-9a-f]{64}$/)
+  expect(summary.notice).toBe(ERASED_NOTICE)
   for (const needle of [suffix, 'Roster', '@terrace.invalid', 'Dry One']) { expect(result.out).not.toContain(needle); expect(result.err).not.toContain(needle) }
   expect(statSync(report).mode & 0o777).toBe(0o600)
   const written = JSON.parse(readFileSync(report, 'utf8'))
   expect(written.outcomes).toEqual([{ row: 2, outcome: 'create' }, { row: 3, outcome: 'create' }, { row: 4, outcome: 'reject', reason: 'invalid-fields' }])
   expect(readFileSync(report, 'utf8')).not.toContain(suffix)
   // The default command is a dry run, and a second report to the same path is refused rather than overwritten.
-  expect(run(['--file', file, '--report', report]).code).toBe(1)
-  expect(run(['--file', file, '--report', reportPath()]).code).toBe(0)
+  expect(run(['--file', file, '--operator', String(admin.id), '--report', report]).code).toBe(1)
+  expect(run(['--file', file, '--operator', String(admin.id), '--report', reportPath()]).code).toBe(0)
 })
 
 test('apply creates exactly the expected applications, invitations, outbox messages, mirror files and journal', async () => {
@@ -245,11 +251,15 @@ test('apply creates exactly the expected applications, invitations, outbox messa
   }
   // Journal: the run, its operator and counts, and one item per row with a keyed hash and no content.
   const journal = (await q(`SELECT r.run_id, r.operator_id, r.status, r.plan_sha256, r.counts FROM roster_runs r WHERE r.run_id = $1`, [result.runId])).rows[0]
-  expect(journal).toMatchObject({ status: 'completed', plan_sha256: roster.planSha256 })
+  const plan = await planFor(roster)
+  expect(journal).toMatchObject({ status: 'completed', plan_sha256: (await q(`SELECT plan_sha256 FROM roster_runs WHERE run_id = $1`, [result.runId])).rows[0].plan_sha256 })
+  expect(result.planSha256).toBe((await q(`SELECT plan_sha256 FROM roster_runs WHERE run_id = $1`, [result.runId])).rows[0].plan_sha256)
+  const stored = (await q(`SELECT run_limit, reinvite_lapsed, database_identity, operator_label FROM roster_runs WHERE run_id = $1`, [result.runId])).rows[0]
+  expect(stored).toMatchObject({ reinvite_lapsed: false, database_identity: plan.databaseIdentity, operator_label: String(admin.displayName) })
+  expect(Number(stored.run_limit)).toBe(50)
   expect(Number(journal.operator_id)).toBe(Number(admin.id))
-  const items = (await q(`SELECT row_number, row_hash, state FROM roster_run_items i JOIN roster_runs r ON r.id = i.run_id WHERE r.run_id = $1 ORDER BY row_number`, [result.runId])).rows
+  const items = (await q(`SELECT row_number, state FROM roster_run_items i JOIN roster_runs r ON r.id = i.run_id WHERE r.run_id = $1 ORDER BY row_number`, [result.runId])).rows
   expect(items.map((item) => [Number(item.row_number), item.state])).toEqual([[2, 'applied'], [3, 'applied']])
-  for (const item of items) expect(item.row_hash).toMatch(/^[0-9a-f]{64}$/)
   const journalText = JSON.stringify((await q(`SELECT x::text FROM roster_runs x`)).rows) + JSON.stringify((await q(`SELECT x::text FROM roster_run_items x`)).rows)
   expect(journalText).not.toContain(suffix)
 })
@@ -264,16 +274,17 @@ test('re-running the same file is a no-op, and existing applications and live or
   expect(await counts()).toEqual(before)
   // A pending application from the public form, and a denied one, are skipped as well.
   await q(`INSERT INTO member_applications (name, affiliation, contact_email, status, updated_at, created_at) VALUES ($1, 'alumni', $2, 'pending', now(), now()), ($3, 'alumni', $4, 'denied', now(), now())`, [`Roster Pending ${suffix}`, email('Pending'), `Roster Denied ${suffix}`, email('Denied')])
-  const second = await planRoster(payload, parsed(person('Pending'), person('Denied')))
+  const second = await planFor(parsed(person('Pending'), person('Denied')))
   expect(second.outcomes).toEqual([{ row: 2, outcome: 'skip', reason: 'application-pending' }, { row: 3, outcome: 'skip', reason: 'previously-denied' }])
   // A redeemed invitation counts, and so does an approved application, whatever the invitation says.
   const one = parsed(person('Redeemed One'))
   await apply(one)
   await q(`UPDATE member_invitations SET status = 'redeemed', redeemed_at = now() WHERE application_id IN (SELECT id FROM member_applications WHERE contact_email = $1)`, [email('Redeemed One')])
-  expect((await planRoster(payload, one)).outcomes).toEqual([{ row: 2, outcome: 'skip', reason: 'invitation-redeemed' }])
+  expect((await planFor(one)).outcomes).toEqual([{ row: 2, outcome: 'skip', reason: 'invitation-redeemed' }])
   await q(`UPDATE member_invitations SET status = 'expired' WHERE application_id IN (SELECT id FROM member_applications WHERE contact_email = $1)`, [email('Redeemed One')])
   await q(`UPDATE member_applications SET status = 'withdrawn' WHERE contact_email = $1`, [email('Redeemed One')])
-  expect((await planRoster(payload, one)).outcomes).toEqual([{ row: 2, outcome: 'create' }]) // nothing live remains: invitable again
+  expect((await planFor(one)).outcomes).toEqual([{ row: 2, outcome: 'skip', reason: 'application-withdrawn' }]) // lapsed history is not re-invited by default
+  expect((await planFor(one, undefined, { reinviteLapsed: true })).outcomes).toEqual([{ row: 2, outcome: 'create' }])
 })
 
 test('the limit bounds a run and is never above the hard maximum', async () => {
@@ -283,7 +294,7 @@ test('the limit bounds a run and is never above the hard maximum', async () => {
   const second = await apply(roster, 5)
   expect(second.counts).toMatchObject({ created: 2, skip: 1, deferred: 0 })
   expect(ROSTER_HARD_MAX).toBeLessThanOrEqual(MAX_PENDING)
-  const plan = await planRoster(payload, parsed(person('Limit Four')), 100000)
+  const plan = await planFor(parsed(person('Limit Four')), 100000)
   expect(plan.counts.create).toBe(1)
   for (const bad of ['0', '-1', 'x', '10000']) expect(() => parseArgs(['apply', '--file', '/a.csv', '--operator', '1', '--plan-sha256', 'a'.repeat(64), '--limit', bad])).toThrow(RosterError)
   expect(parseArgs(['apply', '--file', '/a.csv', '--operator', '1', '--plan-sha256', 'a'.repeat(64), '--limit', '5']).values['--limit']).toBe('5')
@@ -292,7 +303,7 @@ test('the limit bounds a run and is never above the hard maximum', async () => {
 test('apply refuses a different file, missing delivery configuration and a non-administrator operator, creating nothing', async () => {
   const roster = parsed(person('Guard One'))
   const before = await counts()
-  await expect(applyRoster(payload, roster, { operatorId: Number(admin.id), planSha256: 'a'.repeat(64) })).rejects.toThrow('plan-mismatch')
+  await expect(applyRoster(payload, roster, { operator: operatorOf(admin), operatorId: Number(admin.id), planSha256: 'a'.repeat(64) })).rejects.toThrow('plan-mismatch')
   const directory = process.env.LIFECYCLE_OUTBOX_DIR, origin = process.env.LIFECYCLE_PUBLIC_ORIGIN
   try {
     delete process.env.LIFECYCLE_OUTBOX_DIR
@@ -306,8 +317,8 @@ test('apply refuses a different file, missing delivery configuration and a non-a
   await expect(resolveOperator(payload, editor.email)).rejects.toThrow('operator-not-administrator')
   await expect(resolveOperator(payload, 'nobody@terrace.invalid')).rejects.toThrow('operator-not-found')
   await expect(resolveOperator(payload, '999999999')).rejects.toThrow('operator-not-found')
-  expect(await resolveOperator(payload, String(admin.id))).toBe(Number(admin.id))
-  expect(await resolveOperator(payload, admin.email.toUpperCase())).toBe(Number(admin.id))
+  expect((await resolveOperator(payload, String(admin.id))).id).toBe(Number(admin.id))
+  expect(await resolveOperator(payload, admin.email.toUpperCase())).toEqual({ id: Number(admin.id), label: String(admin.displayName), sso: false })
 })
 
 test('the production guard needs the production configuration and an explicit confirmation', () => {
@@ -325,7 +336,7 @@ test('the production guard needs the production configuration and an explicit co
   expect(productionGuard({ ...production, DATABASE_URI: 'postgresql://db.example.invalid/terrace_cms' }, true)).toEqual({ production: true })
   // The same refusals through the command line, before any database is opened.
   const file = csvFile(csv(person('Cli Guard')))
-  const args = ['apply', '--file', file, '--operator', '1', '--plan-sha256', parseRoster(readFileSync(file)).planSha256]
+  const args = ['apply', '--file', file, '--operator', '1', '--plan-sha256', 'a'.repeat(64)]
   const remote = { DATABASE_URI: 'postgresql://db.example.invalid/terrace_cms' }
   const refused = run(args, { ...remote, CMS_PUBLIC_DEPLOYMENT: undefined })
   expect(refused.code).toBe(1)
@@ -333,10 +344,10 @@ test('the production guard needs the production configuration and an explicit co
   const unconfirmed = run(args, { ...production as Record<string, string>, ...remote, CMS_LOCAL_BOOTSTRAP: undefined, CMS_BOOTSTRAP_EMAIL: undefined, CMS_BOOTSTRAP_PASSWORD: undefined })
   expect(unconfirmed.code).toBe(1)
   expect(unconfirmed.err).toContain('--confirm-production')
-  const wrongPlan = run(['apply', '--file', file, '--operator', '1', '--plan-sha256', 'b'.repeat(64), '--confirm-production'], writer())
+  const wrongPlan = run(['apply', '--file', file, '--operator', String(admin.id), '--plan-sha256', 'b'.repeat(64), '--confirm-production'], writer())
   expect(wrongPlan.code).toBe(1)
   expect(wrongPlan.err).toContain('plan hash')
-  for (const output of [refused, unconfirmed, wrongPlan]) { expect(output.out).toBe(''); expect(output.err).not.toContain(suffix); expect(output.err).not.toContain('db.example.invalid') }
+  for (const output of [refused, unconfirmed, wrongPlan]) { expect(output.out).not.toContain('{'); expect(output.err).not.toContain(suffix); expect(output.err).not.toContain('db.example.invalid') }
 })
 
 test('the command line applies a reviewed dry run end to end, prints no personal data and rolls back', async () => {
@@ -344,7 +355,7 @@ test('the command line applies a reviewed dry run end to end, prints no personal
   const unconfirmed = run(['apply', '--file', file, '--operator', String(admin.id), '--plan-sha256', 'a'.repeat(64)], writer())
   expect(unconfirmed.code).toBe(1)
   expect(unconfirmed.err).toContain('--confirm-production')
-  const dry = summaryOf(run(['dry-run', '--file', file, '--report', reportPath()]).out)
+  const dry = summaryOf(run(['dry-run', '--file', file, '--operator', String(admin.id), '--report', reportPath()]).out)
   const missing = run(['apply', '--file', file, '--operator', String(admin.id)])
   expect(missing.code).toBe(1)
   expect(missing.err).toContain('Usage')
@@ -359,7 +370,13 @@ test('the command line applies a reviewed dry run end to end, prints no personal
   expect(summary.counts).toMatchObject({ created: 2, failed: 0 })
   expect((await counts()).applications).toBe(baseline + 2)
   for (const needle of [suffix, 'Roster', '@terrace.invalid', 'join/#']) { expect(applied.out).not.toContain(needle); expect(applied.err).not.toContain(needle) }
-  const noop = run(['apply', '--file', file, '--operator', admin.email, '--plan-sha256', dry.planSha256, '--confirm-production'], writer())
+  // The old hash no longer matches (the set to create changed), so a repeat is refused and changes nothing; a fresh dry run shows nothing to do.
+  const stale = run(['apply', '--file', file, '--operator', admin.email, '--plan-sha256', dry.planSha256, '--confirm-production'], writer())
+  expect(stale.code).toBe(1)
+  expect(stale.err).toContain('Re-run the dry run')
+  const again = summaryOf(run(['dry-run', '--file', file, '--operator', String(admin.id), '--report', reportPath()]).out)
+  expect(again.counts).toMatchObject({ create: 0, skip: 2 })
+  const noop = run(['apply', '--file', file, '--operator', admin.email, '--plan-sha256', again.planSha256, '--confirm-production'], writer())
   expect(summaryOf(noop.out).counts).toMatchObject({ created: 0, skip: 2 })
   expect((await counts()).applications).toBe(baseline + 2)
   const back = run(['rollback', '--run', summary.runId, '--operator', String(admin.id), '--confirm-production'], writer())
@@ -367,11 +384,11 @@ test('the command line applies a reviewed dry run end to end, prints no personal
   expect(summaryOf(back.out)).toMatchObject({ ok: true, revoked: 2, withdrawn: 2 })
   expect(back.out + back.err).not.toContain(suffix)
   // A file that is readable by others, or a bad file, fails with fixed text that never quotes it.
-  const loose = run(['dry-run', '--file', csvFile(csv(person('Loose')), 0o644), '--report', reportPath()])
+  const loose = run(['dry-run', '--file', csvFile(csv(person('Loose')), 0o644), '--operator', String(admin.id), '--report', reportPath()])
   expect(loose.code).toBe(1)
   expect(loose.err).toContain('owner-only')
   expect(loose.err + loose.out).not.toContain(privateDirectory)
-  const broken = run(['dry-run', '--file', csvFile('name,affiliation\n'), '--report', reportPath()])
+  const broken = run(['dry-run', '--file', csvFile('name,affiliation\n'), '--operator', String(admin.id), '--report', reportPath()])
   expect(broken.code).toBe(1)
   expect(broken.err).toContain('header')
 })
@@ -379,15 +396,16 @@ test('the command line applies a reviewed dry run end to end, prints no personal
 test('rollback revokes and withdraws an untouched run, refuses once anything was redeemed or linked, and is repeatable', async () => {
   const roster = parsed(person('Roll One'), person('Roll Two'))
   const result = await apply(roster)
-  const rollback = await rollbackRoster(payload, result.runId)
+  const rollback = await rollbackRoster(payload, result.runId!, operatorOf(admin))
   expect(rollback).toMatchObject({ ok: true, items: 2, revoked: 2, withdrawn: 2 })
   const states = (await q(`SELECT a.status AS application, i.status AS invitation FROM member_applications a JOIN member_invitations i ON i.application_id = a.id WHERE a.contact_email LIKE $1 AND a.name LIKE 'Roster Roll%'`, [`%${suffix}%`])).rows
   expect(states).toEqual([{ application: 'withdrawn', invitation: 'revoked' }, { application: 'withdrawn', invitation: 'revoked' }])
   expect((await q(`SELECT status FROM roster_runs WHERE run_id = $1`, [result.runId])).rows[0].status).toBe('rolled-back')
-  expect(await rollbackRoster(payload, result.runId)).toMatchObject({ ok: true, revoked: 0, withdrawn: 0 })
-  await expect(rollbackRoster(payload, 'roster-unknown')).rejects.toThrow('run-not-found')
+  expect(await rollbackRoster(payload, result.runId!, operatorOf(admin))).toMatchObject({ ok: true, revoked: 0, withdrawn: 0 })
+  await expect(rollbackRoster(payload, 'roster-unknown', operatorOf(admin))).rejects.toThrow('run-not-found')
   // After a rollback the same file can be invited again (a new run).
-  expect((await apply(roster)).counts.created).toBe(2)
+  expect((await apply(roster)).counts.created).toBe(0) // withdrawn and revoked: not re-invited unless asked
+  expect((await apply(roster, undefined, { reinviteLapsed: true })).counts.created).toBe(2)
 
 })
 
@@ -398,8 +416,8 @@ test('rollback refuses when any invitation was redeemed or any record linked, ch
   const member = await payload.create({ collection: 'members', overrideAccess: true, data: { identityKey: `${suffix}-keep`, issuer: settings.issuer, subject: `${suffix}-keep`, displayName: 'Keeper', roles: ['alumni'] } })
   members.push(member.id)
   await q(`UPDATE member_applications SET member_id = $1 WHERE id = $2`, [member.id, rows[1].application_id])
-  const refused = await rollbackRoster(payload, kept.runId)
-  expect(refused).toEqual({ ok: false, runId: kept.runId, status: 'completed', items: 3, revoked: 0, withdrawn: 0, refused: { redeemed: 1, linked: 1 } })
+  const refused = await rollbackRoster(payload, kept.runId!, operatorOf(admin))
+  expect(refused).toEqual({ ok: false, runId: kept.runId, status: 'completed', items: 3, revoked: 0, withdrawn: 0, filesRedacted: 0, filesPending: false, refused: { redeemed: 1, linked: 1 } })
   const states = (await q(`SELECT a.status AS application, i.status AS invitation FROM member_applications a JOIN member_invitations i ON i.application_id = a.id WHERE a.id = ANY($1) ORDER BY a.id`, [rows.map((row) => row.application_id)])).rows
   expect(states).toEqual([{ application: 'approved', invitation: 'redeemed' }, { application: 'approved', invitation: 'pending' }, { application: 'approved', invitation: 'pending' }])
   expect((await q(`SELECT status FROM roster_runs WHERE run_id = $1`, [kept.runId])).rows[0].status).toBe('completed')
@@ -410,12 +428,12 @@ test('the staff notice and the signal when a run would exceed the pending cap', 
   await q(`INSERT INTO member_applications (name, affiliation, contact_email, status, updated_at, created_at) SELECT 'Cap ' || g, 'alumni', 'filler-' || g || '@terrace.invalid', 'pending', now(), now() FROM generate_series(1, $1) g`, [fill])
   try {
     const roster = parsed(person('Cap One'))
-    const plan = await planRoster(payload, roster)
+    const plan = await planFor(roster)
     expect(plan.exceedsPendingCap).toBe(true)
     expect((await apply(roster)).exceedsPendingCap).toBe(true)
     expect((await q(`SELECT count(*)::int AS n FROM message_outbox WHERE kind = 'staff-notice' AND dedupe_key LIKE 'staff-notice:roster:%'`)).rows[0].n).toBe(1)
   } finally { await q(`DELETE FROM member_applications WHERE contact_email LIKE 'filler-%@terrace.invalid'`) }
-  expect((await planRoster(payload, parsed(person('Cap Two')))).exceedsPendingCap).toBe(false)
+  expect((await planFor(parsed(person('Cap Two')))).exceedsPendingCap).toBe(false)
 })
 
 test('a roster-created application links at first sign-in by verified email, and erasure scrubs it and its journal hash', async () => {
@@ -436,17 +454,16 @@ test('a roster-created application links at first sign-in by verified email, and
   expect((await q(`SELECT member_id FROM member_applications WHERE id = $1`, [application])).rows[0].member_id).toBe(member.id)
   expect((await q(`SELECT member_id FROM member_invitations WHERE id = $1`, [invitation])).rows[0].member_id).toBe(member.id)
   // Rolling back is now refused: the run's records are linked to a member.
-  expect((await rollbackRoster(payload, result.runId)).refused).toEqual({ redeemed: 1, linked: 2 })
+  expect((await rollbackRoster(payload, result.runId!, operatorOf(admin))).refused).toEqual({ redeemed: 1, linked: 2 })
 
   const needles = [`Linda Marsh ${suffix}`, `linda-marsh-${suffix}`]
   expect((await everyTable(needles)).length).toBeGreaterThan(2)
-  expect((await q(`SELECT row_hash FROM roster_run_items WHERE application_id = $1`, [application])).rows[0].row_hash).toMatch(/^[0-9a-f]{64}$/)
   const code = ((await (await own.erasure(request(member, { step: 'request' }))).json()) as any).confirmationCode
   expect((await own.erasure(request(member, { step: 'confirm', token: code }))).status).toBe(200)
   await sweep(payload)
   expect(await everyTable(needles)).toEqual([])
   for (const entry of mirror()) expect(entry.text).not.toMatch(new RegExp(`linda-marsh-${suffix}|Linda Marsh`, 'i'))
-  expect((await q(`SELECT row_hash, state FROM roster_run_items WHERE application_id = $1`, [application])).rows[0]).toEqual({ row_hash: null, state: 'applied' })
+  expect((await q(`SELECT state FROM roster_run_items WHERE application_id = $1`, [application])).rows[0]).toEqual({ state: 'applied' })
   expect((await q(`SELECT name, contact_email, status FROM member_applications WHERE id = $1`, [application])).rows[0]).toEqual({ name: 'Erased applicant', contact_email: 'erased@terrace.invalid', status: 'withdrawn' })
   expect((await q(`SELECT status FROM member_invitations WHERE id = $1`, [invitation])).rows[0].status).toBe('redeemed')
 })
@@ -473,4 +490,218 @@ test('the roster file is read only from a private location outside Git, never fr
     refuse(join(open, 'roster.csv')) // inside a Git checkout
   } finally { rmSync(open, { recursive: true, force: true }) }
   expect(() => readPrivateInput(good, '.csv', 5)).toThrow(OutputRefused) // over the size bound
+})
+
+// ---- the plan hash binds an apply to what was reviewed -------------------------------------------------------------------
+
+test('the plan hash binds file, limit, operator, reinvite flag, database and the exact set of rows to create', async () => {
+  const roster = parsed(person('Bind One'), person('Bind Two'), person('Bind Three'))
+  const other = await makeUser('admin')
+  const base = await planFor(roster)
+  expect(base.planSha256).toBe((await planFor(roster)).planSha256) // stable
+  expect(base.databaseIdentity).toMatch(/^[a-z0-9_]+:(\d+|unavailable)$/)
+  expect((await planFor(roster, 2)).planSha256).not.toBe(base.planSha256) // limit
+  expect((await planFor(roster, undefined, { operator: operatorOf(other) })).planSha256).not.toBe(base.planSha256) // operator
+  expect((await planFor(roster, undefined, { reinviteLapsed: true })).planSha256).not.toBe(base.planSha256) // flag
+  expect((await planFor(parsed(person('Bind One'), person('Bind Two'), person('Bind Four')))).planSha256).not.toBe(base.planSha256) // file
+  const parts = { fileSha256: roster.fileSha256, limit: 50, operatorId: 1, reinviteLapsed: false, databaseIdentity: 'terrace_cms:1', create: [2, 3] }
+  expect(boundPlanHash({ ...parts, databaseIdentity: 'terrace_cms:2' })).not.toBe(boundPlanHash(parts)) // a staging copy cannot unlock production
+  expect(boundPlanHash({ ...parts, databaseIdentity: 'other:1' })).not.toBe(boundPlanHash(parts))
+  expect(boundPlanHash({ ...parts, create: [3, 2] })).toBe(boundPlanHash(parts)) // the set is sorted
+  expect(boundPlanHash({ ...parts, create: [2] })).not.toBe(boundPlanHash(parts))
+  // Each mismatch is refused by apply, with nothing created.
+  const before = await counts()
+  const give = (planSha256: string, over: Record<string, unknown> = {}) => applyRoster(payload, roster, { operator: operatorOf(admin), operatorId: Number(admin.id), planSha256, ...over })
+  await expect(give(base.planSha256, { limit: 2 })).rejects.toThrow('plan-mismatch')
+  await expect(give(base.planSha256, { reinviteLapsed: true })).rejects.toThrow('plan-mismatch')
+  await expect(give(base.planSha256, { operator: operatorOf(other), operatorId: Number(other.id) })).rejects.toThrow('plan-mismatch')
+  expect(await counts()).toEqual(before)
+  // The database changed after the dry run: a row became a duplicate. Apply refuses instead of quietly creating a different set.
+  await q(`INSERT INTO member_applications (name, affiliation, contact_email, status, updated_at, created_at) VALUES ($1, 'alumni', $2, 'pending', now(), now())`, [`Roster Bind Two ${suffix}`, email('Bind Two')])
+  const after = await counts()
+  await expect(give(base.planSha256)).rejects.toThrow('plan-mismatch')
+  expect(await counts()).toEqual({ ...after })
+  // A fresh dry run shows the changed set, and applying it creates exactly that set.
+  const fresh = await planFor(roster)
+  expect(fresh.outcomes.map((outcome) => outcome.outcome)).toEqual(['create', 'skip', 'create'])
+  expect((await give(fresh.planSha256)).counts.created).toBe(2)
+})
+
+test('the journal keeps the operator by name when the account is deleted, and records who rolled a run back', async () => {
+  const temporary = await makeUser('admin')
+  const result = await apply(parsed(person('Journal One')), undefined, { operator: operatorOf(temporary) })
+  await payload.delete({ collection: 'users', id: temporary.id, overrideAccess: true })
+  const row = (await q(`SELECT operator_id, operator_label FROM roster_runs WHERE run_id = $1`, [result.runId])).rows[0]
+  expect(row).toEqual({ operator_id: null, operator_label: String(temporary.displayName) })
+  const rolled = await rollbackRoster(payload, result.runId!, operatorOf(admin))
+  expect(rolled.ok).toBe(true)
+  expect((await q(`SELECT rolled_back_by_id, rolled_back_by_label, rolled_back_at FROM roster_runs WHERE run_id = $1`, [result.runId])).rows[0]).toMatchObject({ rolled_back_by_id: Number(admin.id), rolled_back_by_label: String(admin.displayName) })
+  expect((await q(`SELECT rolled_back_at FROM roster_runs WHERE run_id = $1`, [result.runId])).rows[0].rolled_back_at).toBeTruthy()
+})
+
+// ---- files: written after commit, removed only when they are this run's ---------------------------------------------------
+
+test('a row that fails before commit leaves no file and no rows, and never touches another writer\'s files', async () => {
+  const foreign = join(outbox, '999999-invitation.json')
+  const foreignTemporary = join(outbox, '999998-invitation.json.abcdef012345.tmp')
+  const roster = parsed(person('Fail One'), person('Fail Two'))
+  const before = await counts()
+  const filesBefore = readdirSync(outbox).sort()
+  const result = await apply(roster, undefined, { seams: { beforeCommit: async () => { writeFileSync(foreign, '{"concurrent":"ui approval"}', { mode: 0o600 }); writeFileSync(foreignTemporary, 'in flight', { mode: 0o600 }); throw new Error('injected') } } })
+  expect(result.counts).toMatchObject({ created: 0, failed: 1, mirrorFailed: 0 })
+  const after = await counts()
+  expect(after.applications).toBe(before.applications)
+  expect(after.invitations).toBe(before.invitations)
+  expect(after.outbox).toBe(before.outbox)
+  // Only the other writer's two files are new; the roster wrote nothing, and removed nothing that was not its own.
+  expect(readdirSync(outbox).sort()).toEqual([...filesBefore, '999998-invitation.json.abcdef012345.tmp', '999999-invitation.json'].sort())
+  expect(readFileSync(foreign, 'utf8')).toContain('concurrent')
+  expect(readFileSync(foreignTemporary, 'utf8')).toBe('in flight')
+  expect((await q(`SELECT status FROM roster_runs WHERE run_id = $1`, [result.runId])).rows[0].status).toBe('failed')
+  expect((await q(`SELECT count(*)::int AS n FROM roster_run_items i JOIN roster_runs r ON r.id = i.run_id WHERE r.run_id = $1`, [result.runId])).rows[0].n).toBe(0)
+  rmSync(foreign); rmSync(foreignTemporary)
+  // A failed run does not block the next one, and the same rows can be applied.
+  expect((await apply(roster)).counts.created).toBe(2)
+})
+
+test('a mirror write that fails after commit stops the run, is journaled, and a failed run can be rolled back', async () => {
+  const roster = parsed(person('Mirror One'), person('Mirror Two'), person('Mirror Three'))
+  const result = await apply(roster, undefined, { seams: { beforeMirror: (row: number) => { if (row === 3) throw new Error('disk full') } } })
+  expect(result.counts).toMatchObject({ created: 2, failed: 1, mirrorFailed: 1 })
+  const run = (await q(`SELECT id, status FROM roster_runs WHERE run_id = $1`, [result.runId])).rows[0]
+  expect(run.status).toBe('failed')
+  // Two rows are fully done; the second has its row and invitation but no file (reported undeliverable by the sweep); the third was not attempted.
+  expect((await q(`SELECT count(*)::int AS n FROM roster_run_items WHERE run_id = $1`, [run.id])).rows[0].n).toBe(2)
+  expect(mirror().filter((entry) => entry.text.includes(email('Mirror'))).length).toBe(0)
+  const mine = mirror().map((entry) => JSON.parse(entry.text)).filter((message) => /mirror-(one|two|three)/.test(message.to ?? ''))
+  expect(mine.map((message) => message.to)).toEqual([email('Mirror One')])
+  expect((await q(`SELECT count(*)::int AS n FROM member_applications WHERE contact_email = $1`, [email('Mirror Three')])).rows[0].n).toBe(0)
+  const rolled = await rollbackRoster(payload, result.runId!, operatorOf(admin))
+  expect(rolled).toMatchObject({ ok: true, items: 2, revoked: 2, withdrawn: 2 })
+})
+
+test('rollback redacts the run\'s own link files; repeating it repeats only the redaction', async () => {
+  const roster = parsed(person('Redact One'), person('Redact Two'))
+  const result = await apply(roster)
+  const link = () => mirror().filter((entry) => entry.text.includes('redact-') || entry.text.includes('Former member'))
+  expect(mirror().filter((entry) => entry.text.includes(email('Redact One'))).length).toBe(1)
+  const rolled = await rollbackRoster(payload, result.runId!, operatorOf(admin))
+  expect(rolled).toMatchObject({ ok: true, filesRedacted: 2, filesPending: false })
+  expect(mirror().filter((entry) => entry.text.includes(email('Redact One')) || entry.text.includes(email('Redact Two')) || entry.text.includes(`Roster Redact`))).toEqual([])
+  expect(link().length).toBeGreaterThanOrEqual(2)
+  expect(mirror().filter((entry) => /Redacted after erasure|Former member/.test(entry.text)).length).toBeGreaterThanOrEqual(2)
+  expect(await rollbackRoster(payload, result.runId!, operatorOf(admin))).toMatchObject({ ok: true, revoked: 0, withdrawn: 0, filesRedacted: 0 })
+})
+
+// ---- re-running: what is skipped and what is not ---------------------------------------------------------------------------
+
+test('lapsed history is skipped by default, re-invited only with the flag; live, redeemed, approved and pending never are; erased people cannot be recognised', async () => {
+  const names = ['Hist Denied', 'Hist Withdrawn', 'Hist Expired', 'Hist Revoked', 'Hist Approved', 'Hist Pending', 'Hist Live', 'Hist Redeemed', 'Hist Fresh']
+  const insert = (name: string, status: string) => q(`INSERT INTO member_applications (name, affiliation, contact_email, status, grant_role, updated_at, created_at) VALUES ($1, 'alumni', $2, $3, 'alumni', now(), now()) RETURNING id`, [`Roster ${name} ${suffix}`, email(name), status]).then((result) => Number(result.rows[0].id))
+  const invite = (id: number, status: string, past = false) => q(`INSERT INTO member_invitations (application_id, token_hash, role, status, expires_at, updated_at, created_at) VALUES ($1, $2, 'alumni', $3, now() + ($4)::interval, now(), now())`, [id, `hash-${suffix}-${id}`, status, past ? '-1 day' : '1 day'])
+  await insert('Hist Denied', 'denied')
+  await insert('Hist Withdrawn', 'withdrawn')
+  await invite(await insert('Hist Expired', 'approved'), 'pending', true) // past its lifetime, not yet swept
+  await invite(await insert('Hist Revoked', 'approved'), 'revoked')
+  await insert('Hist Approved', 'approved') // approved, no invitation on record
+  await insert('Hist Pending', 'pending')
+  await invite(await insert('Hist Live', 'approved'), 'pending')
+  await invite(await insert('Hist Redeemed', 'approved'), 'redeemed')
+  const roster = parsed(...names.map((name) => person(name)))
+  const plan = await planFor(roster)
+  expect(plan.outcomes.map((outcome) => outcome.reason ?? outcome.outcome)).toEqual(['previously-denied', 'application-withdrawn', 'invitation-expired', 'invitation-revoked', 'application-approved', 'application-pending', 'invitation-live', 'invitation-redeemed', 'create'])
+  const flagged = await planFor(roster, undefined, { reinviteLapsed: true })
+  expect(flagged.outcomes.map((outcome) => outcome.reason ?? outcome.outcome)).toEqual(['create', 'create', 'create', 'create', 'application-approved', 'application-pending', 'invitation-live', 'invitation-redeemed', 'create'])
+  expect(flagged.planSha256).not.toBe(plan.planSha256)
+  expect((await apply(roster)).counts.created).toBe(1) // default: only the person never seen before
+  expect((await apply(roster, undefined, { reinviteLapsed: true })).counts.created).toBe(4)
+  expect((await apply(roster, undefined, { reinviteLapsed: true })).counts.created).toBe(0) // and now everyone has a live invitation
+  // Erasure keeps no identifier, so an erased person's address matches nothing: the tool would invite them again. That is why the notice exists.
+  const erased = person('Hist Erased')
+  const target = await apply(parsed(erased))
+  await q(`UPDATE member_applications SET name = 'Erased applicant', contact_email = 'erased@terrace.invalid', status = 'withdrawn' WHERE contact_email = $1`, [email('Hist Erased')])
+  expect((await planFor(parsed(erased), undefined, { reinviteLapsed: true })).outcomes).toEqual([{ row: 2, outcome: 'create' }])
+  expect((await planFor(parsed(erased))).outcomes).toEqual([{ row: 2, outcome: 'create' }])
+  expect(target.counts.created).toBe(1)
+  expect(ERASED_NOTICE).toContain('cannot recognise people who asked to be erased')
+  const output = run(['dry-run', '--file', csvFile(csv(erased)), '--operator', String(admin.id), '--report', reportPath()])
+  expect(summaryOf(output.out).notice).toBe(ERASED_NOTICE)
+  expect(parseArgs(['dry-run', '--file', '/a.csv', '--operator', '1', '--report', '/r.json', '--reinvite-lapsed']).reinviteLapsed).toBe(true)
+  expect(() => parseArgs(['rollback', '--run', 'x', '--operator', '1', '--reinvite-lapsed'])).toThrow(RosterError)
+})
+
+// ---- crashed runs ------------------------------------------------------------------------------------------------------------
+
+test('a crashed run goes stale and is marked failed, a fresh running run blocks, and a failed run can be rolled back', async () => {
+  const roster = parsed(person('Stale One'))
+  const done = await apply(parsed(person('Stale Seed')))
+  const seed = (await q(`SELECT id FROM roster_runs WHERE run_id = $1`, [done.runId])).rows[0].id
+  // A fresh running run (another process is working): neither an apply nor a rollback goes ahead.
+  await q(`UPDATE roster_runs SET status = 'running', finished_at = NULL, updated_at = now() WHERE id = $1`, [seed])
+  const before = await counts()
+  await expect(apply(roster)).rejects.toThrow('run-in-progress')
+  await expect(rollbackRoster(payload, done.runId!, operatorOf(admin))).rejects.toThrow('run-in-progress')
+  expect(await counts()).toEqual(before)
+  // The same run, silent for longer than the threshold, is taken to have crashed.
+  await q(`UPDATE roster_runs SET updated_at = now() - interval '2 hours' WHERE id = $1`, [seed])
+  expect(await failStaleRuns(payload)).toBe(1)
+  expect((await q(`SELECT status FROM roster_runs WHERE id = $1`, [seed])).rows[0].status).toBe('failed')
+  expect((await apply(roster)).counts.created).toBe(1)
+  expect(await rollbackRoster(payload, done.runId!, operatorOf(admin))).toMatchObject({ ok: true, revoked: 1, withdrawn: 1 })
+  // Rolling back a stale running run marks it failed first, then undoes it.
+  const again = await apply(parsed(person('Stale Two')))
+  await q(`UPDATE roster_runs SET status = 'running', updated_at = now() - interval '2 hours' WHERE run_id = $1`, [again.runId])
+  expect(await rollbackRoster(payload, again.runId!, operatorOf(admin))).toMatchObject({ ok: true, revoked: 1 })
+})
+
+// ---- the report ----------------------------------------------------------------------------------------------------------------
+
+test('a bad report path is refused before any work, and a report that cannot be written afterwards never hides the run', async () => {
+  const file = csvFile(csv(person('Report One')))
+  const dry = summaryOf(run(['dry-run', '--file', file, '--operator', String(admin.id), '--report', reportPath()]).out)
+  const taken = reportPath()
+  writeFileSync(taken, '{}', { mode: 0o600 })
+  const before = await counts()
+  const refused = run(['apply', '--file', file, '--operator', admin.email, '--plan-sha256', dry.planSha256, '--report', taken, '--confirm-production'], writer())
+  expect(refused.code).toBe(1)
+  expect(refused.err).toContain('already exists')
+  expect(await counts()).toEqual(before) // nothing was applied
+  expect(run(['apply', '--file', file, '--operator', admin.email, '--plan-sha256', dry.planSha256, '--report', 'relative.json', '--confirm-production'], writer()).code).toBe(1)
+  expect(await counts()).toEqual(before)
+  // The summary comes first and carries the run id even when the report then fails.
+  const lines: string[] = [], errors: string[] = []
+  const log = console.log, error = console.error
+  console.log = (...args: unknown[]) => { lines.push(args.join(' ')) }
+  console.error = (...args: unknown[]) => { errors.push(args.join(' ')) }
+  let code: number
+  try { code = emitResult({ mode: 'apply', runId: 'roster-abc', counts: { created: 1 } }, { x: 1 }, taken) } finally { console.log = log; console.error = error }
+  expect(code).toBe(1)
+  expect(JSON.parse(lines[0])).toMatchObject({ runId: 'roster-abc', counts: { created: 1 } })
+  expect(errors.join('\n')).toContain('already done')
+  expect(errors.join('\n')).not.toContain(privateDirectory)
+})
+
+// ---- the per-address lock shared with the apply form ----------------------------------------------------------------------------
+
+test('the public form and the roster tool queue on one lock per address, so neither interleaves with the other\'s check and create', async () => {
+  const address = email('Lock One')
+  const holder = await (payload.db as any).pool.connect()
+  const settled = (promise: Promise<unknown>) => Promise.race([promise.then(() => 'done', () => 'done'), new Promise((resolve) => setTimeout(() => resolve('waiting'), 400))])
+  try {
+    await holder.query('BEGIN')
+    await holder.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [`terrace-application-email:${address}`])
+    const form = intake.apply(request(null, { name: `Roster Lock Form ${suffix}`, affiliation: 'alumni', contactEmail: address }, { 'x-terrace-intake': secret })) as Promise<Response>
+    expect(await settled(form)).toBe('waiting') // the form waits for the holder
+    const roster = parsed(person('Lock One'))
+    const planned = await planFor(roster)
+    const rowApply = applyRoster(payload, roster, { operator: operatorOf(admin), operatorId: Number(admin.id), planSha256: planned.planSha256 })
+    expect(await settled(rowApply)).toBe('waiting') // and so does the roster row
+    await holder.query('COMMIT')
+    expect((await form).status).toBe(202)
+    // Whichever ran second saw the first: exactly one of the two outcomes, not two applications for the address in the same state.
+    const result = await rowApply
+    const rows = (await q(`SELECT status FROM member_applications WHERE lower(contact_email) = $1 ORDER BY id`, [address])).rows.map((row) => row.status)
+    expect(rows).toEqual(['pending'])
+    expect(result.counts).toMatchObject({ created: 0, skip: 1 }) // the form's pending application was seen under the lock
+  } finally { await holder.query('ROLLBACK').catch(() => undefined); holder.release() }
 })

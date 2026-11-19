@@ -6591,7 +6591,13 @@
           "name": "operator_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "operator_label": {
+          "name": "operator_label",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
         },
         "status": {
           "name": "status",
@@ -6609,6 +6615,25 @@
         },
         "plan_sha256": {
           "name": "plan_sha256",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "run_limit": {
+          "name": "run_limit",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reinvite_lapsed": {
+          "name": "reinvite_lapsed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "database_identity": {
+          "name": "database_identity",
           "type": "varchar",
           "primaryKey": false,
           "notNull": false
@@ -6634,6 +6659,18 @@
         "rolled_back_at": {
           "name": "rolled_back_at",
           "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rolled_back_by_id": {
+          "name": "rolled_back_by_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rolled_back_by_label": {
+          "name": "rolled_back_by_label",
+          "type": "varchar",
           "primaryKey": false,
           "notNull": false
         },
@@ -6673,6 +6710,21 @@
           "columns": [
             {
               "expression": "operator_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "roster_runs_rolled_back_by_idx": {
+          "name": "roster_runs_rolled_back_by_idx",
+          "columns": [
+            {
+              "expression": "rolled_back_by_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -6727,6 +6779,19 @@
           ],
           "onDelete": "set null",
           "onUpdate": "no action"
+        },
+        "roster_runs_rolled_back_by_id_users_id_fk": {
+          "name": "roster_runs_rolled_back_by_id_users_id_fk",
+          "tableFrom": "roster_runs",
+          "tableTo": "users",
+          "columnsFrom": [
+            "rolled_back_by_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -6756,12 +6821,6 @@
           "type": "numeric",
           "primaryKey": false,
           "notNull": true
-        },
-        "row_hash": {
-          "name": "row_hash",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": false
         },
         "application_id": {
           "name": "application_id",
@@ -8707,6 +8766,6 @@
     "tables": {},
     "columns": {}
   },
-  "id": "a7df48c8-c4b5-4592-99ea-96281039b841",
+  "id": "05079b44-051b-495b-af00-2c301e2c11ee",
   "prevId": "00000000-0000-0000-0000-000000000000"
 }

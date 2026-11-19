@@ -4,6 +4,7 @@ import { eraseMember, finishErasure } from './erasure'
 import { buildExport } from './export'
 import { inspectInvitation, redeemInvitation } from './invitations'
 import { erasureConfirmMs } from './policy'
+import { withApplicationLock } from './application-lock'
 import { MAX_PENDING, parseApplication, WARN_PENDING } from './intake-validation'
 import { enqueueMessage } from './outbox'
 import { expireStaleApplications } from './sweep'
@@ -48,9 +49,12 @@ export const intake = {
       } catch { /* already sent today, or the outbox is unavailable */ }
     }
     if (pending.totalDocs >= MAX_PENDING) return json({ error: 'Unavailable.' }, 503)
-    const duplicate = await req.payload.find({ collection: 'member-applications', where: { and: [{ status: { equals: 'pending' } }, { contactEmail: { equals: email } }] }, limit: 1, depth: 0, overrideAccess: true })
-    // A repeat submission looks identical to a first one, so the form cannot be used to probe who has applied.
-    if (!duplicate.totalDocs) await req.payload.create({ collection: 'member-applications', overrideAccess: true, data: { name, affiliation, classYear: classYearValue, contactEmail: email, note: note ?? undefined, status: 'pending' } })
+    // A repeat submission looks identical to a first one, so the form cannot be used to probe who has applied. The check and the create
+    // share one transaction under the per-address lock, so a roster run (tools/roster-invite.ts) cannot interleave between them.
+    await withApplicationLock(req.payload, email, async (tx) => {
+      const duplicate = await req.payload.find({ collection: 'member-applications', where: { and: [{ status: { equals: 'pending' } }, { contactEmail: { equals: email } }] }, limit: 1, depth: 0, overrideAccess: true, req: tx })
+      if (!duplicate.totalDocs) await req.payload.create({ collection: 'member-applications', overrideAccess: true, req: tx, data: { name, affiliation, classYear: classYearValue, contactEmail: email, note: note ?? undefined, status: 'pending' } })
+    })
     return json({ received: true }, 202)
   },
 

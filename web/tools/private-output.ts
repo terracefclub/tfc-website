@@ -25,6 +25,13 @@ function privateDirectory(path: string, suffix: string, fail: (reason?: string) 
   return parent;
 }
 
+/** The refusals of `writePrivateJson` without writing: the path is usable now (a new .json in an owner-only directory outside Git). For a tool that must know before it does irreversible work. */
+export function checkPrivateOutput(output: string) {
+  const fail = (reason = 'the output path is not usable'): never => { throw new OutputRefused(`Unsupported output: ${reason}. ${outputAdvice}`); };
+  const parent = privateDirectory(output, '.json', fail);
+  if (existsSync(join(parent, basename(output)))) fail('the file already exists or cannot be created');
+}
+
 export function writePrivateJson(output: string, contents: string) {
   const fail = (reason = 'the output path is not usable'): never => { throw new OutputRefused(`Unsupported output: ${reason}. ${outputAdvice}`); };
   const parent = privateDirectory(output, '.json', fail), uid = process.getuid?.();

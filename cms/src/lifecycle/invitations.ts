@@ -1,5 +1,5 @@
 import type { Payload, PayloadRequest } from 'payload'
-import { deliveryConfig, enqueueMessage } from './outbox'
+import { deliveryConfig, enqueueMessage, recordMessage, type Recorded } from './outbox'
 import { invitationTtlMs, type GrantRole } from './policy'
 import { hashToken, newToken, tokenShape } from './tokens'
 import { pool } from './visibility'
@@ -11,7 +11,7 @@ type Application = { id: number | string; name: string; contactEmail: string; gr
  * stored. The plaintext link goes solely into the local file mirror of the outbox message.
  * No Keycloak account is created here; an operator provisions the realm user (docs/member-lifecycle.md).
  */
-export async function issueInvitation(payload: Payload, application: Application, req?: PayloadRequest): Promise<{ token: string; invitationId: number }> {
+export async function issueInvitation(payload: Payload, application: Application, req?: PayloadRequest, options: { deferMirror?: boolean } = {}): Promise<{ token: string; invitationId: number; recorded?: Recorded }> {
   if (application.grantRole !== 'current-member' && application.grantRole !== 'alumni') throw new Error('Choose the role this invitation grants.')
   const { origin } = deliveryConfig()
   const token = newToken()
@@ -20,13 +20,16 @@ export async function issueInvitation(payload: Payload, application: Application
     collection: 'member-invitations', overrideAccess: true, req,
     data: { application: Number(application.id), tokenHash: hashToken(token), role: application.grantRole, status: 'pending', expiresAt: expiresAt.toISOString() },
   })
-  await enqueueMessage(payload, {
-    kind: 'invitation', recipientEmail: application.contactEmail, recipientLabel: application.name,
+  const message = {
+    kind: 'invitation' as const, recipientEmail: application.contactEmail, recipientLabel: application.name,
     subject: 'Your Terrace invitation',
     body: `Your Terrace application was approved. An invitation was issued and expires ${expiresAt.toISOString().slice(0, 10)}. The one-time link is delivered separately by a Terrace operator; it is not stored in this record.`,
     mirrorBody: `Your Terrace application was approved.\nOpen this one-time link before ${expiresAt.toISOString().slice(0, 10)}:\n${origin}/join/#${token}\n`,
     invitationId: Number(invitation.id),
-  }, req)
+  }
+  // The roster tool records the row now and writes the file (which holds the link) only after its transaction commits, so a rolled-back row leaves no file.
+  if (options.deferMirror) return { token, invitationId: Number(invitation.id), recorded: await recordMessage(payload, message, req) }
+  await enqueueMessage(payload, message, req)
   return { token, invitationId: Number(invitation.id) }
 }
 
