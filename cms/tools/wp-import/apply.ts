@@ -2,6 +2,7 @@
 // Payload's local API. The plan is produced by web/tools/wp-import and re-validated here.
 // Every write happens in its own database transaction together with its journal row, so a
 // crash can never leave a created document without the record `rollback` needs.
+import { sql } from '@payloadcms/db-postgres'
 import { commitTransaction, createLocalReq, initTransaction, killTransaction, type Payload, type PayloadRequest } from 'payload'
 import { collections, dataFields, destinationFor, hashOf, refFields, validatePlan, wpFields, type Plan, type PlanCollection, type PlanDoc } from '../../../web/tools/wp-import/plan-schema'
 
@@ -61,6 +62,29 @@ async function inTransaction<T>(payload: Payload, work: (req: PayloadRequest) =>
     await killTransaction(req)
     throw error
   }
+}
+
+type Executor = { execute: (query: any) => Promise<{ rows: any[] }> }
+const executor = (payload: Payload, req?: PayloadRequest): Executor => {
+  const session = req?.transactionID ? (payload.db as any).sessions[req.transactionID as string]?.db : undefined
+  return (session ?? (payload.db as any).drizzle) as Executor
+}
+
+/**
+ * Take the run row's lock and confirm the run is still `running`. Called first in every write transaction: a
+ * concurrent takeover (rollback) holds the same row lock, so the write either completes before the takeover's snapshot
+ * or is refused here. The row-level UPDATE re-checks `status` after waiting, so a taken-over run can never be written to.
+ */
+async function claimRun(payload: Payload, req: PayloadRequest, runId: string) {
+  const result = await executor(payload, req).execute(sql`UPDATE wp_import_runs SET updated_at = now() WHERE run_id = ${runId} AND status = 'running' RETURNING id`)
+  if (!result.rows.length) throw new Error('run-no-longer-running')
+}
+
+/** Draft-enabled collections keep a version row; stamp the applied hash there too so publishing a draft carries a current hash. */
+const versioned = new Set(['events', 'newsletters', 'posts', 'pages', 'initiatives'])
+async function stampVersionHash(payload: Payload, req: PayloadRequest, collection: string, id: string | number, hash: string) {
+  if (!versioned.has(collection)) return
+  await executor(payload, req).execute(sql`UPDATE ${sql.raw(`"_${collection}_v"`)} SET version_wp_applied_hash = ${hash} WHERE parent_id = ${id} AND latest = true`)
 }
 
 /** Newest saved state, including draft-only saves an editor made after the import (the main row is not touched by those). */
@@ -137,6 +161,7 @@ async function execute(payload: Payload, plan: Plan, options: ApplyOptions, writ
     if (!write && outcome.action === 'updated') slugs.set(key, slugs.get(key) ?? String(doc.data.slug))
     count(total, outcome.action); count(byCollection[doc.collection], outcome.action)
     documents.push(outcome)
+    if (outcome.reason === 'run-no-longer-running') throw new Error('run-no-longer-running') // taken over: stop writing at once
   }
 
   for (const redirect of plan.redirects) {
@@ -158,15 +183,16 @@ async function execute(payload: Payload, plan: Plan, options: ApplyOptions, writ
     } catch (error) { outcome.action = 'failed'; outcome.reason = reasonOf(error) }
     count(redirectTotal, outcome.action)
     redirects.push(outcome)
+    if (outcome.reason === 'run-no-longer-running') throw new Error('run-no-longer-running')
   }
 
   completed = true
   } finally {
     if (runId) {
       // A crash or injected failure must never leave the run `running`: mark it failed so rollback can proceed.
+      // Conditional on the run still being `running`: a takeover's `rolled-back` is never overwritten.
       const failed = !completed || total.failed + redirectTotal.failed > 0
-      const run = await payload.find({ collection: 'wp-import-runs', where: { runId: { equals: runId } }, limit: 1, overrideAccess: true })
-      await payload.update({ collection: 'wp-import-runs', id: run.docs[0].id, overrideAccess: true, data: { status: failed ? 'failed' : 'completed', finishedAt: now().toISOString(), counts: { documents: total, redirects: redirectTotal, byCollection } } })
+      await executor(payload).execute(sql`UPDATE wp_import_runs SET status = ${failed ? 'failed' : 'completed'}, finished_at = ${now().toISOString()}, counts = ${JSON.stringify({ documents: total, redirects: redirectTotal, byCollection })}::jsonb, updated_at = now() WHERE run_id = ${runId} AND status = 'running'`)
     }
   }
   const publishedThisRun = documents.filter(item => item.action === 'created' && item.status === 'published').length
@@ -208,6 +234,7 @@ async function freeSlug(payload: Payload, doc: PlanDoc, req: PayloadRequest): Pr
 async function createDocument(payload: Payload, doc: PlanDoc, ids: Map<string, string | number>, publish: boolean, runId: string, sequence: number) {
   const status = doc.collection === 'media' ? undefined : publish && doc.desiredStatus === 'published' ? 'published' : 'draft'
   return inTransaction(payload, async req => {
+    await claimRun(payload, req, runId)
     const slug = await freeSlug(payload, doc, req)
     const data: Record<string, unknown> = { ...doc.data, ...resolveRefs(doc, ids), wpContentHash: doc.targetHash, wpImportRun: runId }
     if (slug) data.slug = slug
@@ -216,6 +243,7 @@ async function createDocument(payload: Payload, doc: PlanDoc, ids: Map<string, s
     const stored = (await latestOf(payload, doc.collection, created.id, req))!
     const hash = appliedHash(doc.collection, stored)
     await payload.db.updateOne({ collection: doc.collection as any, id: created.id, data: { wpAppliedHash: hash }, req, returning: false } as any)
+    await stampVersionHash(payload, req, doc.collection, created.id, hash)
     await payload.create({ collection: 'wp-import-journal', overrideAccess: true, req, data: { runId, sequence, collection: doc.collection, docId: String(created.id), wpId: doc.wpId, action: 'created', preImage: { createdStatus: status ?? null }, postHash: hash } })
     return {
       id: created.id, slug: slug ?? undefined, published: status === 'published',
@@ -229,6 +257,7 @@ async function updateDocument(payload: Payload, doc: PlanDoc, main: Doc, ids: Ma
   const existing = (await latestOf(payload, doc.collection, main.id)) ?? main
   const preImage = { data: Object.fromEntries(keys.map(key => [key, existing[key] === undefined ? null : normalizeValue(existing[key]) ?? null])), status: main._status ?? null, wpContentHash: main.wpContentHash ?? null, wpAppliedHash: main.wpAppliedHash ?? null, wpImportRun: main.wpImportRun ?? null }
   return inTransaction(payload, async req => {
+    await claimRun(payload, req, runId)
     const slug = await freeSlug(payload, doc, req)
     const next: Record<string, unknown> = { ...doc.data, ...resolveRefs(doc, ids) }
     if (slug) next.slug = slug
@@ -243,6 +272,7 @@ async function updateDocument(payload: Payload, doc: PlanDoc, main: Doc, ids: Ma
     const stored = (await latestOf(payload, doc.collection, main.id, req))!
     const hash = appliedHash(doc.collection, stored)
     await payload.db.updateOne({ collection: doc.collection as any, id: main.id, data: published ? { wpAppliedHash: hash, wpContentHash: doc.targetHash, wpImportRun: runId } : { wpAppliedHash: hash }, req, returning: false } as any)
+    await stampVersionHash(payload, req, doc.collection, main.id, hash)
     await payload.create({ collection: 'wp-import-journal', overrideAccess: true, req, data: { runId, sequence, collection: doc.collection, docId: String(main.id), wpId: doc.wpId, action: 'updated', preImage: { ...preImage, postStatus: main._status ?? null }, postHash: hash } })
     return { slug: slug ?? String(main.slug ?? ''), outcome: { action: 'updated' as const, appliedHash: hash, status: main._status ?? 'inherit' } }
   }).catch(error => ({ slug: String(main.slug ?? ''), outcome: { action: 'failed' as const, reason: reasonOf(error) } }))
@@ -250,6 +280,7 @@ async function updateDocument(payload: Payload, doc: PlanDoc, main: Doc, ids: Ma
 
 async function writeRedirect(payload: Payload, wpId: number, wanted: Record<string, unknown>, existing: Doc | undefined, runId: string, sequence: number): Promise<'created' | 'updated'> {
   return inTransaction(payload, async req => {
+    await claimRun(payload, req, runId)
     const data = { ...wanted, wpId, wpContentHash: hashOf(wanted), wpImportRun: runId }
     const preImage = existing ? { data: Object.fromEntries(redirectKeys.map(key => [key, existing[key] ?? null])), wpContentHash: existing.wpContentHash ?? null, wpAppliedHash: existing.wpAppliedHash ?? null, wpImportRun: existing.wpImportRun ?? null } : null
     const doc = existing
@@ -266,53 +297,75 @@ async function writeRedirect(payload: Payload, wpId: number, wanted: Record<stri
 
 type JournalRow = { id: string | number; sequence: number; collection: string; docId: string; wpId: number; action: 'created' | 'updated'; preImage: any; postHash: string; createdAt: string }
 
-export async function rollback(payload: Payload, runId: string, options: { discardEdits?: boolean; takeOverStale?: boolean; now?: () => Date; hooks?: { beforeRow?: (index: number) => void | Promise<void> } } = {}): Promise<RollbackResult> {
+export type RollbackOptions = {
+  discardEdits?: boolean
+  /** Take over a run still marked `running`. Only allowed once it is older than `staleAfterMs`. */
+  takeOverStale?: boolean
+  /** Default one hour; lowering it is an explicit operator decision (CLI `--stale-after-minutes`). */
+  staleAfterMs?: number
+  now?: () => Date
+  /** Test seam for injecting failures. */
+  hooks?: { beforeRow?: (index: number) => void | Promise<void> }
+}
+export const defaultStaleAfterMs = 60 * 60 * 1000
+
+class Refused extends Error {}
+
+/**
+ * Undo a run. The whole operation, including every precondition check, runs in ONE transaction that first takes the run
+ * row's lock: a concurrent apply for the same run is blocked at its next write and then refused (it sees a run that is
+ * no longer `running`), so the snapshot this reads cannot go stale, and any failure changes nothing.
+ */
+export async function rollback(payload: Payload, runId: string, options: RollbackOptions = {}): Promise<RollbackResult> {
   const result: RollbackResult = { ok: false, runId, refusals: [], deleted: 0, restored: 0, alreadyGone: 0 }
-  const refuse = (collection: string, reason: string) => result.refusals.push({ collection, reason })
-  const runs = await payload.find({ collection: 'wp-import-runs', where: { runId: { equals: runId } }, limit: 1, overrideAccess: true })
-  const run = runs.docs[0] as Doc | undefined
-  if (!run) { refuse('wp-import-runs', 'unknown-run'); return result }
-  if (run.status === 'rolled-back') { refuse('wp-import-runs', 'already-rolled-back'); return result }
-  if (run.status === 'running' && !options.takeOverStale) { refuse('wp-import-runs', 'run-still-running'); return result }
-  const rows = (await payload.find({ collection: 'wp-import-journal', where: { runId: { equals: runId } }, sort: '-sequence', limit: 100000, pagination: false, depth: 0, overrideAccess: true })).docs as unknown as JournalRow[]
-  const liveRuns = new Set((await payload.find({ collection: 'wp-import-runs', where: { status: { not_equals: 'rolled-back' } }, limit: 100000, pagination: false, overrideAccess: true })).docs.map(doc => (doc as Doc).runId as string))
-  const createdHere = new Set(rows.filter(row => row.action === 'created').map(row => `${row.collection}:${row.docId}`))
-  const touchedHere = new Set(rows.map(row => `${row.collection}:${row.docId}`))
-
-  // Preflight: nothing is written until every row can be undone.
-  const current = new Map<string, Doc | undefined>()
-  for (const row of rows) {
-    const label = row.collection
-    const others = (await payload.find({ collection: 'wp-import-journal', where: { and: [{ collection: { equals: row.collection } }, { docId: { equals: row.docId } }, { runId: { not_equals: runId } }] }, limit: 1000, pagination: false, depth: 0, overrideAccess: true })).docs as unknown as JournalRow[]
-    if (others.some(other => liveRuns.has((other as any).runId) && new Date(other.createdAt) > new Date(row.createdAt))) { refuse(label, 'later-run-depends-on-document'); continue }
-    const doc = await latestOf(payload, row.collection, row.docId)
-    current.set(`${row.collection}:${row.docId}`, doc)
-    if (!doc) continue
-    const hash = row.collection === 'redirects' ? redirectHash(doc) : appliedHash(row.collection as PlanCollection, doc)
-    if (hash !== row.postHash && !options.discardEdits) refuse(label, 'edited-since-import')
-    if (row.action === 'updated' && row.collection !== 'redirects' && row.collection !== 'media' && !options.discardEdits) {
-      // Publication state is an editorial decision this run never changed; if it moved since, undoing the run must not hide it.
-      const main = await payload.findByID({ collection: row.collection as any, id: row.docId, depth: 0, overrideAccess: true }).catch(() => undefined) as Doc | undefined
-      if (main && (main._status ?? null) !== (row.preImage?.postStatus ?? null)) refuse(label, 'status-changed-since-import')
-    }
-    if (row.action === 'created' && row.collection !== 'redirects' && row.collection !== 'media' && !options.discardEdits) {
-      // An editor published a document this run created as a draft: deleting it would silently unpublish it.
-      const main = await payload.findByID({ collection: row.collection as any, id: row.docId, depth: 0, overrideAccess: true }).catch(() => undefined) as Doc | undefined
-      if (main?._status === 'published' && row.preImage?.createdStatus !== 'published') refuse(label, 'published-since-import')
-    }
-    if (row.action === 'created' && row.collection === 'media') {
-      for (const [collection, fields] of Object.entries(refFields)) for (const field of fields) {
-        const referencing = await payload.find({ collection: collection as any, where: { [field]: { equals: row.docId } }, limit: 1000, pagination: false, depth: 0, overrideAccess: true })
-        for (const other of referencing.docs as Doc[]) if (!touchedHere.has(`${collection}:${other.id}`)) refuse(label, 'referenced-by-other-documents')
-      }
-    }
-  }
-  if (result.refusals.length) return result
-
-  // One transaction for the whole undo: a failure at any row leaves everything as it was, so a retry is safe.
-  const before = { ...result }
+  const refuse = (collection: string, reason: string) => { result.refusals.push({ collection, reason }) }
+  const now = options.now ?? (() => new Date())
   try {
     await inTransaction(payload, async req => {
+      // Lock the run row for the rest of the transaction and read it as of now.
+      const locked = await executor(payload, req).execute(sql`SELECT id, status, started_at FROM wp_import_runs WHERE run_id = ${runId} FOR UPDATE`)
+      const run = locked.rows[0]
+      if (!run) { refuse('wp-import-runs', 'unknown-run'); throw new Refused() }
+      if (run.status === 'rolled-back') { refuse('wp-import-runs', 'already-rolled-back'); throw new Refused() }
+      if (run.status === 'running') {
+        const age = now().getTime() - new Date(run.started_at).getTime()
+        if (!options.takeOverStale) { refuse('wp-import-runs', 'run-still-running'); throw new Refused() }
+        if (age < (options.staleAfterMs ?? defaultStaleAfterMs)) { refuse('wp-import-runs', 'run-not-stale'); throw new Refused() }
+      }
+      const rows = (await payload.find({ collection: 'wp-import-journal', where: { runId: { equals: runId } }, sort: '-sequence', limit: 100000, pagination: false, depth: 0, overrideAccess: true, req })).docs as unknown as JournalRow[]
+      const liveRuns = new Set((await payload.find({ collection: 'wp-import-runs', where: { status: { not_equals: 'rolled-back' } }, limit: 100000, pagination: false, overrideAccess: true, req })).docs.map(doc => (doc as Doc).runId as string))
+      const touchedHere = new Set(rows.map(row => `${row.collection}:${row.docId}`))
+
+      // Preconditions, all evaluated inside the transaction.
+      const current = new Map<string, Doc | undefined>()
+      for (const row of rows) {
+        const label = row.collection
+        const others = (await payload.find({ collection: 'wp-import-journal', where: { and: [{ collection: { equals: row.collection } }, { docId: { equals: row.docId } }, { runId: { not_equals: runId } }] }, limit: 1000, pagination: false, depth: 0, overrideAccess: true, req })).docs as unknown as JournalRow[]
+        if (others.some(other => liveRuns.has((other as any).runId) && new Date(other.createdAt) > new Date(row.createdAt))) { refuse(label, 'later-run-depends-on-document'); continue }
+        const doc = await latestOf(payload, row.collection, row.docId, req)
+        current.set(`${row.collection}:${row.docId}`, doc)
+        if (!doc) continue
+        const hash = row.collection === 'redirects' ? redirectHash(doc) : appliedHash(row.collection as PlanCollection, doc)
+        if (hash !== row.postHash && !options.discardEdits) refuse(label, 'edited-since-import')
+        if (versioned.has(row.collection) && !options.discardEdits) {
+          const main = await payload.findByID({ collection: row.collection as any, id: row.docId, depth: 0, overrideAccess: true, req }).catch(() => undefined) as Doc | undefined
+          if (main && row.action === 'created') {
+            const created = row.preImage?.createdStatus
+            if (created !== undefined && main._status !== created) refuse(label, main._status === 'published' ? 'published-since-import' : 'status-changed-since-import')
+          } else if (main && row.action === 'updated' && row.preImage && 'postStatus' in row.preImage) {
+            // Rows written before postStatus existed carry no value: that check is skipped for them.
+            if ((main._status ?? null) !== (row.preImage.postStatus ?? null)) refuse(label, 'status-changed-since-import')
+          }
+        }
+        if (row.action === 'created' && row.collection === 'media') {
+          for (const [collection, fields] of Object.entries(refFields)) for (const field of fields) {
+            const referencing = await payload.find({ collection: collection as any, where: { [field]: { equals: row.docId } }, limit: 1000, pagination: false, depth: 0, overrideAccess: true, req })
+            for (const other of referencing.docs as Doc[]) if (!touchedHere.has(`${collection}:${other.id}`)) refuse(label, 'referenced-by-other-documents')
+          }
+        }
+      }
+      if (result.refusals.length) throw new Refused()
+
       let index = 0
       for (const row of rows) {
         if (options.hooks?.beforeRow) await options.hooks.beforeRow(index++)
@@ -332,16 +385,16 @@ export async function rollback(payload: Payload, runId: string, options: { disca
           const hashes = { wpContentHash: image.wpContentHash, wpAppliedHash: image.wpAppliedHash, wpImportRun: image.wpImportRun }
           await payload.update({ collection: row.collection as any, id: row.docId, overrideAccess: true, req, depth: 0, ...(published ? { draft: true } : {}), data: { ...image.data, ...hashes } })
           if (published) await payload.db.updateOne({ collection: row.collection as any, id: row.docId, data: hashes, req, returning: false } as any)
+          if (image.wpAppliedHash) await stampVersionHash(payload, req, row.collection, row.docId, image.wpAppliedHash)
           result.restored++
         }
       }
-      await payload.update({ collection: 'wp-import-runs', id: run.id, overrideAccess: true, req, data: { status: 'rolled-back', rolledBackAt: (options.now?.() ?? new Date()).toISOString() } })
+      await payload.update({ collection: 'wp-import-runs', id: run.id, overrideAccess: true, req, data: { status: 'rolled-back', rolledBackAt: now().toISOString() } })
     })
+    result.ok = true
   } catch (error) {
-    Object.assign(result, before)
-    refuse('rollback', 'rolled-back-transaction-failed')
-    return result
+    if (!(error instanceof Refused)) refuse('rollback', 'rolled-back-transaction-failed')
+    result.deleted = 0; result.restored = 0; result.alreadyGone = 0
   }
-  result.ok = true
   return result
 }

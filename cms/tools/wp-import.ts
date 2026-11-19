@@ -9,8 +9,8 @@ import { getPayload } from 'payload'
 import { writePrivateJson } from '../../web/tools/private-output'
 import { apply, dryRun, rollback } from './wp-import/apply'
 
-const usage = 'Usage: wp-import.ts dry-run|apply --plan PLAN [--report OUT] [--publish] [--run-id ID] [--overwrite-edited] | rollback --run ID [--report OUT] [--discard-edits] [--take-over-stale] [--allow-nonlocal-database]'
-const valueFlags = new Set(['--plan', '--report', '--run-id', '--run'])
+const usage = 'Usage: wp-import.ts dry-run|apply --plan PLAN [--report OUT] [--publish] [--run-id ID] [--overwrite-edited] | rollback --run ID [--report OUT] [--discard-edits] [--take-over-stale [--stale-after-minutes N]] [--allow-nonlocal-database]'
+const valueFlags = new Set(['--plan', '--report', '--run-id', '--run', '--stale-after-minutes'])
 const boolFlags = new Set(['--publish', '--overwrite-edited', '--discard-edits', '--take-over-stale', '--allow-nonlocal-database'])
 
 export function parseArgs(argv: string[]) {
@@ -23,6 +23,7 @@ export function parseArgs(argv: string[]) {
     else if (valueFlags.has(flag) && rest[i + 1] && !rest[i + 1].startsWith('--') && !(flag in values)) values[flag] = rest[++i]
     else throw new Error(usage)
   }
+  if (values['--stale-after-minutes'] !== undefined && (command !== 'rollback' || !flags.has('--take-over-stale') || !(Number(values['--stale-after-minutes']) >= 0))) throw new Error(usage)
   if (command === 'rollback' ? !values['--run'] || values['--plan'] : !values['--plan'] || values['--run']) throw new Error(usage)
   return { command, values, flags }
 }
@@ -37,6 +38,7 @@ export function isLocalDatabase(uri: string | undefined, env: Record<string, str
   const local = (host: string) => host.startsWith('/') || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(host)
   try {
     const url = new URL(uri)
+    if (url.searchParams.getAll('host').length > 1) return false // libpq uses the last one; do not guess
     const socket = url.searchParams.get('host')
     if (env.PGHOST && !local(env.PGHOST)) return false
     if (socket !== null) return local(socket)
@@ -66,7 +68,7 @@ if (import.meta.main) {
     payload = await getPayload({ config })
     let report: unknown, summary: Record<string, unknown>
     if (command === 'rollback') {
-      const result = await rollback(payload, values['--run'], { discardEdits: flags.has('--discard-edits'), takeOverStale: flags.has('--take-over-stale') })
+      const result = await rollback(payload, values['--run'], { discardEdits: flags.has('--discard-edits'), takeOverStale: flags.has('--take-over-stale'), ...(values['--stale-after-minutes'] ? { staleAfterMs: Number(values['--stale-after-minutes']) * 60_000 } : {}) })
       report = result; summary = { ...result }
       if (!result.ok) exit = 1
     } else {

@@ -25,7 +25,10 @@ validation, not trusted from the plan: a document may be published only if its s
 password protected, its `wpStatus` equals the source status, `wpReviewFlags` equals its flags and none is a blocking
 flag; redirect destinations are re-derived from the document slug. **The plan hash is an integrity check, not
 authenticity**: anyone who can write the plan file can re-seal it, so keep plan files private and only apply plans you
-generated. Validation cannot know the real WordPress status of a record whose status fields were rewritten consistently.
+generated. Blocking review flags and sanitizer findings are
+**supplied by the plan and are not re-derived by the applier** (the applier cannot see the source markup or WXR), so a
+consistently rewritten plan can clear them. Treat the plan file as trusted operator input protected by its file mode, and
+re-run the planner from the WXR instead of ever editing a plan. Validation cannot know the real WordPress status of a record whose status fields were rewritten consistently.
 
 The plan file holds titles and bodies. Treat it like the export itself: a private, owner-only directory outside every
 Git checkout, never committed. Both tools create their outputs exclusively with mode `0600` (existing files and
@@ -71,7 +74,7 @@ For each plan document the applier looks up `wpId` and decides:
 - **skipped / locally-edited** when an editor changed the document since the import (the stored `wpAppliedHash` no
   longer matches the newest saved state, including draft-only saves). Source changes never clobber editors. Re-run with
   `--overwrite-edited` to take the source anyway;
-- **update** otherwise, clearing fields the source no longer supplies. Updates never change publication status, and an update to an already **published** document is written as a draft version, so the public page does not change until an editor reviews and publishes it (the `wp*` hashes on the live row move with it so re-runs stay idempotent).
+- **update** otherwise, clearing fields the source no longer supplies. Updates never change publication status, and an update to an already **published** document is written as a draft version, so the public page does not change until an editor reviews and publishes it (the `wp*` hashes on the live row move with it, and the applied hash is also stamped on the draft version so publishing that draft keeps re-runs idempotent).
 
 Applying the same plan twice therefore yields identical state and writes nothing (tested). Re-running after a changed
 export updates only what changed.
@@ -129,7 +132,7 @@ listed as unmapped with `redirect-query-or-fragment-route`, `redirect-foreign-or
 are stored without the trailing slash; the redirect layer must trim one trailing slash before lookup (the tests use
 `resolveOldUrl`, which does). Dry runs put the map in the report; apply writes it to `redirects` as 301s with
 `active: false` until the target is published, so nothing public redirects to a draft. A later apply run activates the
-redirect once its document is published. Served-in-place pages need no row. Sources that are, or sit under, routes the new site serves or reserves (`/members`, `/auth`, `/preview`, `/api`, `/admin`, `/_app`, `/events/*`, `/newsletter/*`, and the top-level pages) are never redirected (`redirect-reserved-route`), and a source equal to its destination is skipped. Existing redirects on the same source path
+redirect once its document is published. Served-in-place pages need no row. Sources that are, or sit under (case-insensitively), routes the new site serves or reserves (`/members`, `/auth`, `/preview`, `/api`, `/admin`, `/_app`, `/events`, `/newsletter`, `/news`, `/pages`, `/donate`, and the top-level pages) are never redirected (`redirect-reserved-route`), and a source equal to its destination is skipped. Existing redirects on the same source path
 that the importer did not create are left alone (`source-path-taken`). No redirect consumer exists in `web/` yet.
 
 ## Reports
@@ -156,10 +159,11 @@ pre-image of the managed fields. Every write is tagged with the run ID in `wpImp
 - `published-since-import`: an editor published a document the run created as a draft (override with `--discard-edits`);
 - `referenced-by-other-documents`: media created by the run is referenced by a document outside the run;
 - `status-changed-since-import`: for an **updated** row, the document's publication state differs from what the run left (an editor published or unpublished it); `_status` is never restored by rollback;
-- the run is unknown, already rolled back, or still `running`. A crashed apply is marked `failed` and can be rolled back; a
-  run left `running` by a killed process needs the explicit `--take-over-stale` flag (only after confirming nothing is still running).
+- the run is unknown, already rolled back, or still `running`. A crashed apply is marked `failed` and can be rolled back. A
+  run left `running` by a killed process needs `--take-over-stale`, and only once its `startedAt` is older than one hour
+  (`run-not-stale` otherwise; lowering the threshold needs the extra explicit `--stale-after-minutes N`).
 
-Otherwise it processes rows newest first inside **one transaction** (any failure changes nothing, so a retry is always safe): deletes documents the run created and restores updated documents from
+Otherwise it processes rows newest first inside **one transaction that first locks the run row and re-checks every precondition** (any failure changes nothing, so a retry is always safe). Every apply write takes the same lock first and requires the run to still be `running`, so an in-flight apply that is taken over is refused at its next write, stops, and its final status update (conditional on `running`) cannot overwrite `rolled-back`. Journal rows written before `postStatus` existed skip that one check: deletes documents the run created and restores updated documents from
 their pre-image (published documents receive the restored content as a draft version), then marks the run `rolled-back`. Rollback is covered by tests for
 refusal and success paths.
 

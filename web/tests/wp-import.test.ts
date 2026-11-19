@@ -223,6 +223,20 @@ describe('plan validation derives publication from source facts', () => {
     expect(() => validatePlan(swap({ destination: '/pages/about' }, inPlace))).toThrow('redirect destination');
     expect(() => validatePlan(swap({ collection: 'posts' }, inPlace))).toThrow('redirect');
   });
+  test('reserved routes are matched case-insensitively and include the new site subtrees', () => {
+    const swap = (sourcePath: string) => reseal({ redirects: plan.redirects.map((item, i) => i === plan.redirects.findIndex(entry => entry.mode === 'redirect') ? { ...item, sourcePath } : item) });
+    for (const path of ['/Members/x', '/API/x', '/Admin', '/news/x', '/pages/x', '/Donate/x', '/PREVIEW/x']) expect(() => validatePlan(swap(path))).toThrow('redirect destination');
+    const upper = buildPlan(xml.replace('https://princetonterraceclub.org/2024/04/club-story/', 'https://princetonterraceclub.org/API/club-story/'));
+    expect(upper.unmapped.some(item => item.reason === 'redirect-reserved-route')).toBe(true);
+    expect(upper.redirects.some(item => item.sourcePath === '/API/club-story')).toBe(false);
+  });
+  test('a tag longer than the scan cap is escaped, recorded, and keeps the document from publishing unreviewed', () => {
+    const long = `<a ${'x '.repeat(1500)}>t</a>`;
+    expect(sanitizeHtml(long)).toMatchObject({ unsafe: true, findings: { 'oversize-tag': 1 } });
+    const body = buildPlan(xml.replace('<![CDATA[<p>Same slug as another post.</p>]]>', `<![CDATA[${long}]]>`));
+    expect(body.docs.find(item => item.wpId === 2004)).toMatchObject({ desiredStatus: 'draft', publishEligible: false });
+    expect(body.docs.find(item => item.wpId === 2004)!.flags).toContain('unsafe-html-stripped');
+  });
   test('reserved and self-referential sources are listed as gaps by the planner, not mapped', () => {
     const reserved = buildPlan(xml.replace('https://princetonterraceclub.org/2024/04/club-story/', 'https://princetonterraceclub.org/members/club-story/').replace('https://princetonterraceclub.org/project/fixture-initiative/', 'https://princetonterraceclub.org/initiatives/'));
     expect(reserved.unmapped.filter(item => item.scope === 'redirect').map(item => item.reason)).toEqual(expect.arrayContaining(['redirect-reserved-route']));

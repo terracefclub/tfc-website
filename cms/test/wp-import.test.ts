@@ -359,7 +359,8 @@ describe('review fixes', () => {
 
     await payload.update({ collection: 'wp-import-runs', id: (await row()).id, data: { status: 'running' }, overrideAccess: true })
     expect((await rollback(payload, crashed)).refusals.map(item => item.reason)).toEqual(['run-still-running'])
-    const taken = await rollback(payload, crashed, { takeOverStale: true })
+    expect((await rollback(payload, crashed, { takeOverStale: true })).refusals.map(item => item.reason)).toEqual(['run-not-stale'])
+    const taken = await rollback(payload, crashed, { takeOverStale: true, staleAfterMs: 0 })
     expect(taken.ok).toBe(true)
     expect(taken.deleted).toBe(5)
     expect((await row()).status).toBe('rolled-back')
@@ -370,11 +371,14 @@ describe('review fixes', () => {
     const hook = ({ data }: any) => { if (data.wpId === 1001) throw new Error('journal-down'); return data }
     hooks.push(hook)
     try {
-      const report = await apply(payload, original, { runId: runId() })
+      const failing = runId()
+      const report = await apply(payload, original, { runId: failing })
       expect(report.documents.find(item => item.ordinal === 1)).toMatchObject({ action: 'failed', reason: 'journal-down' })
       expect(report.counts.failed).toBe(1)
       expect((await payload.count({ collection: 'pages', where: { wpId: { equals: 1001 } }, overrideAccess: true })).totalDocs).toBe(0)
       expect((await payload.count({ collection: 'pages', where: { wpId: { exists: true } }, overrideAccess: true })).totalDocs).toBe(5)
+      expect((await payload.count({ collection: 'wp-import-journal', where: { and: [{ runId: { equals: failing } }, { wpId: { equals: 1001 } }] }, overrideAccess: true })).totalDocs).toBe(0)
+      expect((await payload.countVersions({ collection: 'pages', where: { 'version.wpId': { equals: 1001 } }, overrideAccess: true })).totalDocs).toBe(0)
     } finally {
       hooks.splice(hooks.indexOf(hook), 1)
       const runs = (await payload.find({ collection: 'wp-import-runs', where: { runId: { like: `wpimport-test-${stamp}` } }, sort: '-startedAt', limit: 50, overrideAccess: true })).docs as any[]
@@ -400,6 +404,82 @@ describe('review fixes', () => {
     for (const [n, bad] of [['b', '<p onclick="x()">x</p>'], ['c', '<a href=" javascript:alert(1)">x</a>'], ['d', '<script>1</script>'], ['e', '<img src=x onerror=alert(1)>'], ['f', '<a href=\'data:text/html,x\'>x</a>']] as const) {
       await expect(make(n, bad)).rejects.toThrow('active-html-refused')
     }
+    // Entity, whitespace and quoting obfuscation, and the pages collection (same hook).
+    const tricks = ['<a href="java&#115;cript:alert(1)">x</a>', '<a href="&#x6A;avascript:alert(1)">x</a>', '<a href=javascript&colon;alert(1)>x</a>', '<a href="java\tscript:alert(1)">x</a>', '<a href="jav&#x09;ascript:alert(1)">x</a>',
+      '<a title="a>b" onclick=x>x</a>', "<a title='a>b' ONCLICK = 'x()'>x</a>", '<img src="data:text/html;base64,AAAA">', '<SCRIPT>1</SCRIPT>', '< script>1</script>']
+    for (const [i, bad] of tricks.entries()) {
+      await expect(make(`t${i}`, bad)).rejects.toThrow('active-html-refused')
+      await expect(payload.create({ collection: 'pages', overrideAccess: true, data: { slug: `guard-page-${i}-${stamp}`, title: 'Guard', bodyHtml: bad, _status: 'draft' } as any })).rejects.toThrow('active-html-refused')
+    }
+    const fine = await payload.create({ collection: 'pages', overrideAccess: true, data: { slug: `guard-page-ok-${stamp}`, title: 'Guard', bodyHtml: '<p title="a>b">x <a href="https://example.invalid/?online=1">y</a></p>', _status: 'draft' } as any })
+    await payload.delete({ collection: 'pages', id: fine.id, overrideAccess: true })
+  })
+
+  test('takeover needs an old enough run, and an in-flight apply is stopped: its next write is refused and it cannot overwrite the status', async () => {
+    const id = runId()
+    let release!: () => void, reached!: () => void
+    const gate = new Promise<void>(resolve => { release = resolve }), at = new Promise<void>(resolve => { reached = resolve })
+    const inflight = apply(payload, original, { runId: id, hooks: { afterDocument: async index => { if (index === 5) { reached(); await gate } } } }).then(() => 'completed', error => (error as Error).message)
+    await at
+    const row = async () => (await payload.find({ collection: 'wp-import-runs', where: { runId: { equals: id } }, overrideAccess: true })).docs[0] as any
+    expect((await row()).status).toBe('running')
+    expect((await rollback(payload, id, { takeOverStale: true })).refusals.map(item => item.reason)).toEqual(['run-not-stale'])
+    // Age the run past the default threshold (one hour) and take it over while the apply is paused between documents.
+    await payload.update({ collection: 'wp-import-runs', id: (await row()).id, data: { startedAt: new Date(Date.now() - 2 * 3600_000).toISOString() }, overrideAccess: true })
+    const taken = await rollback(payload, id, { takeOverStale: true })
+    expect(taken).toMatchObject({ ok: true, deleted: 5 })
+    release()
+    expect(await inflight).toBe('run-no-longer-running')
+    expect((await row()).status).toBe('rolled-back')
+    for (const collection of ['media', 'events', 'newsletters', 'posts', 'pages', 'initiatives', 'redirects'] as const) {
+      expect((await payload.count({ collection, where: { wpId: { exists: true } }, overrideAccess: true })).totalDocs).toBe(0)
+    }
+    expect((await payload.count({ collection: 'wp-import-journal', where: { runId: { equals: id } }, overrideAccess: true })).totalDocs).toBe(5)
+  })
+
+  test('a draft version written over a published document carries a current hash, so the next source change is not a false local edit', async () => {
+    const [a, b, c, d] = [runId(), runId(), runId(), runId()]
+    await apply(payload, original, { publish: true, runId: a })
+    const editorPublishesDraft = async () => {
+      const draft = await pagesOf(true)
+      await payload.update({ collection: 'pages', id: draft.id, overrideAccess: true, data: { title: draft.title, wpContentHash: draft.wpContentHash, wpAppliedHash: draft.wpAppliedHash, wpImportRun: draft.wpImportRun, _status: 'published' } as any })
+    }
+    const v1 = retitled(original, 1001, 'About v1'), v2 = retitled(original, 1001, 'About v2')
+    expect((await apply(payload, v1, { runId: b })).counts.updated).toBe(1)
+    await editorPublishesDraft()
+    expect((await pagesOf()).title).toBe('About v1')
+    const second = await apply(payload, v2, { runId: c })
+    expect(second.documents.find(item => item.ordinal === 1)).toMatchObject({ action: 'updated' })
+    expect((await pagesOf(true)).title).toBe('About v2')
+    await editorPublishesDraft()
+    const third = await apply(payload, retitled(original, 1001, 'About v3'), { runId: d })
+    expect(third.documents.find(item => item.ordinal === 1)).toMatchObject({ action: 'updated' })
+    for (const id of [d, c, b, a]) expect((await rollback(payload, id, { discardEdits: true })).ok).toBe(true)
+  })
+
+  test('journal rows written before postStatus existed do not block rollback', async () => {
+    const a = runId(), b = runId()
+    await apply(payload, original, { runId: a })
+    await apply(payload, retitled(original, 1006, 'Child (legacy row)'), { runId: b })
+    const row = (await payload.find({ collection: 'wp-import-journal', where: { runId: { equals: b } }, overrideAccess: true })).docs[0] as any
+    const { postStatus: _, ...legacy } = row.preImage
+    await payload.update({ collection: 'wp-import-journal', id: row.id, data: { preImage: legacy } as any, overrideAccess: true })
+    const page = (await payload.find({ collection: 'pages', where: { wpId: { equals: 1006 } }, overrideAccess: true })).docs[0] as any
+    await payload.update({ collection: 'pages', id: page.id, data: { _status: 'published' } as any, overrideAccess: true })
+    expect((await rollback(payload, b)).ok).toBe(true)
+    expect((await rollback(payload, a, { discardEdits: true })).ok).toBe(true)
+  })
+
+  test('rollback refuses a created document an editor unpublished, but removes an untouched published one', async () => {
+    const a = runId()
+    await apply(payload, original, { publish: true, runId: a })
+    const page = await pagesOf()
+    await payload.update({ collection: 'pages', id: page.id, data: { _status: 'draft' } as any, overrideAccess: true })
+    expect((await rollback(payload, a)).refusals.map(item => item.reason)).toContain('status-changed-since-import')
+    await payload.update({ collection: 'pages', id: page.id, data: { _status: 'published' } as any, overrideAccess: true })
+    const done = await rollback(payload, a)
+    expect(done.ok).toBe(true)
+    expect((await payload.count({ collection: 'pages', where: { wpId: { exists: true } }, overrideAccess: true })).totalDocs).toBe(0)
   })
 })
 
@@ -408,12 +488,18 @@ describe('command line guards', () => {
     expect(parseArgs(['dry-run', '--plan', '/x/plan.json']).command).toBe('dry-run')
     expect(parseArgs(['rollback', '--run', 'wpimport-abc']).values['--run']).toBe('wpimport-abc')
     expect(() => parseArgs(['apply'])).toThrow('Usage')
+    expect(parseArgs(['rollback', '--run', 'x', '--take-over-stale', '--stale-after-minutes', '5']).values['--stale-after-minutes']).toBe('5')
+    expect(() => parseArgs(['rollback', '--run', 'x', '--stale-after-minutes', '5'])).toThrow('Usage')
+    expect(() => parseArgs(['rollback', '--run', 'x', '--take-over-stale', '--stale-after-minutes', '-1'])).toThrow('Usage')
     expect(() => parseArgs(['rollback', '--run', 'x', '--plan', 'y'])).toThrow('Usage')
     expect(() => parseArgs(['apply', '--plan', 'a', '--bogus'])).toThrow('Usage')
     expect(isLocalDatabase('postgresql:///terrace_cms?host=/tmp/socket&port=55432')).toBe(true)
     expect(isLocalDatabase('postgresql://postgres@127.0.0.1:5432/terrace_cms')).toBe(true)
     expect(isLocalDatabase('postgresql://postgres@db.example.invalid:5432/terrace_cms')).toBe(false)
     expect(isLocalDatabase(undefined)).toBe(false)
+    // pg uses the LAST host parameter while URL.get returns the first: any duplicate is refused.
+    expect(isLocalDatabase('postgresql:///db?host=/tmp/s&host=db.remote.invalid', {})).toBe(false)
+    expect(isLocalDatabase('postgresql:///db?host=db.remote.invalid&host=/tmp/s', {})).toBe(false)
     // An empty host falls back to PGHOST in libpq, so it proves nothing; PGHOST itself must be local too.
     expect(isLocalDatabase('postgresql:///terrace_cms', {})).toBe(false)
     expect(isLocalDatabase('postgresql://postgres@/terrace_cms', {})).toBe(false)

@@ -10,7 +10,7 @@ export type Sanitized = { html: string; findings: Findings; unsafe: boolean };
 
 // Finding kinds that mean the source carried active or unreviewable content. Such a
 // document is still imported (stripped) but only ever as a draft needing review.
-const unsafeKinds = new Set(['oversize', 'script', 'iframe', 'object', 'embed', 'form', 'style-element', 'svg', 'event-handler', 'unsafe-url', 'builder-code', 'raw-text-element']);
+const unsafeKinds = new Set(['oversize', 'oversize-tag', 'script', 'iframe', 'object', 'embed', 'form', 'style-element', 'svg', 'event-handler', 'unsafe-url', 'builder-code', 'raw-text-element']);
 
 const allowed: Record<string, readonly string[]> = {
   p: [], br: [], hr: [], h2: [], h3: [], h4: [], h5: [], h6: [], ul: [], ol: ['start'], li: [], strong: [], em: [], u: [], blockquote: [], code: [], pre: [], sup: [], sub: [],
@@ -104,7 +104,7 @@ export function sanitizeHtml(rawInput: string): Sanitized {
       const ch = input[end];
       if (quote) { if (ch === quote) quote = ''; } else if (ch === '"' || ch === "'") quote = ch; else if (ch === '>') break;
     }
-    if (end >= limit) { out += '&lt;'; i++; continue; } // unterminated or implausibly long: treat '<' as text
+    if (end >= limit) { if (limit - i >= maxTagLength) bump(findings, 'oversize-tag'); out += '&lt;'; i++; continue; } // unterminated or implausibly long: treat '<' as text
     const closing = open[1] === '/', raw = open[2].toLowerCase();
     const attrSource = input.slice(i + open[0].length, end);
     i = end + 1;

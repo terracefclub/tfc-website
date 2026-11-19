@@ -41,8 +41,8 @@ export const routes: Record<Exclude<PlanCollection, 'media'>, string> = {
 export const servedInPlace = ['/about', '/contact', '/donate', '/merchandise', '/shows-archive', '/newsletter', '/events', '/initiatives'] as const;
 
 /** Paths the new site already serves, or reserves, that a WordPress URL must never be redirected over. */
-export const reservedSourcePrefix = /^\/(?:members|auth|preview|api|admin|_app|events|newsletter)(?:\/|$)/;
-export const isReservedSource = (path: string) => reservedSourcePrefix.test(path) || (servedInPlace as readonly string[]).includes(path);
+export const reservedSourcePrefix = /^\/(?:members|auth|preview|api|admin|_app|events|newsletter|news|pages|donate)(?:\/|$)/i;
+export const isReservedSource = (path: string) => reservedSourcePrefix.test(path) || (servedInPlace as readonly string[]).includes(path.toLowerCase());
 
 export const blockingFlags = ['unsafe-html-stripped', 'builder-code-dropped', 'event-date-review', 'event-timezone-review', 'event-venue-missing', 'event-end-invalid', 'form-shortcode-dropped', 'plugin-shortcode-dropped', 'media-bytes-pending'] as const;
 
