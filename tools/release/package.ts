@@ -71,8 +71,11 @@ export function fileManifest(root: string): Record<string, string> {
   return files
 }
 
-function launcher(component: Component, migration = false) {
-  const entry = component === 'web' ? 'build/index.js' : migration ? 'migrate.mjs' : 'server.js'
+// Operator commands (CMS bin/migrate and bin/sweep) run once and exit: no PORT and no listener.
+type Entry = 'start' | 'migrate' | 'sweep'
+function launcher(component: Component, kind: Entry = 'start') {
+  const operator = kind !== 'start'
+  const entry = component === 'web' ? 'build/index.js' : operator ? `${kind}.mjs` : 'server.js'
   return `#!/usr/bin/env bash
 set -euo pipefail
 release_root="$(cd -- "\${BASH_SOURCE[0]%/*}/.." && pwd -P)"
@@ -81,11 +84,11 @@ export NODE_ENV=production
 export NEXT_TELEMETRY_DISABLED=1
 ${component === 'cms' ? `if [[ -z "\${CMS_MEDIA_DIR:-}" || "\${CMS_MEDIA_DIR:0:1}" != / || "$CMS_MEDIA_DIR" == "$release_root" || "$CMS_MEDIA_DIR" == "$release_root/"* ]]; then echo 'Release requires external absolute CMS_MEDIA_DIR.' >&2; exit 1; fi
 if ! node -e 'try { const f=require("node:fs"),p=require("node:path"),r=f.realpathSync(process.argv[1]),d=f.realpathSync(process.env.CMS_MEDIA_DIR); if(!f.statSync(d).isDirectory()||d===r||d.startsWith(r+p.sep))process.exit(1); f.accessSync(d,f.constants.W_OK); } catch { process.exit(1); }' "$release_root" 2>/dev/null; then echo 'Release requires writable uploads outside its code directory.' >&2; exit 1; fi` : ''}
-${migration ? '' : `if [[ ! "\${PORT:-}" =~ ^[0-9]{1,5}$ ]] || (( 10#$PORT < 1024 || 10#$PORT > 65535 )); then echo 'Release requires an explicit PORT from 1024 to 65535.' >&2; exit 1; fi
+${operator ? '' : `if [[ ! "\${PORT:-}" =~ ^[0-9]{1,5}$ ]] || (( 10#$PORT < 1024 || 10#$PORT > 65535 )); then echo 'Release requires an explicit PORT from 1024 to 65535.' >&2; exit 1; fi
 export ${component === 'web' ? 'HOST' : 'HOSTNAME'}=127.0.0.1`}
 ${component === 'web' ? `if ! node -e 'try { const v=process.env.ORIGIN,u=new URL(v); if(u.origin!==v||u.username||u.password||(u.protocol!=="https:"&&!(u.protocol==="http:"&&u.hostname==="127.0.0.1"))||(process.env.MEMBER_AUTH_ORIGIN&&process.env.MEMBER_AUTH_ORIGIN!==v))process.exit(1); } catch { process.exit(1); }' 2>/dev/null; then echo 'Release requires exact ORIGIN matching MEMBER_AUTH_ORIGIN when configured.' >&2; exit 1; fi` : ''}
 cd -- "$release_root"
-exec node "$release_root/${entry}"
+exec node "$release_root/${entry}"${kind === 'sweep' ? ' "$@"' : ''}
 `
 }
 
@@ -105,7 +108,7 @@ export function stageRelease(options: {
     copyTree(options.dependencies, join(destination, 'node_modules'), options.forbiddenValues)
     writeFileSync(join(destination, 'package.json'), '{"type":"module"}\n')
   } else {
-    if (!existsSync(join(input, 'server.js')) || !existsSync(join(input, 'migrate.mjs')) || !options.staticAssets) fail()
+    if (!existsSync(join(input, 'server.js')) || !existsSync(join(input, 'migrate.mjs')) || !existsSync(join(input, 'sweep.mjs')) || !options.staticAssets) fail()
     copyTree(input, destination, options.forbiddenValues)
     copyTree(options.staticAssets, join(destination, '.next/static'), options.forbiddenValues)
     if (options.publicAssets && existsSync(options.publicAssets)) copyTree(options.publicAssets, join(destination, 'public'), options.forbiddenValues)
@@ -113,10 +116,10 @@ export function stageRelease(options: {
   }
   mkdirSync(join(destination, 'bin'), { recursive: true })
   writeFileSync(join(destination, 'bin/start'), launcher(component), { mode: 0o755 })
-  if (component === 'cms') writeFileSync(join(destination, 'bin/migrate'), launcher(component, true), { mode: 0o755 })
+  if (component === 'cms') for (const kind of ['migrate', 'sweep'] as const) writeFileSync(join(destination, `bin/${kind}`), launcher(component, kind), { mode: 0o755 })
   const manifest = {
     schemaVersion: 1, component, revision, sourceEpoch: epoch, runtime,
-    entrypoints: component === 'cms' ? { start: 'bin/start', migrate: 'bin/migrate' } : { start: 'bin/start' },
+    entrypoints: component === 'cms' ? { start: 'bin/start', migrate: 'bin/migrate', sweep: 'bin/sweep' } : { start: 'bin/start' },
     writablePaths: component === 'cms' ? { cacheMount: '.next/cache', uploadsEnvironment: 'CMS_MEDIA_DIR' } : {},
     files: fileManifest(destination),
   }

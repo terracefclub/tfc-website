@@ -7,7 +7,8 @@ const require = createRequire(import.meta.url)
 const { nodeFileTrace } = require('next/dist/compiled/@vercel/nft')
 try {
   const root = realpathSync(process.cwd()), standalone = join(root, '.next/standalone')
-  const { fileList } = await nodeFileTrace([join(root, '.next/release-migrate.mjs')], {
+  // Both operator entrypoints (bin/migrate and bin/sweep) run outside the request server's own trace.
+  const { fileList } = await nodeFileTrace([join(root, '.next/release-migrate.mjs'), join(root, '.next/release-sweep.mjs')], {
     base: root, processCwd: root, mixedModules: true,
     ignore: ['**/.state/**', '**/.env*', '**/.devenv/**', '**/.direnv/**'],
   })
@@ -21,8 +22,8 @@ try {
     const to = join(standalone, name)
     if (!existsSync(to)) { mkdirSync(dirname(to), { recursive: true }); copyFileSync(from, to); added++ }
   }
-  console.log(`CMS migration dependency trace added ${added} files.`)
+  console.log(`CMS migration and sweep dependency trace added ${added} files.`)
 } catch {
-  console.error('CMS migration dependency trace failed; raw dependency/filesystem errors suppressed.')
+  console.error('CMS migration and sweep dependency trace failed; raw dependency/filesystem errors suppressed.')
   process.exitCode = 1
 }

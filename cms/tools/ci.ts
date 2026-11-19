@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { spawn } from 'node:child_process'
-import { mkdirSync, mkdtempSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -68,6 +68,17 @@ try {
     await run(resolve(unpacked, 'bin/migrate'), [], migrationEnv, 90000)
     const second = await migrated.query('SELECT name,batch FROM payload_migrations ORDER BY id')
     if (JSON.stringify(first.rows) !== JSON.stringify(second.rows)) throw new Error('Repeated release migration was not a no-op.')
+    // The packaged sweep (bin/sweep) writes a pending outbox file copy, then redacts it after an erasure, without a source checkout.
+    const outbox = mkdtempSync(resolve(tmpdir(), 'terrace-ci-outbox-'))
+    const sweepEnv = { ...migrationEnv, LIFECYCLE_OUTBOX_DIR: resolve(outbox, 'mirror') }
+    const row = await migrated.query(`INSERT INTO message_outbox (kind, recipient_label, recipient_email, subject, body) VALUES ('denial', 'Synthetic Applicant', 'ci-applicant@terrace.invalid', 'Synthetic subject', 'Synthetic body') RETURNING id`)
+    await run(resolve(unpacked, 'bin/sweep'), [], sweepEnv, 90000)
+    const file = resolve(outbox, 'mirror', `${String(row.rows[0].id).padStart(6, '0')}-denial.json`)
+    if ((statSync(file).mode & 0o777) !== 0o600 || JSON.parse(readFileSync(file, 'utf8')).to !== 'ci-applicant@terrace.invalid') throw new Error('Packaged sweep did not write the private outbox copy.')
+    if ((await migrated.query('SELECT count(*)::int AS n FROM message_outbox WHERE mirrored_at IS NULL')).rows[0].n !== 0) throw new Error('Packaged sweep did not mark the copy written.')
+    await migrated.query(`UPDATE message_outbox SET recipient_label = 'Former member', recipient_email = NULL WHERE id = $1`, [row.rows[0].id])
+    await run(resolve(unpacked, 'bin/sweep'), [], sweepEnv, 90000)
+    if (JSON.parse(readFileSync(file, 'utf8')).to !== 'Former member') throw new Error('Packaged sweep did not redact the erased outbox copy.')
   } finally { await migrated.end() }
 } finally {
   await adminPool.query(`DROP DATABASE IF EXISTS ${migrationDatabase}`)

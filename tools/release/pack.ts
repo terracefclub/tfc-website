@@ -47,10 +47,12 @@ try {
       stageRelease({ component, input: join(root, 'web/build'), dependencies: join(dependencies, 'node_modules'),
         destination, revision, epoch, runtime, forbiddenValues })
     } else {
-      phase = 'CMS migration entrypoint'
-      command('bun', ['build', 'tools/release-migrate.ts', '--target=node', '--packages=external', '--format=esm', '--outfile=.next/release-migrate.mjs'], join(root, 'cms'))
+      phase = 'CMS migration and sweep entrypoints'
+      for (const entry of ['migrate', 'sweep']) {
+        command('bun', ['build', `tools/release-${entry}.ts`, '--target=node', '--packages=external', '--format=esm', `--outfile=.next/release-${entry}.mjs`], join(root, 'cms'))
+      }
       command('node', ['tools/trace-release-migrate.mjs'], join(root, 'cms'))
-      copyFileSync(join(root, 'cms/.next/release-migrate.mjs'), join(root, 'cms/.next/standalone/migrate.mjs'))
+      for (const entry of ['migrate', 'sweep']) copyFileSync(join(root, `cms/.next/release-${entry}.mjs`), join(root, `cms/.next/standalone/${entry}.mjs`))
       phase = 'CMS staging'
       stageRelease({ component: component as Component, input: join(root, 'cms/.next/standalone'),
         staticAssets: join(root, 'cms/.next/static'), publicAssets: join(root, 'cms/public'),

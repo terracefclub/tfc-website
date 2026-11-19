@@ -31,8 +31,8 @@ invalid (`cms/src/runtime-policy.ts`, covered by `cms/test/runtime-policy.test.t
 to start for these; at startup it logs one `[config]` line per missing setting (names only, never values;
 `web/src/lib/server/production-config.ts`) and the affected feature fails closed, as the last column says.
 
-**CMS** (`bin/start`, `bin/migrate` and the housekeeping sweep need the same CMS values; the sweep also needs
-the outbox settings):
+**CMS** (`bin/start`, `bin/migrate` and the housekeeping sweep `bin/sweep` need the same CMS values; the sweep also
+needs the outbox settings):
 
 | Variable | Purpose | When unset or invalid |
 | --- | --- | --- |
@@ -298,21 +298,20 @@ purged group first) and blanks the snapshots of reports about what it deleted; o
 erased automatically. **[OWNER]** retention periods (including how long reports and their notes are kept)
 before a scheduled run is added.
 
-**Scheduling.** The sweep is manual; nothing in this repository runs it on a timer. The release bundles
-(`tools/release/`) contain only `bin/start` and, for the CMS, `bin/migrate`: they have no systemd unit, timer or
-cron definition and no packaged sweep entrypoint (the sweep is a Bun script and bundles carry no Bun). Recommended:
-once a day at a quiet hour (for example 03:30 server time), without `--purge-moderated` until the owner sets retention
-periods. Until a packaged entrypoint exists, run it from a source checkout of the deployed revision with the CMS runtime
-environment (`DATABASE_URI`, `PAYLOAD_SECRET`, `LIFECYCLE_OUTBOX_DIR` and the rest of the CMS configuration):
+**Scheduling.** The CMS release bundle ships the sweep as `bin/sweep` (built like `bin/migrate`; see
+`tools/release/README.md`), so a production timer needs no source checkout and no Bun. Run it as the CMS's own
+operating-system account with exactly the CMS runtime environment of `bin/start` (`DATABASE_URI`, `PAYLOAD_SECRET`,
+`CMS_MEDIA_DIR`, `LIFECYCLE_OUTBOX_DIR`, `LIFECYCLE_PUBLIC_ORIGIN` and the rest of the CMS configuration above):
 
 ```sh
-cd /path/to/checkout/cms && bun run lifecycle:sweep   # JSON summary on stdout; a non-zero `mirror.failed` means some files are still pending
+/path/to/release/cms/bin/sweep                     # one JSON line of counts; same exit contract as above
+/path/to/release/cms/bin/sweep --purge-moderated   # only after the owner sets retention periods
 ```
 
-The platform repository (Womb) must own the timer and its service account (the account must be able to write
-`LIFECYCLE_OUTBOX_DIR`); this repository defines no infrastructure. Run it also after every administrator-initiated
-erasure, as described under Erase. Follow-up for the release layout: package a `bin/sweep` entrypoint built like
-`bin/migrate` so the timer does not need a source checkout.
+Recommended: once a day at a quiet hour (for example 03:30 server time), without `--purge-moderated` until the
+owner sets retention periods. The platform repository (Womb) owns the timer and its service account; this
+repository defines no infrastructure. Run it also after every administrator-initiated erasure, as described under
+Erase. From a source checkout the same housekeeping remains `bun run lifecycle:sweep` (above).
 
 **Local databases.** A development database that ran the discarded early migration `20261119_014038` (or an
 intermediate `021150`) must be reset: roll back or drop it and run `migrate` again; the migration was
