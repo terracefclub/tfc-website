@@ -369,3 +369,17 @@ Dry run only, report written `0600` beside the preflight report. It reproduces t
 1 initiative); 30 records unmapped by design (11 venues/organizers, 11 menu items, 4 Divi layouts, 3 style records, 1
 event with no start date); 88 published items yield 86 redirects (80 redirect, 6 served in place) and two explicit gaps
 (the site root and one source that collides with a reserved route; this is the final dry run, after the reserved-route rule); 56 documents are publish-eligible by status and review flags (everything else needs review first).
+
+### Real export after the quality gates and publishing workflow (2026-11-18)
+
+Planner dry run, then a rehearsal apply on a throwaway local database (aggregate counts only; nothing was applied to any real target).
+The 245 items and 87 publish-status candidates still reproduce the preflight. **Publish-eligible documents fell from 56 to 36**: 20 were
+blocked by the new gates, 11 of them carrying `empty-body` (9 pages and 2 posts; the pages are headings with under 200 characters), 5
+documents carry `leftover-shortcode` (distinct names: `integrate_google_drive`, `simpay_error`, `simpay_payment_receipt`, `tt-event`; the post whose whole body is a raw `tt-event`
+shortcode is one of them) and 24 documents carry `divi-layout-review`, which now blocks (14 of the 20 newly blocked have only or also that flag). Redirects are 85 (79 redirect, 6 served in place): the
+dead `/join` row is gone and three explicit gaps remain (the site root and two reserved routes). Link findings (non-blocking `unresolved-links`): 15 documents, 5 distinct unresolved internal
+targets and 39 distinct old-site upload paths.
+
+Rehearsal on the local stack: `apply` created 215 documents and 79 redirects (inactive); `publish --dry-run` and `publish` published the 36 eligible drafts and activated their 36
+redirects; a second `publish` published nothing; re-applying the plan was a no-op; unpublishing and publishing one post in the Payload admin flipped its redirect immediately; and `rollback` of the
+publish run, then of the apply run, left no imported rows.

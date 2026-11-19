@@ -37,7 +37,7 @@ function rejected(run: ReturnType<typeof cli>) {
 test('production artifact derives its clients, audiences and disjoint scope roles from the local contract', () => {
   const artifact = productionRealm(web, cms, secrets)
   expect(artifact).toMatchObject({ realm: 'terrace', enabled: true, registrationAllowed: false, resetPasswordAllowed: false,
-    sslRequired: 'all', verifyEmail: true, duplicateEmailsAllowed: false, editEmailAllowed: false, editUsernameAllowed: false, bruteForceProtected: true,
+    sslRequired: 'all', verifyEmail: true, duplicateEmailsAllowed: false, editUsernameAllowed: false, bruteForceProtected: true,
     accessTokenLifespan: 60, ssoSessionIdleTimeout: 1800, ssoSessionMaxLifespan: 28800, revokeRefreshToken: true, refreshTokenMaxReuse: 0 })
   expect(artifact.roles.realm).toEqual(realmRoleNames.map(name => ({ name })))
   expect(artifact.scopeMappings).toEqual(Object.entries(roleScopeMappings).map(([client, roles]) => ({ client, roles: [...roles] })))

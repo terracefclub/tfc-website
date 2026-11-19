@@ -147,8 +147,9 @@ the system at first sign-in, not by hand**. Redeeming a link (above) and signing
 identity yet, and the member row is created later, from the verified Keycloak token. They are bound like this:
 
 1. The operator creates the realm user for exactly one applicant with `provision-member.ts --email <the application's contact email>`.
-   Registration is off, addresses are unique in the realm (`duplicateEmailsAllowed: false`), and members cannot change their address or username
-   (`editEmailAllowed: false`, `editUsernameAllowed: false`). The member browser client (`terrace-web`) releases the `email` scope, so the access token carries `email` and
+   Registration is off, addresses are unique in the realm (`duplicateEmailsAllowed: false`), usernames are fixed (`editUsernameAllowed: false`), and the local
+   bootstrap makes the `email` profile attribute administrator-edit-only. The production realm has `verifyEmail: true`, so an address a member changes becomes unverified and the CMS ignores it; keep the
+   `email` attribute administrator-edit-only there too. The member browser client (`terrace-web`) releases the `email` scope, so the access token carries `email` and
    `email_verified` (the provisioning script sets it verified). The editorial client does not release it.
 2. On every authenticated request the CMS reads the **verified** address from the signature-checked, introspected token (never from anything the browser sent), and in one conditional
    statement links every invitation that is **redeemed** (someone holding the one-time link accepted it), whose application is **approved**, whose application

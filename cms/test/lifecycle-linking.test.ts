@@ -81,6 +81,8 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
+  // Members created by signing in (including through the REST member token) carry this run's identity-stub issuer.
+  members.push(...(await q(`SELECT id FROM members WHERE issuer = $1`, [settings.issuer]).catch(() => ({ rows: [] }))).rows.map((row) => Number(row.id)))
   await q(`DELETE FROM data_requests WHERE member_id = ANY($1)`, [members]).catch(() => {})
   await q(`DELETE FROM member_offboardings WHERE member_id = ANY($1)`, [members]).catch(() => {})
   await q(`DELETE FROM message_outbox WHERE subject LIKE $1 OR recipient_label LIKE $1 OR recipient_email LIKE $1`, [`%${suffix}%`]).catch(() => {})

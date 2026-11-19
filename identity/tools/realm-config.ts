@@ -18,8 +18,9 @@ export const syntheticIdentityRoles = [
   { username: 'local-editorial-admin', roles: ['editorial-admin'] },
 ] as const
 // The member's verified `email` claim binds a first sign-in to their redeemed invitation (cms/src/lifecycle/linking.ts),
-// so addresses are unique and only an administrator sets or changes them.
-export const realmSettings = { realm, enabled: true, displayName: 'Terrace', registrationAllowed: false, resetPasswordAllowed: false, loginWithEmailAllowed: true, duplicateEmailsAllowed: false, editEmailAllowed: false, editUsernameAllowed: false, bruteForceProtected: true, sslRequired: 'none', accessTokenLifespan: 60, ssoSessionIdleTimeout: 1800, ssoSessionMaxLifespan: 28800, revokeRefreshToken: true, refreshTokenMaxReuse: 0 }
+// so addresses are unique (no duplicates, usernames fixed). The production realm also has `verifyEmail: true`, so an address a user
+// changes becomes unverified and the CMS ignores it; the local bootstrap additionally makes the address administrator-only (local-up.ts).
+export const realmSettings = { realm, enabled: true, displayName: 'Terrace', registrationAllowed: false, resetPasswordAllowed: false, loginWithEmailAllowed: true, duplicateEmailsAllowed: false, editUsernameAllowed: false, bruteForceProtected: true, sslRequired: 'none', accessTokenLifespan: 60, ssoSessionIdleTimeout: 1800, ssoSessionMaxLifespan: 28800, revokeRefreshToken: true, refreshTokenMaxReuse: 0 }
 const audienceMapper = { name: 'community-resource', protocol: 'openid-connect', protocolMapper: 'oidc-audience-mapper', config: { 'included.custom.audience': 'terrace-community', 'id.token.claim': 'false', 'access.token.claim': 'true' } }
 export function localClientOrigins(web?: string, cms?: string): ClientOrigins {
   if (web === undefined && cms === undefined) return { webOrigins, cmsOrigins }

@@ -32,7 +32,7 @@ test('member browser client is PKCE only with its own exact callbacks, audience,
   expect(web.defaultClientScopes).toContain('basic')
   expect(web.defaultClientScopes).toContain('roles')
   expect(web.defaultClientScopes).toContain('email') // the verified address binds a first sign-in to its invitation
-  expect(realmSettings.editEmailAllowed).toBe(false)
+  expect(realmSettings.editUsernameAllowed).toBe(false)
   expect(realmSettings.duplicateEmailsAllowed).toBe(false)
   expect(web.redirectUris).toEqual(webOrigins.map(value => `${value}/auth/callback`))
   expect(webOrigins.every(value => new URL(value).hostname === '127.0.0.1' && !value.includes('*'))).toBe(true)

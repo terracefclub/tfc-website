@@ -82,6 +82,16 @@ async function api(path: string, method = 'GET', data?: unknown) {
 
 if ((await api(`realms/${realm}`)).status === 404) await api('realms', 'POST', realmSettings)
 else await api(`realms/${realm}`, 'PUT', realmSettings)
+// The member's verified address binds their first sign-in to their invitation, so only an administrator may set it:
+// keep Keycloak's own user profile and restrict who may edit `email` (idempotent).
+{
+  const profile = await (await api(`realms/${realm}/users/profile`)).json() as { attributes?: { name: string; permissions?: { view?: string[]; edit?: string[] } }[] }
+  const email = profile.attributes?.find((attribute) => attribute.name === 'email')
+  if (email && JSON.stringify(email.permissions?.edit) !== JSON.stringify(['admin'])) {
+    email.permissions = { view: email.permissions?.view ?? ['admin', 'user'], edit: ['admin'] }
+    await api(`realms/${realm}/users/profile`, 'PUT', profile)
+  }
+}
 for (const name of realmRoleNames) {
   if ((await api(`realms/${realm}/roles/${name}`)).status === 404) await api(`realms/${realm}/roles`, 'POST', { name })
 }
