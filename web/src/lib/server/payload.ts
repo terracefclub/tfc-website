@@ -4,7 +4,7 @@ type RecordValue = Record<string, unknown>;
 type Fetch = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 export type ContentSummary = { slug: string; title: string; publishedAt?: string; excerpt?: string };
-export type ContentDocument = ContentSummary & { bodyHtml: string; authorName?: string; seoTitle?: string; seoDescription?: string };
+export type ContentDocument = ContentSummary & { id?: number; bodyHtml: string; authorName?: string; seoTitle?: string; seoDescription?: string };
 export type ContentPage = { docs: ContentSummary[]; page: number; totalPages: number };
 export type PostView = { post: ContentDocument; previous?: ContentSummary; next?: ContentSummary };
 
@@ -150,6 +150,7 @@ export function createPayloadClient(options: {
   });
   const fullDocument = (doc: RecordValue): ContentDocument => ({
     ...summary(doc),
+    id: Number.isInteger(doc.id) ? doc.id as number : undefined,
     bodyHtml: typeof doc.bodyHtml === 'string' && doc.bodyHtml.length <= 1_048_576 ? doc.bodyHtml : '',
     authorName: optionalText(doc.authorName, 200),
     seoTitle: optionalText(doc.seoTitle, 300),
@@ -231,21 +232,27 @@ export function createPayloadClient(options: {
     },
     /** Published posts, newest first, one page at a time. */
     async posts(page: number, limit = 12): Promise<ContentPage> {
-      const result = await publishedPage('posts', { ...summaryFields, sort: '-publishedAt', limit: String(limit), page: String(page) });
+      const result = await publishedPage('posts', { ...summaryFields, sort: '-publishedAt,-id', limit: String(limit), page: String(page) });
       return { docs: result.docs.map(summary), page, totalPages: result.totalPages };
     },
     async post(value: string): Promise<PostView | undefined> {
       const docs = await collection('posts', { 'where[slug][equals]': slug(value), depth: '0' });
       if (docs.length > 1) throw new ContentUnavailable();
       if (!docs.length) return undefined;
-      const post = fullDocument(docs[0]);
+      const post: ContentDocument = fullDocument(docs[0]);
       // Neighbours are a convenience: any failure just omits the links.
       const neighbour = async (direction: 'older' | 'newer') => {
         if (!post.publishedAt) return undefined;
         try {
+          const older = direction === 'older';
+          const op = older ? 'less_than' : 'greater_than';
+          // Same-instant posts are ordered by id (as in the list), so none is skipped.
+          const tie: Record<string, string> = Number.isInteger(post.id)
+            ? { 'where[or][1][and][0][publishedAt][equals]': post.publishedAt, [`where[or][1][and][1][id][${op}]`]: String(post.id) }
+            : {};
           const { docs: found } = await publishedPage('posts', { ...summaryFields, limit: '1', page: '1',
-            sort: direction === 'older' ? '-publishedAt' : 'publishedAt',
-            [`where[publishedAt][${direction === 'older' ? 'less_than' : 'greater_than'}]`]: post.publishedAt });
+            sort: older ? '-publishedAt,-id' : 'publishedAt,id',
+            [`where[or][0][publishedAt][${op}]`]: post.publishedAt, ...tie });
           return found.length ? summary(found[0]) : undefined;
         } catch { return undefined; }
       };

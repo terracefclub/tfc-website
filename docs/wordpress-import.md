@@ -208,7 +208,7 @@ way as events and newsletters (`web/src/lib/server/payload.ts`). The sample site
 | Route | Content | Notes |
 | --- | --- | --- |
 | `/news/` | Published Posts, newest first, 12 per page (`?page=N`; a page past the end is a 404) | Title, date, excerpt, empty state. Listed in the footer navigation; the header was left unchanged. |
-| `/news/{slug}/` | One post | Title (the only `h1`), date and byline, body, older/newer links. |
+| `/news/{slug}/` | One post | Title (the only `h1`), date and byline, body, older/newer links (same-instant posts are ordered by id, as in the list). |
 | `/pages/{slug}/` | One Page | Same layout without date. Served-in-place pages keep their hand-built routes. |
 
 Titles and excerpts are rendered as text. The date is shown in `America/New_York`, like events. `<title>` uses `seoTitle` then
@@ -235,7 +235,7 @@ neither weakens an existing policy nor claims to replace the sanitizer. All exis
 ### Image policy (decision: drop, no placeholder)
 
 Media bytes are not imported yet, so a body image survives only if it points at the CMS public media path
-(`/api/media/file/<name>`, no query, on `CMS_PUBLIC_ORIGIN`; a relative form is anchored to that origin). Every other image
+(`/api/media/file/<name>`, no query, on `CMS_PUBLIC_ORIGIN`; a relative form is anchored to that origin; the file name starts with a letter or digit and has no `%` or `..`). `CMS_PUBLIC_ORIGIN` is required: the internal `CMS_ORIGIN` is never used for visitors, so with only that set every body image is dropped and the CSP names no media origin. Every other image
 (old WordPress uploads, other hosts, relative paths) is removed with no placeholder. A figure left without its image keeps
 its caption as a paragraph, and a link left empty by the removal is deleted. Nothing broken is rendered. When media bytes
 arrive and Media records become public, images using that path appear without code changes.
@@ -244,8 +244,9 @@ arrive and Media records become public, images using that path appear without co
 
 Every link carries `rel="noopener noreferrer"` (the sanitizer re-emits it with a fixed value; `target` is never allowed).
 Links to the old site (relative paths, or the importer's known hosts) without a query string are looked up in the redirect
-map and rewritten to the new same-site path, keeping a `#fragment`; at most 25 distinct links per page are looked up and
-unmapped or failing lookups leave the link as written.
+map and rewritten to the new same-site path, keeping a `#fragment`; at most 25 distinct links per page are looked up, in sequential batches of 4 that are
+exempt from the 404-flood cap and skip the loop check, so every mapped link rewrites on the first render (a cold page with 25
+links costs up to about 7 round trips). Unmapped or failing lookups leave the link as written.
 
 ### Redirect consumer
 
@@ -264,11 +265,12 @@ is null), before rendering the 404, for GET and HEAD. So a redirect row can neve
 - One hop only: the destination is never followed. A two-step loop (A to B while B points back to A) is refused.
 - The status is the stored 301 or 302. The **query string is dropped**: stored sources have none and the importer never maps
   routes that depend on one. HEAD is handled as GET; other methods are untouched.
-- Cache: in memory, bounded to 500 entries (oldest dropped), 5 minutes for hits, 1 minute for misses, 10 seconds for CMS
+- Cache: in memory, bounded to 500 entries (least recently used dropped, so hot redirects survive a flood of unknown paths), 5 minutes for hits, 1 minute for misses, 10 seconds for CMS
   failures, concurrent lookups of one path shared, at most 8 lookups in flight (more are answered as a plain 404), 1.5 s
   timeout. The cache is per server process and is not purged when an editor changes a redirect, so a change can take
   up to five minutes to appear (use the one-minute miss window for new rows).
-- Fail open: an unreachable, slow or malformed CMS answer is the ordinary 404 page.
+- Fail open: an unreachable, slow or malformed CMS answer is the ordinary 404 page. With the CMS unreachable, each distinct unmatched path waits up to 1.5 s once, then the 10 s failure cache answers instantly.
+- A redirect whose destination is a draft redirects and then shows the 404, so redirects must be activated only after their target is published (the importer already does this).
 - Limits: it relies on the public API hiding inactive rows (`activeRedirectOrMember`); a 302 or 301 from a cache outlives a
   later deactivation in browsers (`Cache-Control: public, max-age=300` is sent). Redirect rules held only by Kinsta or
   Nginx are not part of this.

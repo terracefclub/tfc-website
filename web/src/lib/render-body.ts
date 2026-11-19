@@ -11,10 +11,11 @@ export type RenderOptions = {
   resolveOldPath?: (path: string) => Promise<string | null>;
 };
 
-const mediaPath = /^\/api\/media\/file\/[A-Za-z0-9._%-]+$/;
+// File names start alphanumeric and never contain `%` or a `..` run.
+const mediaPath = /^\/api\/media\/file\/(?!.*\.\.)[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const escapeAttr = (value: string) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const attribute = (tag: string, name: string) => new RegExp(`\\s${name}="([^"]*)"`).exec(tag)?.[1];
-const maxLookups = 25;
+const maxLookups = 25, batchSize = 4;
 
 /**
  * Image policy: imported media bytes are not on the site yet, so a body image survives only when it points at the
@@ -61,12 +62,15 @@ export async function renderBody(bodyHtml: string, options: RenderOptions = {}):
       if (parsed && href !== undefined && !found.has(href) && found.size < maxLookups) found.set(href, parsed);
     }
     const rewritten = new Map<string, string>();
-    await Promise.all([...found].map(async ([href, { path, fragment }]) => {
-      try {
-        const destination = await options.resolveOldPath!(path);
-        if (destination) rewritten.set(href, destination + fragment);
-      } catch { /* a failed lookup leaves the link as written */ }
-    }));
+    const entries = [...found];
+    for (let i = 0; i < entries.length; i += batchSize) { // small sequential batches: every link resolves, the CMS is never flooded
+      await Promise.all(entries.slice(i, i + batchSize).map(async ([href, { path, fragment }]) => {
+        try {
+          const destination = await options.resolveOldPath!(path);
+          if (destination) rewritten.set(href, destination + fragment);
+        } catch { /* a failed lookup leaves the link as written */ }
+      }));
+    }
     html = html.replace(/<a\b[^>]*>/g, tag => {
       const href = attribute(tag, 'href');
       const to = href === undefined ? undefined : rewritten.get(href);
@@ -74,4 +78,9 @@ export async function renderBody(bodyHtml: string, options: RenderOptions = {}):
     });
   }
   return sanitizeHtml(html).html;
+}
+
+/** The origin that serves public media. Only the explicit public origin counts: the internal CMS origin is never exposed to visitors. */
+export function mediaOriginOf(publicOrigin: string | undefined): string | undefined {
+  try { return publicOrigin ? new URL(publicOrigin).origin : undefined; } catch { return undefined; }
 }

@@ -108,6 +108,13 @@ describe('redirect consumer', () => {
     expect(r.size).toBe(5);
   });
 
+  test('the cache evicts the least recently used entry, so a hot redirect survives a flood', async () => {
+    const { resolver: r, calls } = resolver([{ sourcePath: '/hot', destinationUrl: '/news/hot/' }], { maxEntries: 5 });
+    await r.resolve('/hot/');
+    for (let i = 0; i < 20; i++) { await r.resolve(`/flood-${i}/`); await r.resolve('/hot/'); }
+    expect(calls.filter(call => call === '/hot')).toHaveLength(1);
+  });
+
   test('lookups beyond the concurrency limit are shed to a normal 404 instead of queueing', async () => {
     let release!: () => void;
     const gate = new Promise<void>(done => { release = done; });

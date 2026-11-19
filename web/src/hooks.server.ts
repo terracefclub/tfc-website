@@ -3,6 +3,7 @@ import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private';
 import { previewEditorLink, publishedPreviewCookie } from '$lib/server/local-preview';
 import { resolveMemberSession } from '$lib/server/member-auth';
+import { mediaOriginOf } from '$lib/render-body';
 import { contentMode } from '$lib/server/content';
 import { sharedRedirectResolver } from '$lib/server/redirects';
 
@@ -41,9 +42,9 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
   // Imported bodies are re-sanitized before rendering; this adds a browser-side backstop for those routes without
   // touching script or style policy: no plugins, no framing, no base rewriting, and images only from this site or the media origin.
-  if (/^\/(?:news|pages)\//.test(event.route.id ?? '')) {
-    let media = '';
-    try { media = ` ${new URL(env.CMS_PUBLIC_ORIGIN ?? env.CMS_ORIGIN ?? '').origin}`; } catch { /* none configured */ }
+  if (/^\/(?:news|pages)(?:\/|$)/.test(event.route.id ?? '')) {
+    const origin = mediaOriginOf(env.CMS_PUBLIC_ORIGIN);
+    const media = origin ? ` ${origin}` : '';
     response.headers.set('Content-Security-Policy', `base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:${media}`);
   }
   if (privatePath || authPath || event.locals.localPreview) {

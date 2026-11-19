@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { renderBody } from '../src/lib/render-body';
+import { mediaOriginOf, renderBody } from '../src/lib/render-body';
+import { createRedirectResolver } from '../src/lib/server/redirects';
 import { isSafeHtml } from '../src/lib/html-sanitize';
 
 const media = 'https://files.example.org';
@@ -89,5 +90,45 @@ describe('internal links', () => {
   test('a failing lookup leaves the link as written', async () => {
     const html = await renderBody('<a href="/old-post/">x</a>', { resolveOldPath: async () => { throw new Error('down'); } });
     expect(html).toContain('href="/old-post/"');
+  });
+});
+
+describe('image path strictness', () => {
+  test('dot, percent and non-alphanumeric-leading file names are dropped', async () => {
+    const names = ['..', '.hidden.png', '-x.png', 'a..b.png', '..%2F..%2Fx', 'a%2Fb.png', '%2e%2e', 'a%20b.png'];
+    const html = await renderBody(names.map(name => `<img src="/api/media/file/${name}" alt="">`).join(''), { mediaOrigin: media });
+    expect(html).not.toContain('<img');
+    expect(await renderBody('<img src="/api/media/file/a.b-c_1.png" alt="">', { mediaOrigin: media })).toContain('<img');
+  });
+
+  test('only the explicit public origin is a media origin', () => {
+    expect(mediaOriginOf(undefined)).toBeUndefined();
+    expect(mediaOriginOf('not a url')).toBeUndefined();
+    expect(mediaOriginOf('https://files.example.org/x')).toBe('https://files.example.org');
+  });
+});
+
+describe('figures', () => {
+  test('nested figures and a table inside a caption stay safe and fixed-point', async () => {
+    const html = await renderBody('<figure><img src="/x.jpg" alt=""><figure><figcaption>inner <b>cap</b></figcaption></figure><figcaption><table><tr><td onclick="x()">cell<script>1</script></td></tr></table></figcaption></figure><figure><figcaption><a href="javascript:1">j</a>plain</figcaption></figure>', { mediaOrigin: media });
+    expect(html).not.toMatch(/<img|<script|onclick|javascript:/);
+    expect(isSafeHtml(html)).toBe(true);
+    expect(await renderBody(html, { mediaOrigin: media })).toBe(html);
+    expect(html).toContain('plain');
+  });
+});
+
+describe('many old-site links', () => {
+  test('25 distinct mapped links all rewrite on the first render through the real resolver and a slow CMS', async () => {
+    const fetch = async (input: string | URL) => {
+      const source = new URL(String(input)).searchParams.get('where[sourcePath][equals]')!;
+      await Bun.sleep(15);
+      return Response.json({ docs: [{ sourcePath: source, destinationUrl: `/news${source}`, statusCode: '301', active: true }] });
+    };
+    const resolver = createRedirectResolver({ origin: 'http://cms.test', fetch });
+    const body = Array.from({ length: 25 }, (_, i) => `<a href="/old-${i}/">l${i}</a>`).join(' ');
+    const html = await renderBody(body, { resolveOldPath: resolver.destination });
+    for (let i = 0; i < 25; i++) expect(html).toContain(`href="/news/old-${i}/"`);
+    expect(html).not.toContain('href="/old-');
   });
 });

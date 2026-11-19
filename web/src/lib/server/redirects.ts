@@ -79,15 +79,15 @@ export function createRedirectResolver(options: {
     } finally { clearTimeout(timer); }
   }
 
-  function lookup(source: string): Promise<Entry> {
+  function lookup(source: string, shed = true): Promise<Entry> {
     const cached = cache.get(source);
     if (cached) {
-      if (cached.expires > now()) return Promise.resolve(cached.entry);
       cache.delete(source);
+      if (cached.expires > now()) { cache.set(source, cached); return Promise.resolve(cached.entry); } // LRU: a hot redirect moves to the newest slot
     }
     const pending = inflight.get(source);
     if (pending) return pending;
-    if (inflight.size >= maxConcurrent) return Promise.resolve(null); // shed load rather than queue behind a flood
+    if (shed && inflight.size >= maxConcurrent) return Promise.resolve(null); // shed load rather than queue behind a flood
     const run = fromCms(source).finally(() => inflight.delete(source));
     inflight.set(source, run);
     return run;
@@ -110,8 +110,13 @@ export function createRedirectResolver(options: {
 
   return {
     resolve,
-    /** Destination for an old-site path found inside stored content, or null. Same rules as `resolve`. */
-    destination: async (pathname: string): Promise<string | null> => (await resolve(pathname))?.location ?? null,
+    /** Destination for an old-site path found inside stored content, or null. Same rules as `resolve`, minus the loop check. */
+    // Render-time path: not shed by the 404-flood cap (callers batch their own requests) and no loop-check fetch.
+    destination: async (pathname: string): Promise<string | null> => {
+      const source = normalizeSource(pathname);
+      if (!source || isAppRoute(source)) return null;
+      return (await lookup(source, false))?.destination ?? null;
+    },
     get size() { return cache.size; },
     clear() { cache.clear(); }
   };

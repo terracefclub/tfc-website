@@ -9,6 +9,8 @@ const posts: Doc[] = Array.from({ length: 13 }, (_, i) => ({
   _status: 'published', slug: `post-${i + 1}`, title: `Post ${i + 1}`, publishedAt: new Date(Date.UTC(2020, 0, 1 + i, 3)).toISOString(),
   excerpt: `Excerpt ${i + 1}`, bodyHtml: i === 12 ? hostile : `<p>Body ${i + 1}</p><h1>Inner</h1>`, authorName: 'A. Writer', seoTitle: i === 12 ? 'SEO <Title>' : undefined, seoDescription: i === 12 ? 'SEO description' : undefined
 }));
+// Three posts at one instant (ids 101-103) test the neighbour tie-break.
+for (const id of [101, 102, 103]) posts.push({ id, _status: 'published', slug: `tie-${id}`, title: `Tie ${id}`, publishedAt: '2019-06-01T12:00:00.000Z', bodyHtml: `<p>tie ${id}</p>` });
 posts.push({ _status: 'draft', slug: 'secret-draft', title: 'Secret draft', bodyHtml: '<p>secret</p>', publishedAt: '2021-01-01T00:00:00.000Z' });
 const pages: Doc[] = [
   { _status: 'published', slug: 'history', title: 'History', bodyHtml: '<p>Long ago</p>', excerpt: 'About the history' },
@@ -44,10 +46,19 @@ const cms = Bun.serve({
     const slug = query.get('where[slug][equals]');
     if (slug) docs = docs.filter(doc => doc.slug === slug);
     const before = query.get('where[publishedAt][less_than]'), after = query.get('where[publishedAt][greater_than]');
+    for (const [op, test] of [['less_than', (a: number, b: number) => a < b], ['greater_than', (a: number, b: number) => a > b]] as const) {
+      const pub = query.get(`where[or][0][publishedAt][${op}]`), tieAt = query.get('where[or][1][and][0][publishedAt][equals]'), tieId = query.get(`where[or][1][and][1][id][${op}]`);
+      if (pub) docs = docs.filter(doc => test(Date.parse(String(doc.publishedAt)), Date.parse(pub)) || (tieAt !== null && tieId !== null && doc.publishedAt === tieAt && test(Number(doc.id ?? 0), Number(tieId))));
+    }
     if (before) docs = docs.filter(doc => String(doc.publishedAt) < before);
     if (after) docs = docs.filter(doc => String(doc.publishedAt) > after);
     const sort = query.get('sort');
-    if (sort) docs = [...docs].sort((a, b) => String(a.publishedAt).localeCompare(String(b.publishedAt)) * (sort.startsWith('-') ? -1 : 1));
+    if (sort) {
+      const [field, ...rest] = sort.split(',');
+      const sign = field.startsWith('-') ? -1 : 1;
+      const idSign = rest.length && rest[0].startsWith('-') ? -1 : 1;
+      docs = [...docs].sort((a, b) => String(a.publishedAt).localeCompare(String(b.publishedAt)) * sign || (Number(a.id ?? 0) - Number(b.id ?? 0)) * idSign);
+    }
     const limit = Number(query.get('limit') ?? 10), page = Number(query.get('page') ?? 1);
     const total = Math.max(1, Math.ceil(docs.length / limit));
     return reply(docs.slice((page - 1) * limit, page * limit), { totalPages: total, hasNextPage: page < total });
@@ -96,11 +107,17 @@ describe('news list', () => {
     // 2020-01-13T03:00Z is still January 12 in Princeton.
     expect(document.querySelector('.news-list time')!.textContent).toBe('January 12, 2020');
     expect(document.querySelector('link[rel="canonical"]')!.getAttribute('href')).toBe(`${origin}/news/`);
+    expect(response.headers.get('content-security-policy')).toContain("object-src 'none'");
     expect(document.querySelector('nav[aria-label="News pages"] a[rel="next"]')!.getAttribute('href')).toBe('/news/?page=2');
     const second = await dom('/news/?page=2');
-    expect([...second.document.querySelectorAll('.news-list h2 a')].map(a => a.textContent)).toEqual(['Post 1']);
+    expect([...second.document.querySelectorAll('.news-list h2 a')].map(a => a.textContent)).toEqual(['Post 1', 'Tie 103', 'Tie 102', 'Tie 101']);
     expect(second.document.querySelector('nav[aria-label="News pages"] a[rel="prev"]')!.getAttribute('href')).toBe('/news/');
     expect((await get('/news/?page=9')).status).toBe(404);
+    for (const hostilePage of ['-1', '0', '99999999999', 'abc', '1.5', '1e3', '%00', '']) {
+      const fallback = await dom(`/news/?page=${hostilePage}`);
+      expect(fallback.response.status).toBe(200);
+      expect([...fallback.document.querySelectorAll('.news-list h2 a')][0].textContent).toBe('Post 13');
+    }
     expect((await dom('/news/?page=abc')).document.querySelectorAll('.news-list li').length).toBe(12);
   });
 });
@@ -157,6 +174,16 @@ describe('news and page details', () => {
     expect(new Set(bodies.slice(0, 3)).size).toBe(1);
     expect(new Set(bodies.slice(3)).size).toBe(1);
     expect(bodies[0]).not.toContain('secret');
+  });
+});
+
+describe('neighbours', () => {
+  test('posts sharing one publication instant are all reachable with older/newer links', async () => {
+    const mid = await dom('/news/tie-102/');
+    expect(mid.document.querySelector('a[rel="prev"]')!.getAttribute('href')).toBe('/news/tie-101/');
+    expect(mid.document.querySelector('a[rel="next"]')!.getAttribute('href')).toBe('/news/tie-103/');
+    expect((await dom('/news/tie-103/')).document.querySelector('a[rel="prev"]')!.getAttribute('href')).toBe('/news/tie-102/');
+    expect((await dom('/news/tie-101/')).document.querySelector('a[rel="next"]')!.getAttribute('href')).toBe('/news/tie-102/');
   });
 });
 
