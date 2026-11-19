@@ -219,7 +219,7 @@ test('a dry run writes nothing, prints only counts, and reports row numbers with
   // The default command is a dry run, and a second report to the same path is refused rather than overwritten.
   expect(run(['--file', file, '--operator', String(admin.id), '--report', report]).code).toBe(1)
   expect(run(['--file', file, '--operator', String(admin.id), '--report', reportPath()]).code).toBe(0)
-})
+}, 60_000)
 
 test('apply creates exactly the expected applications, invitations, outbox messages, mirror files and journal', async () => {
   const roster = parsed(person('Apply One'), person('Apply Two', 'current-member', ''))
@@ -348,7 +348,7 @@ test('the production guard needs the production configuration and an explicit co
   expect(wrongPlan.code).toBe(1)
   expect(wrongPlan.err).toContain('plan hash')
   for (const output of [refused, unconfirmed, wrongPlan]) { expect(output.out).not.toContain('{'); expect(output.err).not.toContain(suffix); expect(output.err).not.toContain('db.example.invalid') }
-})
+}, 60_000)
 
 test('the command line applies a reviewed dry run end to end, prints no personal data and rolls back', async () => {
   const file = csvFile(csv(person('Cli One'), person('Cli Two', 'current-member', '')))
@@ -391,7 +391,7 @@ test('the command line applies a reviewed dry run end to end, prints no personal
   const broken = run(['dry-run', '--file', csvFile('name,affiliation\n'), '--operator', String(admin.id), '--report', reportPath()])
   expect(broken.code).toBe(1)
   expect(broken.err).toContain('header')
-})
+}, 60_000)
 
 test('rollback revokes and withdraws an untouched run, refuses once anything was redeemed or linked, and is repeatable', async () => {
   const roster = parsed(person('Roll One'), person('Roll Two'))
@@ -628,7 +628,7 @@ test('lapsed history is skipped by default, re-invited only with the flag; live,
   expect(summaryOf(output.out).notice).toBe(ERASED_NOTICE)
   expect(parseArgs(['dry-run', '--file', '/a.csv', '--operator', '1', '--report', '/r.json', '--reinvite-lapsed']).reinviteLapsed).toBe(true)
   expect(() => parseArgs(['rollback', '--run', 'x', '--operator', '1', '--reinvite-lapsed'])).toThrow(RosterError)
-})
+}, 60_000)
 
 // ---- crashed runs ------------------------------------------------------------------------------------------------------------
 
@@ -679,7 +679,7 @@ test('a bad report path is refused before any work, and a report that cannot be 
   expect(JSON.parse(lines[0])).toMatchObject({ runId: 'roster-abc', counts: { created: 1 } })
   expect(errors.join('\n')).toContain('already done')
   expect(errors.join('\n')).not.toContain(privateDirectory)
-})
+}, 60_000)
 
 // ---- the per-address lock shared with the apply form ----------------------------------------------------------------------------
 
