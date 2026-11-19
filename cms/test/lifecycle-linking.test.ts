@@ -363,6 +363,8 @@ test('REST: sort is allow-listed, and select, count and populated relations neve
   for (const field of ['identityKey', 'subject', 'issuer', 'statusChangedAt', '-identityKey', 'roles']) expect((await rest(`/members?sort=${field}&limit=2`, auth)).status).toBe(400)
   expect((await rest(`/members?sort=-displayName&limit=2`, auth)).status).toBe(200)
   expect((await rest(`/members?sort=createdAt&limit=2`, auth)).status).toBe(200)
+  // The admin relationship picker sends this exact request (a POST with a GET override); it must keep working.
+  expect((await rest(`/members?depth=0&draft=true&limit=10&page=1&select[displayName]=true&sort=id`, auth)).status).toBe(200)
   const selected = await rest(`/members?select[identityKey]=true&select[displayName]=true&limit=3`, auth)
   expect(JSON.stringify(await selected.json())).not.toMatch(/identityKey|issuer|subject|statusChangedAt/)
   expect((await rest(`/members/count?where[identityKey][like]=x`, auth)).status).toBeGreaterThanOrEqual(400)

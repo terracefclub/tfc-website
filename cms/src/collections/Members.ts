@@ -47,11 +47,11 @@ export const Members: CollectionConfig = {
     }],
   },
   hooks: {
-    // Payload validates `sort` against the schema (and hidden fields are not queryable), but this list is sorted by two fields only: the allow-list is an explicit, reviewable bound on what an administrator can order by.
+    // Payload validates `sort` against the schema (and hidden fields are not queryable), but this list is sorted by a few harmless fields only: the allow-list is an explicit, reviewable bound on what an administrator can order by.
     beforeOperation: [({ args, operation }) => {
       const sort = operation === 'read' ? (args as { sort?: string | string[] }).sort : undefined
       if (sort === undefined) return args
-      const allowed = ['displayName', 'createdAt']
+      const allowed = ['displayName', 'createdAt', 'id'] // `id` is what the admin relationship picker sends (sort=id)
       if (!(Array.isArray(sort) ? sort : [sort]).every((entry) => typeof entry === 'string' && allowed.includes(entry.replace(/^-/, '')))) throw new APIError('Sort by display name or created date only.', 400)
       return args
     }],
