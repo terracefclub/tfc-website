@@ -25,12 +25,37 @@ const sample = (over: Record<string, string | null> = {}) => {
 }
 const message = (text: string) => { try { parseIdentityEnv(text) } catch (error) { return (error as Error).message } return '' }
 
+/** The setting names written by the `const env: AppEnv = {...}` block. Throws (fails closed) when the block holds anything but plain literal keys. */
+export function writtenEnvKeys(source: string): string[] {
+  const start = source.indexOf('const env: AppEnv = {')
+  const end = source.indexOf('writeFileSync(resolve(state, \'app.env\')')
+  if (start < 0 || end < start) throw new Error('the AppEnv block was not found')
+  const block = source.slice(start, end)
+  if (block.length < 100) throw new Error('the AppEnv block is implausibly short')
+  // Comments are not code: strip them (the block's own comments mention keys and punctuation) before looking for unreadable forms.
+  const code = block.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+  if (/\.\.\./.test(code)) throw new Error('the AppEnv block uses a spread; its keys cannot be read')
+  if (/(^|[,{]\s*)\[[^\]]*\]\s*:/.test(code)) throw new Error('the AppEnv block uses a computed key; its keys cannot be read')
+  if (/(^|[,{]\s*)(['"`])[^'"`]*\2\s*:/.test(code)) throw new Error('the AppEnv block uses a quoted key; its keys cannot be read')
+  return [...code.matchAll(/\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+):/g)].map(match => match[1]).sort()
+}
+
 test('the key set matches what the identity bootstrap writes', () => {
-  const source = read('identity/tools/local-up.ts')
-  const block = source.slice(source.indexOf('const env: AppEnv = {'), source.indexOf('writeFileSync(resolve(state, \'app.env\')'))
-  expect(block.length).toBeGreaterThan(100)
-  const written = [...block.matchAll(/\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+):/g)].map(match => match[1]).sort()
-  expect(written).toEqual([...appEnvKeys].sort())
+  expect(writtenEnvKeys(read('identity/tools/local-up.ts'))).toEqual([...appEnvKeys].sort())
+})
+
+test('the key-set guard fails closed on spread, computed and quoted keys, and ignores comments', () => {
+  const wrap = (body: string) => `const env: AppEnv = {\n${body}\n${'  // padding so the block is long enough to be plausible, padding padding padding\n'.repeat(2)}}\nwriteFileSync(resolve(state, 'app.env'), x)`
+  expect(writtenEnvKeys(wrap('  MEMBER_AUTH_ISSUER: a, CMS_AUTH_ISSUER: b,\n  // a comment with ...dots and [brackets]: here'))).toEqual(['CMS_AUTH_ISSUER', 'MEMBER_AUTH_ISSUER'])
+  expect(() => writtenEnvKeys(wrap('  MEMBER_AUTH_ISSUER: a, ...extra,'))).toThrow('spread')
+  expect(() => writtenEnvKeys(wrap('  MEMBER_AUTH_ISSUER: a, [name]: b,'))).toThrow('computed')
+  expect(() => writtenEnvKeys(wrap("  MEMBER_AUTH_ISSUER: a, ['X' + 'Y']: b,"))).toThrow('computed')
+  expect(() => writtenEnvKeys(wrap("  MEMBER_AUTH_ISSUER: a, 'EXTRA_KEY_HERE': b,"))).toThrow('quoted')
+  expect(() => writtenEnvKeys('const nothing = 1')).toThrow('not found')
+})
+
+test('identity settings: a bare http or https origin is accepted for the lifecycle origin', () => {
+  for (const origin of ['http://127.0.0.1:4194', 'https://www.terrace.example', 'https://www.terrace.example:8443']) expect(message(sample({ LIFECYCLE_PUBLIC_ORIGIN: origin }))).toBe('')
 })
 
 test('identity settings: lifecycle keys are accepted and dropped, authentication keys kept', () => {
@@ -48,6 +73,8 @@ test('identity settings: unknown, duplicate, missing, empty and malformed lines 
     base + `UNKNOWN_KEY=${secret}\n`, base + `LIFECYCLE_EXTRA_KEY=${secret}\n`, base + `MEMBER_AUTH_EXTRA=${secret}\n`, base + `lowercase=${secret}\n`,
     base + `MEMBER_AUTH_ISSUER=${secret}\n`, base + `${secret}\n`, base + `=${secret}\n`, base + 'MEMBER_AUTH_ORIGIN=\n',
     sample({ CMS_AUTH_CLIENT_SECRET: null }), sample({ LIFECYCLE_INTAKE_SECRET: null }),
+    sample({ LIFECYCLE_PUBLIC_ORIGIN: 'http://127.0.0.1:4194/' }), sample({ LIFECYCLE_PUBLIC_ORIGIN: `http://127.0.0.1:4194/${secret}` }), sample({ LIFECYCLE_PUBLIC_ORIGIN: `http://127.0.0.1:4194?${secret}=1` }),
+    sample({ LIFECYCLE_PUBLIC_ORIGIN: `http://127.0.0.1:4194#${secret}` }), sample({ LIFECYCLE_PUBLIC_ORIGIN: `http://user:${secret}@127.0.0.1:4194` }), sample({ LIFECYCLE_PUBLIC_ORIGIN: `https://www.terrace.example/${secret}` }),
     sample({ LIFECYCLE_PUBLIC_ORIGIN: secret }), sample({ LIFECYCLE_PUBLIC_ORIGIN: `ftp://${secret}.invalid` }),
     sample({ LIFECYCLE_OUTBOX_DIR: `relative/${secret}` }), '',
   ]
@@ -63,6 +90,37 @@ test('identity settings: unknown, duplicate, missing, empty and malformed lines 
 const legacy = new Set(['story-reports'])
 const scanned = ['tools/release/smoke.ts', ...readdirSync(join(repo, 'cms/tools')).filter(name => /^test-.*\.ts$/.test(name)).map(name => `cms/tools/${name}`)]
 
+/**
+ * Collection and endpoint names a source file calls under `/api/` or `/admin/collections/`. Literal slugs are read directly, and an interpolated
+ * slug (`/api/${name}/...`) is resolved when `name` is a `const` string literal in the same file. Anything else built dynamically (an interpolation
+ * or concatenation at the slug position, or `/api` followed by an expression) is returned as `unresolved`, so the caller can fail closed.
+ */
+export function referencedSlugs(source: string): { slugs: string[]; unresolved: string[] } {
+  const slugs = new Set<string>(), unresolved: string[] = []
+  const constants = new Map<string, string>()
+  for (const match of source.matchAll(/\bconst\s+([A-Za-z_$][\w$]*)\s*(?::\s*[\w<>\[\] |'"-]+)?=\s*(['"`])([a-z][a-z0-9-]*)\2\s*[;,\n]/g)) constants.set(match[1], match[3])
+  const root = '(?:/api|/admin/collections)'
+  for (const match of source.matchAll(new RegExp(`${root}/([a-z][a-z0-9-]*)`, 'g'))) slugs.add(match[1])
+  for (const match of source.matchAll(new RegExp(`${root}/\\$\\{\\s*([^}]*?)\\s*\\}`, 'g'))) {
+    const resolved = constants.get(match[1])
+    if (resolved) slugs.add(resolved); else unresolved.push(match[0])
+  }
+  for (const match of source.matchAll(new RegExp(`${root}/?['"\`]\\s*\\+`, 'g'))) unresolved.push(match[0]) // '/api/' + name
+  for (const match of source.matchAll(new RegExp(`${root}\\$\\{[^}]*\\}`, 'g'))) unresolved.push(match[0]) // `/api${path}`
+  return { slugs: [...slugs].sort(), unresolved }
+}
+
+test('the collection scan resolves constant slugs and fails closed on anything it cannot read', () => {
+  expect(referencedSlugs('fetch(`${origin}/api/moderation-reports/${id}`); page.goto(`${o}/admin/collections/events`)')).toEqual({ slugs: ['events', 'moderation-reports'], unresolved: [] })
+  expect(referencedSlugs("const collection = 'member-stories'\nfetch(`${origin}/api/${collection}/${id}`)")).toEqual({ slugs: ['member-stories'], unresolved: [] })
+  expect(referencedSlugs('fetch(`${origin}/api/${collection}/${id}`)').unresolved).toEqual(['/api/${collection}'])
+  expect(referencedSlugs('fetch(`${origin}/api/${slugs[0]}`)').unresolved).toHaveLength(1)
+  expect(referencedSlugs("fetch(origin + '/api/' + name)").unresolved).toHaveLength(1)
+  expect(referencedSlugs("fetch(origin + '/admin/collections/' + name)").unresolved).toHaveLength(1)
+  expect(referencedSlugs('fetch(`${origin}/api${path}`)').unresolved).toEqual(['/api${path}'])
+  expect(referencedSlugs('let collection = "events"\nfetch(`${origin}/api/${collection}`)').unresolved).toHaveLength(1) // only a const counts
+})
+
 test('every collection the proof calls exists in the Payload configuration', async () => {
   const resolved = await config
   const slugs = new Set(resolved.collections.map(collection => collection.slug))
@@ -70,7 +128,10 @@ test('every collection the proof calls exists in the Payload configuration', asy
   expect(scanned.length).toBeGreaterThan(3)
   const seen = new Set<string>()
   for (const file of scanned) {
-    for (const match of read(file).matchAll(/(?:\/api|\/admin\/collections)\/([a-z][a-z0-9-]*)/g)) seen.add(match[1])
+    const found = referencedSlugs(read(file))
+    // Fail closed: a path built in a way the scan cannot resolve would let a typo or a removed collection through unnoticed.
+    expect([file, found.unresolved]).toEqual([file, []])
+    for (const slug of found.slugs) seen.add(slug)
   }
   expect(seen.has('moderation-reports')).toBe(true)
   const unknown = [...seen].filter(slug => !slugs.has(slug) && !endpoints.has(slug))
