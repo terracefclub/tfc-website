@@ -88,7 +88,7 @@ describe('rendered pages', () => {
   test('the home page stays light enough for a simple static visit', async () => {
     const response = await fetch(origin);
     const html = await response.text();
-    expect(Buffer.byteLength(html)).toBeLessThan(45_000);
+    expect(Buffer.byteLength(html)).toBeLessThan(45_500);
     const { document } = parseHTML(html);
     const assets = new Set([...document.querySelectorAll('img')].map(image => image.getAttribute('src')!));
     for (const asset of assets) {

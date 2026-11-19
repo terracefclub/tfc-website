@@ -2,9 +2,8 @@ import type { CollectionConfig, Field } from 'payload'
 import { publishedOrMember, memberOnly } from '@/access/rules'
 import { editorialAccess, refuseActiveHtml, slugField, wpImportFields } from './shared'
 
-// Imported WordPress posts and pages. Nothing renders these yet: they hold reviewed content
-// until the frontend gets routes (/news/{slug}, /pages/{slug}). bodyHtml is sanitized
-// allowlist HTML from the importer; any future renderer must still treat it as untrusted.
+// Imported WordPress posts and pages, served at /news/{slug} and /pages/{slug}. bodyHtml is sanitized
+// allowlist HTML from the importer; the frontend still re-sanitizes it at render time and never trusts it.
 const content = (): Field[] => [
   slugField,
   { name: 'title', type: 'text', required: true },

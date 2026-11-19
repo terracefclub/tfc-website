@@ -3,6 +3,11 @@ import { fixtureContent, type EventCategory, type EventImage, type Initiative, t
 type RecordValue = Record<string, unknown>;
 type Fetch = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
+export type ContentSummary = { slug: string; title: string; publishedAt?: string; excerpt?: string };
+export type ContentDocument = ContentSummary & { id?: number; bodyHtml: string; authorName?: string; seoTitle?: string; seoDescription?: string };
+export type ContentPage = { docs: ContentSummary[]; page: number; totalPages: number };
+export type PostView = { post: ContentDocument; previous?: ContentSummary; next?: ContentSummary };
+
 export class ContentUnavailable extends Error {
   constructor() { super('Published content is temporarily unavailable'); }
 }
@@ -72,34 +77,39 @@ export function createPayloadClient(options: {
     return new URL(url.pathname, publicBase).href;
   }
 
+  /** One bounded, credential-free JSON request. */
+  async function getJson(url: URL, controller: AbortController): Promise<RecordValue> {
+    controller.signal.throwIfAborted();
+    const response = await request(url, { headers: { Accept: 'application/json' }, credentials: 'omit', redirect: 'error', signal: controller.signal });
+    if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) throw new ContentUnavailable();
+    const reader = response.body?.getReader();
+    if (!reader) throw new ContentUnavailable();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > 2_000_000) { await reader.cancel(); throw new ContentUnavailable(); }
+        chunks.push(value);
+      }
+    } finally { reader.releaseLock(); }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    return record(JSON.parse(new TextDecoder().decode(bytes)));
+  }
+
   async function collection(name: string, query: Record<string, string> = {}): Promise<RecordValue[]> {
     const result: RecordValue[] = [];
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? 4000);
     try {
       for (let page = 1; page <= 20; page++) {
-        controller.signal.throwIfAborted();
         const url = new URL(`/api/${name}`, base);
         url.search = new URLSearchParams({ 'where[_status][equals]': 'published', depth: '1', limit: '100', page: String(page), ...query }).toString();
-        const response = await request(url, { headers: { Accept: 'application/json' }, credentials: 'omit', redirect: 'error', signal: controller.signal });
-        if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) throw new ContentUnavailable();
-        const reader = response.body?.getReader();
-        if (!reader) throw new ContentUnavailable();
-        const chunks: Uint8Array[] = [];
-        let size = 0;
-        try {
-          while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            size += value.byteLength;
-            if (size > 2_000_000) { await reader.cancel(); throw new ContentUnavailable(); }
-            chunks.push(value);
-          }
-        } finally { reader.releaseLock(); }
-        const bytes = new Uint8Array(size);
-        let offset = 0;
-        for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
-        const payload = record(JSON.parse(new TextDecoder().decode(bytes)));
+        const payload = await getJson(url, controller);
         if (!Array.isArray(payload.docs) || payload.docs.length > 100 || typeof payload.hasNextPage !== 'boolean') throw new ContentUnavailable();
         for (const value of payload.docs) {
           const doc = record(value);
@@ -112,6 +122,41 @@ export function createPayloadClient(options: {
     } catch { throw new ContentUnavailable(); }
     finally { clearTimeout(timer); }
   }
+
+  /** One page of published documents with only the named fields (list pages never pull whole bodies). */
+  async function publishedPage(name: string, query: Record<string, string>): Promise<{ docs: RecordValue[]; totalPages: number }> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? 4000);
+    try {
+      const url = new URL(`/api/${name}`, base);
+      url.search = new URLSearchParams({ 'where[_status][equals]': 'published', depth: '0', ...query }).toString();
+      const payload = await getJson(url, controller);
+      if (!Array.isArray(payload.docs) || payload.docs.length > 100 || !Number.isInteger(payload.totalPages)) throw new ContentUnavailable();
+      const docs = payload.docs.map(record);
+      if (docs.some(doc => doc._status !== 'published')) throw new ContentUnavailable();
+      return { docs, totalPages: Math.max(1, payload.totalPages as number) };
+    } catch { throw new ContentUnavailable(); }
+    finally { clearTimeout(timer); }
+  }
+
+  const optionalText = (value: unknown, max: number): string | undefined => {
+    if (value === undefined || value === null || (typeof value === 'string' && !value.trim())) return undefined;
+    return text(value, max);
+  };
+  // An unparseable or absent date only hides the date, never the document.
+  const optionalDate = (value: unknown): string | undefined => { try { return value === undefined || value === null ? undefined : date(value); } catch { return undefined; } };
+  const summary = (doc: RecordValue): ContentSummary => ({
+    slug: slug(doc.slug), title: text(doc.title, 300), publishedAt: optionalDate(doc.publishedAt), excerpt: optionalText(doc.excerpt, 2000)
+  });
+  const fullDocument = (doc: RecordValue): ContentDocument => ({
+    ...summary(doc),
+    id: Number.isInteger(doc.id) ? doc.id as number : undefined,
+    bodyHtml: typeof doc.bodyHtml === 'string' && doc.bodyHtml.length <= 1_048_576 ? doc.bodyHtml : '',
+    authorName: optionalText(doc.authorName, 200),
+    seoTitle: optionalText(doc.seoTitle, 300),
+    seoDescription: optionalText(doc.seoDescription, 500)
+  });
+  const summaryFields = { 'select[slug]': 'true', 'select[title]': 'true', 'select[publishedAt]': 'true', 'select[excerpt]': 'true', 'select[_status]': 'true' };
 
   // A missing, unpopulated, private or malformed image never hides the event: it falls back instead.
   function posterImage(value: unknown): EventImage | undefined {
@@ -184,6 +229,40 @@ export function createPayloadClient(options: {
         }
         return result;
       });
+    },
+    /** Published posts, newest first, one page at a time. */
+    async posts(page: number, limit = 12): Promise<ContentPage> {
+      const result = await publishedPage('posts', { ...summaryFields, sort: '-publishedAt,-id', limit: String(limit), page: String(page) });
+      return { docs: result.docs.map(summary), page, totalPages: result.totalPages };
+    },
+    async post(value: string): Promise<PostView | undefined> {
+      const docs = await collection('posts', { 'where[slug][equals]': slug(value), depth: '0' });
+      if (docs.length > 1) throw new ContentUnavailable();
+      if (!docs.length) return undefined;
+      const post: ContentDocument = fullDocument(docs[0]);
+      // Neighbours are a convenience: any failure just omits the links.
+      const neighbour = async (direction: 'older' | 'newer') => {
+        if (!post.publishedAt) return undefined;
+        try {
+          const older = direction === 'older';
+          const op = older ? 'less_than' : 'greater_than';
+          // Same-instant posts are ordered by id (as in the list), so none is skipped.
+          const tie: Record<string, string> = Number.isInteger(post.id)
+            ? { 'where[or][1][and][0][publishedAt][equals]': post.publishedAt, [`where[or][1][and][1][id][${op}]`]: String(post.id) }
+            : {};
+          const { docs: found } = await publishedPage('posts', { ...summaryFields, limit: '1', page: '1',
+            sort: older ? '-publishedAt,-id' : 'publishedAt,id',
+            [`where[or][0][publishedAt][${op}]`]: post.publishedAt, ...tie });
+          return found.length ? summary(found[0]) : undefined;
+        } catch { return undefined; }
+      };
+      const [previous, next] = await Promise.all([neighbour('older'), neighbour('newer')]);
+      return { post, previous, next };
+    },
+    async page(value: string): Promise<ContentDocument | undefined> {
+      const docs = await collection('pages', { 'where[slug][equals]': slug(value), depth: '0' });
+      if (docs.length > 1) throw new ContentUnavailable();
+      return docs.length ? fullDocument(docs[0]) : undefined;
     }
   };
 }

@@ -3,6 +3,9 @@ import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private';
 import { previewEditorLink, publishedPreviewCookie } from '$lib/server/local-preview';
 import { resolveMemberSession } from '$lib/server/member-auth';
+import { mediaOriginOf } from '$lib/render-body';
+import { contentMode } from '$lib/server/content';
+import { sharedRedirectResolver } from '$lib/server/redirects';
 
 export const handle: Handle = async ({ event, resolve }) => {
   const editorSignIn = dev && previewEditorLink(event.url.origin, env);
@@ -27,7 +30,23 @@ export const handle: Handle = async ({ event, resolve }) => {
     } catch {
       response = new Response('The member space is temporarily unavailable. Please try again shortly.', { status: 503 });
     }
-  } else response = await resolve(event);
+  } else {
+    // Old WordPress URLs: only a path that matches no route is looked up, so a stored redirect can never shadow a page.
+    // The query string is dropped (stored sources have none). Any CMS problem falls through to the normal 404.
+    const hit = event.route.id === null && (event.request.method === 'GET' || event.request.method === 'HEAD') && env.CMS_ORIGIN && contentMode(event.locals.localPreview, env) === 'cms'
+      ? await sharedRedirectResolver(env.CMS_ORIGIN).resolve(event.url.pathname).catch(() => null)
+      : null;
+    response = hit
+      ? new Response(null, { status: hit.status, headers: { Location: hit.location, 'Cache-Control': 'public, max-age=300' } })
+      : await resolve(event);
+  }
+  // Imported bodies are re-sanitized before rendering; this adds a browser-side backstop for those routes without
+  // touching script or style policy: no plugins, no framing, no base rewriting, and images only from this site or the media origin.
+  if (/^\/(?:news|pages)(?:\/|$)/.test(event.route.id ?? '')) {
+    const origin = mediaOriginOf(env.CMS_PUBLIC_ORIGIN);
+    const media = origin ? ` ${origin}` : '';
+    response.headers.set('Content-Security-Policy', `base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:${media}`);
+  }
   if (privatePath || authPath || event.locals.localPreview) {
     response.headers.set('Cache-Control', 'private, no-store');
     response.headers.set('X-Robots-Tag', 'noindex, nofollow');

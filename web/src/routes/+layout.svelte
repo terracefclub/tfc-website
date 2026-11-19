@@ -67,7 +67,7 @@
     </div>
     <div>
       <h2>Find your way</h2>
-      <a href="/events/">Events</a><a href="/newsletter/">Newsletter</a><a href="/initiatives/">Initiatives</a><a href="/about/">Our story</a><a href="/shows-archive/">Shows archive</a>
+      <a href="/events/">Events</a><a href="/news/">News</a><a href="/newsletter/">Newsletter</a><a href="/initiatives/">Initiatives</a><a href="/about/">Our story</a><a href="/shows-archive/">Shows archive</a>
     </div>
     <div>
       <h2>Stay close</h2>

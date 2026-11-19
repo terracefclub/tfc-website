@@ -37,12 +37,8 @@ export const publicMediaRequired: readonly PlanCollection[] = ['events', 'newsle
 export const routes: Record<Exclude<PlanCollection, 'media'>, string> = {
   events: '/events/{slug}', newsletters: '/newsletter/{slug}', initiatives: '/initiatives', posts: '/news/{slug}', pages: '/pages/{slug}',
 };
-/** Existing top-level routes. A WordPress page already living at one of these paths is served in place. */
-export const servedInPlace = ['/about', '/contact', '/donate', '/merchandise', '/shows-archive', '/newsletter', '/events', '/initiatives'] as const;
-
-/** Paths the new site already serves, or reserves, that a WordPress URL must never be redirected over. */
-export const reservedSourcePrefix = /^\/(?:members|auth|preview|api|admin|_app|events|newsletter|news|pages|donate)(?:\/|$)/i;
-export const isReservedSource = (path: string) => reservedSourcePrefix.test(path) || (servedInPlace as readonly string[]).includes(path.toLowerCase());
+import { isReservedSource, reservedSourcePrefix, servedInPlace } from '../../src/lib/site-routes';
+export { isReservedSource, reservedSourcePrefix, servedInPlace };
 
 export const blockingFlags = ['unsafe-html-stripped', 'builder-code-dropped', 'event-date-review', 'event-timezone-review', 'event-venue-missing', 'event-end-invalid', 'form-shortcode-dropped', 'plugin-shortcode-dropped', 'media-bytes-pending'] as const;
 

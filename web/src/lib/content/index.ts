@@ -153,6 +153,11 @@ export function eventDateParts(startsAt: string): { month: string; day: string; 
   };
 }
 
+/** Publication date for posts, in the club timezone like every other date on the site (an instant near midnight UTC is still the previous evening in Princeton). */
+export function publishedDate(value: string): string {
+  return new Intl.DateTimeFormat('en-US', { timeZone: terraceTimezone, month: 'long', day: 'numeric', year: 'numeric' }).format(new Date(value));
+}
+
 export function eventUrl(event: Pick<TerraceEvent, 'slug'>): string {
   return `/events/${encodeURIComponent(event.slug)}/`;
 }
