@@ -1,0 +1,529 @@
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { readFileSync } from 'node:fs'
+import { getPayload } from 'payload'
+import config from '../src/payload.config'
+import { sql } from '@payloadcms/db-postgres'
+import { apply, appliedHash, dryRun, executor, rollback } from '../tools/wp-import/apply'
+import { isLocalDatabase, parseArgs } from '../tools/wp-import'
+import { canonicalJson, hashOf, planHash, validatePlan, type Plan } from '../../web/tools/wp-import/plan-schema'
+
+const original: Plan = JSON.parse(readFileSync(new URL('./fixtures/wp-import-plan.synthetic.json', import.meta.url), 'utf8'))
+let payload: Awaited<ReturnType<typeof getPayload>>
+const stamp = crypto.randomUUID().slice(0, 6)
+let counter = 0
+const runId = () => `wpimport-test-${stamp}-${++counter}`
+const importCollections = ['media', 'events', 'newsletters', 'posts', 'pages', 'initiatives', 'redirects'] as const
+
+/** Edit a plan document and re-seal every hash, the way a fresh export would. */
+function changed(plan: Plan, wpId: number, collection: string, patch: Record<string, unknown>): Plan {
+  const docs = plan.docs.map(doc => {
+    if (doc.wpId !== wpId || doc.collection !== collection) return doc
+    const data = { ...doc.data, ...patch }
+    return { ...doc, data, targetHash: hashOf({ data, refs: doc.refs }) }
+  })
+  const { planSha256: _, ...rest } = { ...plan, docs }
+  return { ...rest, planSha256: planHash(rest) }
+}
+function resealed(plan: Plan): Plan {
+  const { planSha256: _, ...rest } = plan
+  return { ...rest, planSha256: planHash(rest) }
+}
+
+async function dump() {
+  const out: Record<string, unknown[]> = {}
+  for (const collection of importCollections) {
+    const found = await payload.find({ collection, where: { wpId: { exists: true } }, limit: 1000, pagination: false, depth: 0, sort: 'wpId', overrideAccess: true })
+    out[collection] = found.docs
+  }
+  return out
+}
+async function tableCounts() {
+  const counts: Record<string, number> = {}
+  for (const collection of [...importCollections, 'wp-import-runs', 'wp-import-journal'] as const) {
+    counts[collection] = (await payload.count({ collection, overrideAccess: true })).totalDocs
+  }
+  return counts
+}
+async function purge() {
+  for (const collection of ['redirects', 'events', 'newsletters', 'posts', 'pages', 'initiatives', 'media'] as const) {
+    await payload.delete({ collection, where: { wpId: { exists: true } }, overrideAccess: true })
+  }
+  await payload.delete({ collection: 'wp-import-journal', where: { runId: { like: 'wpimport-test-' } }, overrideAccess: true })
+  await payload.delete({ collection: 'wp-import-runs', where: { runId: { like: 'wpimport-test-' } }, overrideAccess: true })
+}
+
+beforeAll(async () => {
+  if (process.env.CMS_LOCAL_BOOTSTRAP !== '1') throw new Error('Integration tests require the isolated local profile.')
+  payload = await getPayload({ config, key: 'wp-import-tests' })
+  await purge()
+})
+afterAll(async () => {
+  await purge()
+  await payload.db.destroy?.()
+})
+
+describe('plan validation', () => {
+  test('the committed fixture plan is valid and sealed', () => {
+    expect(validatePlan(original).docs.length).toBe(original.docs.length)
+  })
+  test('unsafe html, unknown fields, tampering and ineligible publication are rejected', () => {
+    const page = original.docs.find(doc => doc.collection === 'pages' && doc.data.bodyHtml)!
+    expect(() => validatePlan(changed(original, page.wpId, 'pages', { bodyHtml: '<p>x</p><script>alert(1)</script>' }))).toThrow('unsafe html')
+    expect(() => validatePlan(changed(original, page.wpId, 'pages', { bodyHtml: '<p onclick="x()">x</p>' }))).toThrow('unsafe html')
+    expect(() => validatePlan(changed(original, page.wpId, 'pages', { notAField: 'x' }))).toThrow('unknown field')
+    expect(() => validatePlan(changed(original, page.wpId, 'pages', { slug: 'Bad Slug' }))).toThrow('slug')
+    expect(() => validatePlan({ ...original, sourceBytes: original.sourceBytes + 1 })).toThrow('plan hash mismatch')
+    const protectedDoc = original.docs.find(doc => doc.data.wpPasswordProtected === true)!
+    const forged = resealed({ ...original, docs: original.docs.map(doc => doc === protectedDoc ? { ...doc, desiredStatus: 'published' as const, publishEligible: true } : doc) })
+    expect(() => validatePlan(forged)).toThrow('publication not supported by source')
+    const media = original.docs.find(doc => doc.collection === 'media')!
+    expect(() => validatePlan(changed(original, media.wpId, 'media', { public: true }))).toThrow('media must be non-public')
+    expect(() => validatePlan(changed(original, media.wpId, 'media', { sourceUrl: 'javascript:alert(1)' }))).toThrow('url')
+  })
+  test('the Posts collection refuses active markup written by hand', async () => {
+    await expect(payload.create({ collection: 'posts', overrideAccess: true, data: { slug: `hand-${stamp}`, title: 'Hand', bodyHtml: '<p>x</p><script>1</script>', _status: 'draft' } as any })).rejects.toThrow()
+  })
+})
+
+describe('dry run', () => {
+  test('reads, reports created counts and writes nothing', async () => {
+    const before = await tableCounts()
+    const report = await dryRun(payload, original)
+    expect(report.writes).toBe(false)
+    expect(report.runId).toBeNull()
+    expect(report.counts.created).toBe(original.docs.length)
+    expect(report.counts.updated + report.counts.skipped + report.counts.failed).toBe(0)
+    expect(report.documents.every(doc => doc.sourceHash.length === 64 && doc.targetHash.length === 64)).toBe(true)
+    expect(report.counts.redirects.created).toBe(original.redirects.filter(item => item.mode === 'redirect').length)
+    expect(await tableCounts()).toEqual(before)
+    expect(JSON.stringify(report)).not.toContain('Fixture Open Mic')
+  })
+})
+
+describe('apply, idempotency and rollback', () => {
+  const first = runId(), second = runId(), third = runId()
+
+  test('apply creates every document as a draft, with provenance and reference-only media', async () => {
+    const report = await apply(payload, original, { runId: first })
+    expect(report.counts.failed).toBe(0)
+    expect(report.counts.created).toBe(original.docs.length)
+    const state = await dump()
+    expect(state.media.length).toBe(original.docs.filter(doc => doc.collection === 'media').length)
+    for (const media of state.media as any[]) {
+      expect(media.public).toBe(false)
+      expect(media.filename ?? null).toBeNull()
+      expect(media.sourceUrl).toMatch(/^https:\/\//)
+      expect(typeof media.wpId).toBe('number')
+      expect(media.wpImportRun).toBe(first)
+    }
+    const photo = (state.media as any[]).find(media => media.wpId === 3001)
+    expect(photo).toMatchObject({ mimeType: 'image/jpeg', width: 800, height: 600, alt: 'Fall issue cover' })
+    for (const collection of ['events', 'newsletters', 'posts', 'pages', 'initiatives'] as const) {
+      for (const doc of state[collection] as any[]) {
+        expect(doc._status).toBe('draft')
+        expect(doc.wpGuid).toMatch(/^https:\/\//)
+        expect(doc.wpContentHash).toHaveLength(64)
+        expect(doc.wpAppliedHash).toHaveLength(64)
+      }
+    }
+    const newsletter = (state.newsletters as any[])[0]
+    const pdf = (state.media as any[]).find(media => media.wpId === 3002)
+    expect(newsletter.issuePdf).toBe(pdf.id)
+    const event = (state.events as any[]).find(doc => doc.wpId === 4001)
+    expect(event).toMatchObject({ startsAt: '2030-01-19T00:00:00.000Z', timezone: 'America/New_York', category: 'music', locationName: 'Fixture Hall', allDay: false })
+    expect((state.events as any[]).find(doc => doc.wpId === 4005).allDay).toBe(true)
+    const dues = (state.pages as any[]).find(doc => doc.wpId === 1002)
+    expect(dues.bodyHtml).not.toContain('<script')
+    expect(dues.wpReviewFlags).toContain('builder-code-dropped')
+    const protectedPage = (state.pages as any[]).find(doc => doc.wpId === 1004)
+    expect(protectedPage).toMatchObject({ wpPasswordProtected: true, _status: 'draft' })
+    expect(JSON.stringify(state)).not.toContain('fixture-password-value')
+    expect(JSON.stringify(state)).not.toContain('example.invalid/x')
+    const run = await payload.find({ collection: 'wp-import-runs', where: { runId: { equals: first } }, overrideAccess: true })
+    expect(run.docs[0]).toMatchObject({ status: 'completed', planSha256: original.planSha256 })
+    const journal = await payload.count({ collection: 'wp-import-journal', where: { runId: { equals: first } }, overrideAccess: true })
+    expect(journal.totalDocs).toBe(report.counts.created + report.counts.redirects.created)
+  })
+
+  test('redirects cover every mapped old URL, point at created documents and start inactive', async () => {
+    const rows = (await payload.find({ collection: 'redirects', where: { wpId: { exists: true } }, limit: 1000, pagination: false, depth: 0, overrideAccess: true })).docs as any[]
+    const expected = original.redirects.filter(item => item.mode === 'redirect')
+    expect(rows.length).toBe(expected.length)
+    for (const item of expected) {
+      const row = rows.find(candidate => candidate.sourcePath === item.sourcePath)!
+      expect(row).toBeDefined()
+      expect(row.destinationUrl).toBe(item.destination)
+      expect(row.active).toBe(false)
+      expect(row.statusCode).toBe('301')
+      const slug = item.destination.split('/').filter(Boolean).at(-1)!
+      if (item.collection !== 'initiatives') expect((await payload.find({ collection: item.collection, where: { slug: { equals: slug } }, overrideAccess: true })).totalDocs).toBe(1)
+    }
+    // Served-in-place pages need no row, and nothing public is redirected before publication.
+    expect(rows.some(row => row.sourcePath === '/about')).toBe(false)
+    expect(await payload.count({ collection: 'redirects', where: { active: { equals: true }, wpId: { exists: true } }, overrideAccess: true })).toMatchObject({ totalDocs: 0 })
+  })
+
+  test('applying the same plan again is a no-op: identical state, nothing written', async () => {
+    const before = await dump()
+    const beforeCounts = await tableCounts()
+    const report = await apply(payload, original, { runId: second })
+    expect(report.counts).toMatchObject({ created: 0, updated: 0, failed: 0, skipped: original.docs.length })
+    expect(report.counts.redirects).toMatchObject({ created: 0, updated: 0, failed: 0 })
+    expect(report.documents.every(doc => doc.reason === 'unchanged')).toBe(true)
+    expect(canonicalJson(await dump())).toBe(canonicalJson(before))
+    const afterCounts = await tableCounts()
+    expect(afterCounts).toEqual({ ...beforeCounts, 'wp-import-runs': beforeCounts['wp-import-runs'] + 1 })
+    const dry = await dryRun(payload, original)
+    expect(dry.counts).toMatchObject({ created: 0, updated: 0, skipped: original.docs.length })
+  })
+
+  test('a changed source updates in place, never clobbers an editor, and records a pre-image', async () => {
+    const edited = changed(original, 1006, 'pages', { title: 'Child Page (revised)' })
+    const dry = await dryRun(payload, edited)
+    expect(dry.counts).toMatchObject({ updated: 1, created: 0 })
+    const report = await apply(payload, edited, { runId: third })
+    expect(report.counts).toMatchObject({ updated: 1, created: 0, failed: 0 })
+    const stored = (await payload.find({ collection: 'pages', where: { wpId: { equals: 1006 } }, overrideAccess: true })).docs[0] as any
+    expect(stored.title).toBe('Child Page (revised)')
+    expect(stored.wpImportRun).toBe(third)
+    const row = (await payload.find({ collection: 'wp-import-journal', where: { runId: { equals: third } }, overrideAccess: true })).docs[0] as any
+    expect(row).toMatchObject({ action: 'updated', collection: 'pages' })
+    expect(row.preImage.data.title).toBe('Child Page')
+
+    // An editor changes the document; a later source change is held back rather than overwritten.
+    await payload.update({ collection: 'pages', id: stored.id, data: { title: 'Editor wording' } as any, draft: true, overrideAccess: true })
+    const again = changed(edited, 1006, 'pages', { title: 'Child Page (revised twice)' })
+    const held = await apply(payload, again, { runId: runId() })
+    expect(held.documents.find(doc => doc.ordinal === 6)).toMatchObject({ action: 'skipped', reason: 'locally-edited' })
+    expect(((await payload.findByID({ collection: 'pages', id: stored.id, draft: true, overrideAccess: true })) as any).title).toBe('Editor wording')
+    const forced = await apply(payload, again, { runId: runId(), overwriteEdited: true })
+    expect(forced.counts.updated).toBe(1)
+    expect(((await payload.findByID({ collection: 'pages', id: stored.id, draft: true, overrideAccess: true })) as any).title).toBe('Child Page (revised twice)')
+  })
+
+  test('rollback refuses while a later run depends on the documents, then undoes runs newest first', async () => {
+    const refused = await rollback(payload, first)
+    expect(refused.ok).toBe(false)
+    expect(refused.refusals.some(item => item.reason === 'later-run-depends-on-document')).toBe(true)
+    expect(await payload.count({ collection: 'pages', where: { wpId: { exists: true } }, overrideAccess: true })).toMatchObject({ totalDocs: 6 })
+
+    // Undo every later run, newest first (the no-op runs wrote nothing; two others updated one page).
+    const runs = (await payload.find({ collection: 'wp-import-runs', sort: '-startedAt', limit: 100, overrideAccess: true, where: { runId: { like: `wpimport-test-${stamp}` } } })).docs as any[]
+    for (const run of runs) {
+      if (run.runId === first) continue
+      if (run.runId === third) {
+        // The editor's wording replaced this run's content: undoing it needs an explicit decision.
+        expect((await rollback(payload, run.runId)).refusals.map(item => item.reason)).toContain('edited-since-import')
+        expect((await rollback(payload, run.runId, { discardEdits: true })).ok).toBe(true)
+      } else expect((await rollback(payload, run.runId)).ok).toBe(true)
+    }
+    const restored = (await payload.find({ collection: 'pages', where: { wpId: { equals: 1006 } }, overrideAccess: true })).docs[0] as any
+    expect(restored.title).toBe('Child Page')
+    expect(restored.wpImportRun).toBe(first)
+    expect(restored.wpAppliedHash).toBe(appliedHash('pages', restored))
+    expect((await rollback(payload, third)).refusals[0].reason).toBe('already-rolled-back')
+  })
+
+  test('rollback refuses media that other documents reference and edits made since the import', async () => {
+    const media = (await payload.find({ collection: 'media', where: { wpId: { equals: 3006 } }, overrideAccess: true })).docs[0] as any
+    const outsider = await payload.create({ collection: 'events', overrideAccess: true, data: { slug: `outsider-${stamp}`, title: 'Outsider', summary: 'Not imported.', startsAt: '2031-01-01T00:00:00.000Z', category: 'community', locationName: 'Test only', coverImage: media.id, _status: 'draft' } as any })
+    let result = await rollback(payload, first)
+    expect(result.ok).toBe(false)
+    expect(result.refusals.map(item => item.reason)).toContain('referenced-by-other-documents')
+    await payload.delete({ collection: 'events', id: outsider.id, overrideAccess: true })
+
+    const page = (await payload.find({ collection: 'pages', where: { wpId: { equals: 1001 } }, overrideAccess: true })).docs[0] as any
+    await payload.update({ collection: 'pages', id: page.id, data: { title: 'Edited after import' } as any, draft: true, overrideAccess: true })
+    result = await rollback(payload, first)
+    expect(result.refusals.map(item => item.reason)).toContain('edited-since-import')
+    expect(await payload.count({ collection: 'pages', where: { wpId: { exists: true } }, overrideAccess: true })).toMatchObject({ totalDocs: 6 })
+    await payload.update({ collection: 'pages', id: page.id, data: { title: 'About the Synthetic Club' } as any, draft: true, overrideAccess: true })
+  })
+
+  test('rollback of the creating run removes everything it created and nothing else', async () => {
+    const keep = await payload.create({ collection: 'events', overrideAccess: true, data: { slug: `bystander-${stamp}`, title: 'Bystander', summary: 'Not imported.', startsAt: '2031-02-01T00:00:00.000Z', category: 'food', locationName: 'Test only', _status: 'draft' } as any })
+    const result = await rollback(payload, first)
+    expect(result.ok).toBe(true)
+    expect(result.deleted).toBe(original.docs.length + original.redirects.filter(item => item.mode === 'redirect').length)
+    const after = await dump()
+    for (const collection of importCollections) expect(after[collection].length).toBe(0)
+    expect(await payload.count({ collection: 'events', where: { id: { equals: keep.id } }, overrideAccess: true })).toMatchObject({ totalDocs: 1 })
+    await payload.delete({ collection: 'events', id: keep.id, overrideAccess: true })
+    expect(((await payload.find({ collection: 'wp-import-runs', where: { runId: { equals: first } }, overrideAccess: true })).docs[0] as any).status).toBe('rolled-back')
+  })
+})
+
+describe('publication is explicit', () => {
+  test('--publish publishes only eligible documents and activates their redirects; protected and flagged ones stay drafts', async () => {
+    const id = runId()
+    const report = await apply(payload, original, { publish: true, runId: id })
+    expect(report.counts.failed).toBe(0)
+    const state = await dump()
+    const published = ['events', 'newsletters', 'posts', 'pages', 'initiatives'].flatMap(collection => (state[collection] as any[]).filter(doc => doc._status === 'published').map(doc => ({ collection, wpId: doc.wpId })))
+    expect(published.length).toBe(original.docs.filter(doc => doc.desiredStatus === 'published').length)
+    expect(published.some(doc => doc.wpId === 1004 || doc.wpId === 1002 || doc.wpId === 2003 || doc.wpId === 4001 || doc.wpId === 2001)).toBe(false)
+    const active = (await payload.find({ collection: 'redirects', where: { active: { equals: true }, wpId: { exists: true } }, limit: 1000, pagination: false, overrideAccess: true })).docs as any[]
+    expect(active.length).toBeGreaterThan(0)
+    for (const row of active) expect(published.some(doc => doc.wpId === row.wpId)).toBe(true)
+    expect((await rollback(payload, id)).ok).toBe(true)
+  })
+
+  test('dangling media references are rejected before any write', async () => {
+    const poisoned = resealed({ ...original, docs: original.docs.map(doc => doc.wpId === 4001 ? { ...doc, desiredStatus: 'draft' as const, refs: { coverImage: 999999 } , targetHash: hashOf({ data: doc.data, refs: { coverImage: 999999 } }) } : doc) })
+    expect(() => validatePlan(poisoned)).toThrow('dangling reference')
+  })
+})
+
+describe('later editorial publication', () => {
+  test('publishing in the CMS activates its redirect on the next apply, and rollback then refuses to unpublish it', async () => {
+    const id = runId()
+    await apply(payload, original, { runId: id })
+    const page = (await payload.find({ collection: 'pages', where: { wpId: { equals: 1006 } }, overrideAccess: true })).docs[0] as any
+    const row = async () => (await payload.find({ collection: 'redirects', where: { wpId: { equals: 1006 } }, overrideAccess: true })).docs[0] as any
+    expect((await row()).active).toBe(false)
+    await payload.update({ collection: 'pages', id: page.id, data: { _status: 'published' } as any, overrideAccess: true })
+    const again = runId()
+    const report = await apply(payload, original, { runId: again })
+    expect(report.counts).toMatchObject({ created: 0, updated: 0, failed: 0 })
+    expect(report.counts.redirects).toMatchObject({ updated: 1, created: 0, failed: 0 })
+    expect((await row()).active).toBe(true)
+    expect((await rollback(payload, id)).refusals.map(item => item.reason)).toContain('later-run-depends-on-document')
+    expect((await rollback(payload, again)).ok).toBe(true)
+    expect((await row()).active).toBe(false)
+    const refused = await rollback(payload, id)
+    expect(refused.refusals.map(item => item.reason)).toContain('published-since-import')
+    expect((await rollback(payload, id, { discardEdits: true })).ok).toBe(true)
+    expect(await payload.count({ collection: 'pages', where: { wpId: { exists: true } }, overrideAccess: true })).toMatchObject({ totalDocs: 0 })
+  })
+})
+
+describe('review fixes', () => {
+  const pagesOf = async (draft = false) => (await payload.find({ collection: 'pages', where: { wpId: { equals: 1001 } }, draft, overrideAccess: true })).docs[0] as any
+  const retitled = (plan: Plan, wpId: number, title: string) => changed(plan, wpId, 'pages', { title })
+
+  test('rollback of an updated draft refuses once an editor published it, and never restores _status', async () => {
+    const a = runId(), b = runId()
+    await apply(payload, original, { runId: a })
+    await apply(payload, retitled(original, 1006, 'Child Page (revised)'), { runId: b })
+    const page = (await payload.find({ collection: 'pages', where: { wpId: { equals: 1006 } }, overrideAccess: true })).docs[0] as any
+    await payload.update({ collection: 'pages', id: page.id, data: { _status: 'published' } as any, overrideAccess: true })
+    const refused = await rollback(payload, b)
+    expect(refused.ok).toBe(false)
+    expect(refused.refusals.map(item => item.reason)).toContain('status-changed-since-import')
+    expect(((await payload.findByID({ collection: 'pages', id: page.id, overrideAccess: true })) as any)._status).toBe('published')
+    expect((await rollback(payload, b, { discardEdits: true })).ok).toBe(true)
+    expect(((await payload.findByID({ collection: 'pages', id: page.id, overrideAccess: true })) as any)._status).toBe('published')
+    expect((await rollback(payload, a, { discardEdits: true })).ok).toBe(true)
+  })
+
+  test('updating a published document writes a draft version: the public page does not change until an editor publishes', async () => {
+    const a = runId(), b = runId()
+    await apply(payload, original, { publish: true, runId: a })
+    const next = retitled(original, 1001, 'About (reviewed copy)')
+    expect((await apply(payload, next, { runId: b })).counts).toMatchObject({ updated: 1, failed: 0 })
+    const live = await pagesOf(), latest = await pagesOf(true)
+    expect(live).toMatchObject({ title: 'About the Synthetic Club', _status: 'published' })
+    expect(latest.title).toBe('About (reviewed copy)')
+    expect(live.wpContentHash).toBe(changed(original, 1001, 'pages', { title: 'About (reviewed copy)' }).docs.find(item => item.wpId === 1001)!.targetHash)
+    const again = await apply(payload, next, { runId: runId() })
+    expect(again.documents.find(item => item.ordinal === 1)).toMatchObject({ action: 'skipped', reason: 'unchanged' })
+    expect((await rollback(payload, runId() )).refusals[0].reason).toBe('unknown-run')
+    for (const run of (await payload.find({ collection: 'wp-import-runs', sort: '-startedAt', limit: 50, overrideAccess: true, where: { and: [{ runId: { like: `wpimport-test-${stamp}` } }, { status: { not_equals: 'rolled-back' } }] } })).docs as any[]) {
+      if (run.runId !== a) expect((await rollback(payload, run.runId)).ok).toBe(true)
+    }
+    expect((await pagesOf(true)).title).toBe('About the Synthetic Club')
+    expect((await pagesOf())._status).toBe('published')
+    expect((await rollback(payload, a)).ok).toBe(true)
+  })
+
+  test('a rollback that fails part-way changes nothing and can simply be retried', async () => {
+    const a = runId()
+    await apply(payload, original, { runId: a })
+    const before = canonicalJson(await dump())
+    const failed = await rollback(payload, a, { hooks: { beforeRow: index => { if (index === 5) throw new Error('boom') } } })
+    expect(failed.ok).toBe(false)
+    expect(failed.refusals.map(item => item.reason)).toEqual(['rolled-back-transaction-failed'])
+    expect(failed.deleted).toBe(0)
+    expect(canonicalJson(await dump())).toBe(before)
+    expect(((await payload.find({ collection: 'wp-import-runs', where: { runId: { equals: a } }, overrideAccess: true })).docs[0] as any).status).toBe('completed')
+    const retry = await rollback(payload, a)
+    expect(retry.ok).toBe(true)
+    expect(retry.deleted).toBeGreaterThan(0)
+  })
+
+  test('a crashed apply is marked failed, can be rolled back, and a stale running run can be taken over explicitly', async () => {
+    const crashed = runId()
+    await expect(apply(payload, original, { runId: crashed, hooks: { afterDocument: index => { if (index === 5) throw new Error('crash') } } })).rejects.toThrow('crash')
+    const row = async () => (await payload.find({ collection: 'wp-import-runs', where: { runId: { equals: crashed } }, overrideAccess: true })).docs[0] as any
+    expect((await row()).status).toBe('failed')
+    expect((await payload.count({ collection: 'media', where: { wpId: { exists: true } }, overrideAccess: true })).totalDocs).toBe(5)
+
+    await payload.update({ collection: 'wp-import-runs', id: (await row()).id, data: { status: 'running' }, overrideAccess: true })
+    expect((await rollback(payload, crashed)).refusals.map(item => item.reason)).toEqual(['run-still-running'])
+    expect((await rollback(payload, crashed, { takeOverStale: true })).refusals.map(item => item.reason)).toEqual(['run-not-stale'])
+    const taken = await rollback(payload, crashed, { takeOverStale: true, staleAfterMs: 0 })
+    expect(taken.ok).toBe(true)
+    expect(taken.deleted).toBe(5)
+    expect((await row()).status).toBe('rolled-back')
+  })
+
+  test('a failing journal write leaves nothing persisted for that document (single transaction)', async () => {
+    const hooks = (payload.collections['wp-import-journal'].config.hooks as any).beforeChange as unknown[]
+    const hook = ({ data }: any) => { if (data.wpId === 1001) throw new Error('journal-down'); return data }
+    hooks.push(hook)
+    try {
+      const failing = runId()
+      const report = await apply(payload, original, { runId: failing })
+      expect(report.documents.find(item => item.ordinal === 1)).toMatchObject({ action: 'failed', reason: 'journal-down' })
+      expect(report.counts.failed).toBe(1)
+      expect((await payload.count({ collection: 'pages', where: { wpId: { equals: 1001 } }, overrideAccess: true })).totalDocs).toBe(0)
+      expect((await payload.count({ collection: 'pages', where: { wpId: { exists: true } }, overrideAccess: true })).totalDocs).toBe(5)
+      expect((await payload.count({ collection: 'wp-import-journal', where: { and: [{ runId: { equals: failing } }, { wpId: { equals: 1001 } }] }, overrideAccess: true })).totalDocs).toBe(0)
+      expect((await payload.countVersions({ collection: 'pages', where: { 'version.wpId': { equals: 1001 } }, overrideAccess: true })).totalDocs).toBe(0)
+    } finally {
+      hooks.splice(hooks.indexOf(hook), 1)
+      const runs = (await payload.find({ collection: 'wp-import-runs', where: { runId: { like: `wpimport-test-${stamp}` } }, sort: '-startedAt', limit: 50, overrideAccess: true })).docs as any[]
+      for (const run of runs) if (run.status !== 'rolled-back') await rollback(payload, run.runId, { discardEdits: true })
+    }
+  })
+
+  test('--publish that publishes nothing says so', async () => {
+    const a = runId()
+    await apply(payload, original, { runId: a })
+    const b = await apply(payload, original, { publish: true, runId: runId() })
+    expect(b.publishedThisRun).toBe(0)
+    expect(b.notes[0]).toContain('publish-requested-but-nothing-published')
+    expect((await apply(payload, original, { runId: runId() })).notes).toEqual([])
+    const runs = (await payload.find({ collection: 'wp-import-runs', where: { runId: { like: `wpimport-test-${stamp}` } }, sort: '-startedAt', limit: 50, overrideAccess: true })).docs as any[]
+    for (const run of runs) if (run.status !== 'rolled-back') expect((await rollback(payload, run.runId)).ok).toBe(true)
+  })
+
+  test('the HTML guard refuses active markup with a fixed code but not prose or harmless URLs', async () => {
+    const make = (n: string, bodyHtml: string) => payload.create({ collection: 'posts', overrideAccess: true, data: { slug: `guard-${n}-${stamp}`, title: 'Guard', bodyHtml, _status: 'draft' } as any })
+    const ok = await make('a', '<p>The javascript: protocol and onclick= are discussed here.</p><a href="https://example.invalid/?online=1&amp;ontology=2">link</a>')
+    await payload.delete({ collection: 'posts', id: ok.id, overrideAccess: true })
+    for (const [n, bad] of [['b', '<p onclick="x()">x</p>'], ['c', '<a href=" javascript:alert(1)">x</a>'], ['d', '<script>1</script>'], ['e', '<img src=x onerror=alert(1)>'], ['f', '<a href=\'data:text/html,x\'>x</a>']] as const) {
+      await expect(make(n, bad)).rejects.toThrow('active-html-refused')
+    }
+    // Entity, whitespace and quoting obfuscation, and the pages collection (same hook).
+    const tricks = ['<a href="java&#115;cript:alert(1)">x</a>', '<a href="&#x6A;avascript:alert(1)">x</a>', '<a href=javascript&colon;alert(1)>x</a>', '<a href="java\tscript:alert(1)">x</a>', '<a href="java&Tab;script:alert(1)">x</a>', '<a href="java&NewLine;script:alert(1)">x</a>', '<a href="&Tab;javascript:alert(1)">x</a>', '<a href="java&TAB;script:alert(1)">x</a>', '<a href="jav&#x09;ascript:alert(1)">x</a>',
+      '<a title="a>b" onclick=x>x</a>', "<a title='a>b' ONCLICK = 'x()'>x</a>", '<img src="data:text/html;base64,AAAA">', '<SCRIPT>1</SCRIPT>', '< script>1</script>']
+    for (const [i, bad] of tricks.entries()) {
+      await expect(make(`t${i}`, bad)).rejects.toThrow('active-html-refused')
+      await expect(payload.create({ collection: 'pages', overrideAccess: true, data: { slug: `guard-page-${i}-${stamp}`, title: 'Guard', bodyHtml: bad, _status: 'draft' } as any })).rejects.toThrow('active-html-refused')
+    }
+    const fine = await payload.create({ collection: 'pages', overrideAccess: true, data: { slug: `guard-page-ok-${stamp}`, title: 'Guard', bodyHtml: '<p title="a>b">x <a href="https://example.invalid/?online=1">y</a></p>', _status: 'draft' } as any })
+    await payload.delete({ collection: 'pages', id: fine.id, overrideAccess: true })
+  })
+
+  const idle = (id: string, interval: string) => (payload.db as any).drizzle.execute(sql`UPDATE wp_import_runs SET updated_at = now() - ${interval}::interval WHERE run_id = ${id}`)
+
+  test('takeover needs a run idle past the threshold; staleness is the heartbeat, not the start time', async () => {
+    const id = runId()
+    await apply(payload, original, { runId: id, hooks: { afterDocument: index => { if (index === 3) throw new Error('crash') } } }).catch(() => undefined)
+    await payload.update({ collection: 'wp-import-runs', id: ((await payload.find({ collection: 'wp-import-runs', where: { runId: { equals: id } }, overrideAccess: true })).docs[0] as any).id, data: { status: 'running', startedAt: new Date(Date.now() - 5 * 3600_000).toISOString() }, overrideAccess: true })
+    // Started long ago but written to a moment ago (the crashed run's last write): not stale.
+    expect((await rollback(payload, id, { takeOverStale: true })).refusals.map(item => item.reason)).toEqual(['run-not-stale'])
+    await idle(id, '2 hours')
+    expect((await rollback(payload, id, { takeOverStale: true })).ok).toBe(true)
+  })
+
+  test('an in-flight apply paused INSIDE a write transaction blocks the takeover on the run lock; the takeover then includes that document and the apply stops at its next write', async () => {
+    const id = runId()
+    let release!: () => void, reached!: () => void
+    const gate = new Promise<void>(resolve => { release = resolve }), at = new Promise<void>(resolve => { reached = resolve })
+    const inflight = apply(payload, original, { runId: id, hooks: { afterClaim: async index => { if (index === 5) { reached(); await gate } } } }).then(() => 'completed', error => (error as Error).message)
+    await at // the sixth document's transaction holds the run lock and has not written yet
+    let settled = false
+    const takeover = rollback(payload, id, { takeOverStale: true, staleAfterMs: 0 }).then(result => { settled = true; return result })
+    await Bun.sleep(400)
+    expect(settled).toBe(false) // blocked on the lock, not racing it
+    release()
+    const taken = await takeover
+    expect(taken).toMatchObject({ ok: true, deleted: 6 }) // five earlier documents plus the one paused mid-transaction
+    expect(await inflight).toBe('run-no-longer-running')
+    const row = (await payload.find({ collection: 'wp-import-runs', where: { runId: { equals: id } }, overrideAccess: true })).docs[0] as any
+    expect(row.status).toBe('rolled-back')
+    for (const collection of ['media', 'events', 'newsletters', 'posts', 'pages', 'initiatives', 'redirects'] as const) {
+      expect((await payload.count({ collection, where: { wpId: { exists: true } }, overrideAccess: true })).totalDocs).toBe(0)
+    }
+    expect((await payload.count({ collection: 'wp-import-journal', where: { runId: { equals: id } }, overrideAccess: true })).totalDocs).toBe(6)
+  })
+
+  test('a transaction id without a session never falls back to the shared client', () => {
+    expect(() => executor(payload, { transactionID: 'no-such-session' } as any)).toThrow('transaction-session-missing')
+    expect(typeof executor(payload).execute).toBe('function')
+  })
+
+  test('a draft version written over a published document carries a current hash, so the next source change is not a false local edit', async () => {
+    const [a, b, c, d] = [runId(), runId(), runId(), runId()]
+    await apply(payload, original, { publish: true, runId: a })
+    const editorPublishesDraft = async () => {
+      const draft = await pagesOf(true)
+      await payload.update({ collection: 'pages', id: draft.id, overrideAccess: true, data: { title: draft.title, wpContentHash: draft.wpContentHash, wpAppliedHash: draft.wpAppliedHash, wpImportRun: draft.wpImportRun, _status: 'published' } as any })
+    }
+    const v1 = retitled(original, 1001, 'About v1'), v2 = retitled(original, 1001, 'About v2')
+    expect((await apply(payload, v1, { runId: b })).counts.updated).toBe(1)
+    await editorPublishesDraft()
+    expect((await pagesOf()).title).toBe('About v1')
+    const second = await apply(payload, v2, { runId: c })
+    expect(second.documents.find(item => item.ordinal === 1)).toMatchObject({ action: 'updated' })
+    expect((await pagesOf(true)).title).toBe('About v2')
+    await editorPublishesDraft()
+    const third = await apply(payload, retitled(original, 1001, 'About v3'), { runId: d })
+    expect(third.documents.find(item => item.ordinal === 1)).toMatchObject({ action: 'updated' })
+    for (const id of [d, c, b, a]) expect((await rollback(payload, id, { discardEdits: true })).ok).toBe(true)
+  })
+
+  test('journal rows written before postStatus existed do not block rollback', async () => {
+    const a = runId(), b = runId()
+    await apply(payload, original, { runId: a })
+    await apply(payload, retitled(original, 1006, 'Child (legacy row)'), { runId: b })
+    const row = (await payload.find({ collection: 'wp-import-journal', where: { runId: { equals: b } }, overrideAccess: true })).docs[0] as any
+    const { postStatus: _, ...legacy } = row.preImage
+    await payload.update({ collection: 'wp-import-journal', id: row.id, data: { preImage: legacy } as any, overrideAccess: true })
+    const page = (await payload.find({ collection: 'pages', where: { wpId: { equals: 1006 } }, overrideAccess: true })).docs[0] as any
+    await payload.update({ collection: 'pages', id: page.id, data: { _status: 'published' } as any, overrideAccess: true })
+    expect((await rollback(payload, b)).ok).toBe(true)
+    expect((await rollback(payload, a, { discardEdits: true })).ok).toBe(true)
+  })
+
+  test('rollback refuses a created document an editor unpublished, but removes an untouched published one', async () => {
+    const a = runId()
+    await apply(payload, original, { publish: true, runId: a })
+    const page = await pagesOf()
+    await payload.update({ collection: 'pages', id: page.id, data: { _status: 'draft' } as any, overrideAccess: true })
+    expect((await rollback(payload, a)).refusals.map(item => item.reason)).toContain('status-changed-since-import')
+    await payload.update({ collection: 'pages', id: page.id, data: { _status: 'published' } as any, overrideAccess: true })
+    const done = await rollback(payload, a)
+    expect(done.ok).toBe(true)
+    expect((await payload.count({ collection: 'pages', where: { wpId: { exists: true } }, overrideAccess: true })).totalDocs).toBe(0)
+  })
+})
+
+describe('command line guards', () => {
+  test('arguments are strict and the database must be local', () => {
+    expect(parseArgs(['dry-run', '--plan', '/x/plan.json']).command).toBe('dry-run')
+    expect(parseArgs(['rollback', '--run', 'wpimport-abc']).values['--run']).toBe('wpimport-abc')
+    expect(() => parseArgs(['apply'])).toThrow('Usage')
+    expect(parseArgs(['rollback', '--run', 'x', '--take-over-stale', '--stale-after-minutes', '5']).values['--stale-after-minutes']).toBe('5')
+    expect(() => parseArgs(['rollback', '--run', 'x', '--stale-after-minutes', '5'])).toThrow('Usage')
+    for (const bad of ['-1', '0', ' ', '', 'Infinity', '1.5', '1e3', '0x10', '99999999']) expect(() => parseArgs(['rollback', '--run', 'x', '--take-over-stale', '--stale-after-minutes', bad])).toThrow('Usage')
+    expect(() => parseArgs(['rollback', '--run', 'x', '--plan', 'y'])).toThrow('Usage')
+    expect(() => parseArgs(['apply', '--plan', 'a', '--bogus'])).toThrow('Usage')
+    expect(isLocalDatabase('postgresql:///terrace_cms?host=/tmp/socket&port=55432')).toBe(true)
+    expect(isLocalDatabase('postgresql://postgres@127.0.0.1:5432/terrace_cms')).toBe(true)
+    expect(isLocalDatabase('postgresql://postgres@db.example.invalid:5432/terrace_cms')).toBe(false)
+    expect(isLocalDatabase(undefined)).toBe(false)
+    // pg uses the LAST host parameter while URL.get returns the first: any duplicate is refused.
+    expect(isLocalDatabase('postgresql:///db?host=/tmp/s&host=db.remote.invalid', {})).toBe(false)
+    expect(isLocalDatabase('postgresql:///db?host=db.remote.invalid&host=/tmp/s', {})).toBe(false)
+    // An empty host falls back to PGHOST in libpq, so it proves nothing; PGHOST itself must be local too.
+    expect(isLocalDatabase('postgresql:///terrace_cms', {})).toBe(false)
+    expect(isLocalDatabase('postgresql://postgres@/terrace_cms', {})).toBe(false)
+    expect(isLocalDatabase('postgresql:///terrace_cms?host=/tmp/socket', {})).toBe(true)
+    expect(isLocalDatabase('postgresql:///terrace_cms?host=/tmp/socket', { PGHOST: 'db.example.invalid' })).toBe(false)
+    expect(isLocalDatabase('postgresql://postgres@127.0.0.1/terrace_cms', { PGHOST: '/tmp/socket' })).toBe(true)
+    expect(isLocalDatabase('postgresql://postgres@db.example.invalid/terrace_cms?host=localhost', {})).toBe(true)
+  })
+})

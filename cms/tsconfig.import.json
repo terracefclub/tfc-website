@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "incremental": false, "types": ["bun"], "allowImportingTsExtensions": true },
+  "include": ["tools/wp-import.ts", "tools/wp-import/**/*.ts"],
+  "exclude": ["node_modules"]
+}

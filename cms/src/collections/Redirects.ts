@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
 import { activeRedirectOrMember } from '@/access/rules'
-import { editorialAccess } from './shared'
+import { editorialAccess, wpRedirectFields } from './shared'
 
 export const Redirects: CollectionConfig = {
   slug: 'redirects',
@@ -11,5 +11,6 @@ export const Redirects: CollectionConfig = {
     { name: 'destinationUrl', type: 'text', required: true, validate: (value: unknown) => typeof value === 'string' && (/^https:\/\/[^\s]+$/.test(value) || /^\/(?!\/)[a-zA-Z0-9/_-]*$/.test(value)) || 'Use HTTPS or a local path.' },
     { name: 'statusCode', type: 'select', required: true, defaultValue: '302', options: ['301', '302'] },
     { name: 'active', type: 'checkbox', defaultValue: false },
+    ...wpRedirectFields,
   ],
 }

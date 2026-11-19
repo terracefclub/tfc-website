@@ -128,6 +128,9 @@ Match forms and fields to the private source by ID. The report preserves field o
 
 ## Migration mapping
 
+The repeatable import job that implements this mapping (dry run, apply, redirects, rollback) is documented in [WordPress to Payload import job](wordpress-import.md).
+
+
 | Source | Preserve in Payload / destination | Notes |
 |---|---|---|
 | WordPress pages and posts | Source ID, slug, title, publication status/date, excerpt, body, featured media, authors, categories/tags, SEO metadata; preserve redirects | Convert layouts to structured blocks where practical; sanitize reviewed legacy HTML and preserve difficult embeds with an explicit fallback. Keep newsletter issue date and PDF/document association. |

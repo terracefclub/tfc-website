@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
 import { publishedOrMember, memberOnly } from '@/access/rules'
-import { editorialAccess, publicMediaOnPublish, slugField } from './shared'
+import { editorialAccess, publicMediaOnPublish, slugField, wpImportFields } from './shared'
 
 export const Newsletters: CollectionConfig = {
   slug: 'newsletters',
@@ -29,5 +29,6 @@ export const Newsletters: CollectionConfig = {
     { name: 'summary', type: 'textarea', required: true },
     { name: 'issuePdf', type: 'relationship', relationTo: 'media' },
     { name: 'coverImage', type: 'relationship', relationTo: 'media' },
+    ...wpImportFields,
   ],
 }
