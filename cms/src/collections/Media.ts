@@ -1,5 +1,5 @@
 import type { CollectionConfig, PayloadRequest } from 'payload'
-import { isMember, memberOnly, publicMediaOrMember } from '@/access/rules'
+import { isStaff, staffOnly, publicMediaOrStaff } from '@/access/rules'
 import { mediaDirectory } from '../media-directory'
 import { wpImportFields } from './shared'
 
@@ -18,7 +18,7 @@ async function assertNoPublishedReferences(req: PayloadRequest, id: string | num
 
 export const Media: CollectionConfig = {
   slug: 'media',
-  access: { create: memberOnly, read: publicMediaOrMember, update: memberOnly, delete: memberOnly },
+  access: { create: staffOnly, read: publicMediaOrStaff, update: staffOnly, delete: staffOnly },
   admin: { useAsTitle: 'alt' },
   upload: {
     staticDir: mediaDirectory(),
@@ -57,8 +57,8 @@ export const Media: CollectionConfig = {
     { name: 'caption', type: 'textarea', maxLength: 500, admin: { description: 'Optional visible caption.' } },
     { name: 'credit', type: 'text', maxLength: 200, admin: { description: 'Optional photographer, artist, or source credit.' } },
     { name: 'public', type: 'checkbox', defaultValue: false, required: true, admin: { description: 'Private uploads cannot be served to anonymous visitors.' } },
-    { name: 'sourceUrl', type: 'text', maxLength: 2000, access: { read: ({ req }) => isMember(req.user), update: () => false }, admin: { readOnly: true, description: 'WordPress URL of the original (import reference; bytes not yet copied).' } },
-    { name: 'sourceFile', type: 'text', maxLength: 500, access: { read: ({ req }) => isMember(req.user), update: () => false }, admin: { readOnly: true, description: 'Path of the original under wp-content/uploads.' } },
+    { name: 'sourceUrl', type: 'text', maxLength: 2000, access: { read: ({ req }) => isStaff(req.user), update: () => false }, admin: { readOnly: true, description: 'WordPress URL of the original (import reference; bytes not yet copied).' } },
+    { name: 'sourceFile', type: 'text', maxLength: 500, access: { read: ({ req }) => isStaff(req.user), update: () => false }, admin: { readOnly: true, description: 'Path of the original under wp-content/uploads.' } },
     ...wpImportFields,
   ],
 }

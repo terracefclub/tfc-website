@@ -1,5 +1,5 @@
 import type { Access, CollectionBeforeChangeHook, Field, FieldAccess } from 'payload'
-import { isAdmin, isMember } from '@/access/rules'
+import { isAdmin, isStaff } from '@/access/rules'
 
 export const slugField: Field = {
   name: 'slug', type: 'text', required: true, unique: true,
@@ -19,8 +19,8 @@ export const publicMediaOnPublish: CollectionBeforeChangeHook = async ({ data, r
 }
 
 export const editorialAccess: { create: Access; update: Access; delete: Access } = {
-  create: ({ req }) => isMember(req.user),
-  update: ({ req }) => isMember(req.user),
+  create: ({ req }) => isStaff(req.user),
+  update: ({ req }) => isStaff(req.user),
   delete: ({ req }) => isAdmin(req.user),
 }
 
@@ -40,7 +40,7 @@ export const imageCoverOnly: CollectionBeforeChangeHook = async ({ data, req, or
 // Imported documents carry the WordPress post ID and GUID so a re-run updates instead of
 // duplicating (see docs/wordpress-import.md). Only the import job writes them (local API);
 // staff may read them, the public API never sees them.
-const staffRead: FieldAccess = ({ req }) => isMember(req.user)
+const staffRead: FieldAccess = ({ req }) => isStaff(req.user)
 const importOnly = { read: staffRead, create: () => false, update: () => false }
 const provenance = (name: string, field: Omit<Field, 'name'> & Record<string, unknown>): Field => ({
   name, ...field, access: importOnly, admin: { readOnly: true, position: 'sidebar', ...(field.admin as object | undefined) },

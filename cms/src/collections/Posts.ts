@@ -1,5 +1,5 @@
 import type { CollectionConfig, Field } from 'payload'
-import { publishedOrMember, memberOnly } from '@/access/rules'
+import { publishedOrStaff, staffOnly } from '@/access/rules'
 import { editorialAccess, refuseActiveHtml, slugField, wpImportFields } from './shared'
 
 // Imported WordPress posts and pages, served at /news/{slug} and /pages/{slug}. bodyHtml is sanitized
@@ -20,7 +20,7 @@ const content = (): Field[] => [
 
 const base = {
   versions: { drafts: true },
-  access: { ...editorialAccess, read: publishedOrMember, readVersions: memberOnly },
+  access: { ...editorialAccess, read: publishedOrStaff, readVersions: staffOnly },
   hooks: { beforeChange: [refuseActiveHtml('bodyHtml')] },
 }
 

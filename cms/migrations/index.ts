@@ -6,6 +6,7 @@ import * as migration_20261103_012759 from './20261103_012759';
 import * as migration_20261103_030159 from './20261103_030159';
 import * as migration_20261119_014504 from './20261119_014504';
 import * as migration_20261119_023303_member_lifecycle from './20261119_023303_member_lifecycle';
+import * as migration_20261119_045216_mirrored_at from './20261119_045216_mirrored_at';
 
 export const migrations = [
   {
@@ -46,6 +47,11 @@ export const migrations = [
   {
     up: migration_20261119_023303_member_lifecycle.up,
     down: migration_20261119_023303_member_lifecycle.down,
-    name: '20261119_023303_member_lifecycle'
+    name: '20261119_023303_member_lifecycle',
+  },
+  {
+    up: migration_20261119_045216_mirrored_at.up,
+    down: migration_20261119_045216_mirrored_at.down,
+    name: '20261119_045216_mirrored_at',
   },
 ];

@@ -4,6 +4,7 @@ import { getPayload } from 'payload'
 import config from '../src/payload.config'
 import { createMemberVerifier, keycloakConfig, type KeycloakConfig } from '../src/auth/keycloak'
 import { isMember, memberId } from '../src/access/members'
+import { isStaff } from '../src/access/rules'
 
 const key = await generateKeyPair('RS256')
 const jwk = { ...await exportJWK(key.publicKey), kid: 'test-key', alg: 'RS256', use: 'sig' }
@@ -85,6 +86,14 @@ test('configuration is fail closed and never permits remote plaintext issuers', 
   expect(() => keycloakConfig({ MEMBER_AUTH_ISSUER: settings.issuer })).toThrow()
   expect(isMember({ user: { id: 1, collection: 'users', role: 'admin' } as any })).toBe(false)
   expect(memberId({ user: { id: 1, collection: 'members', roles: [] } as any })).toBeNull()
+})
+
+test('isStaff (editorial users) and isMember (community members) are different, non-overlapping checks', () => {
+  for (const role of ['admin', 'editor']) expect(isStaff({ collection: 'users', role })).toBe(true)
+  expect(isStaff({ collection: 'users', role: 'viewer' })).toBe(false)
+  expect(isStaff({ id: 1, collection: 'members', roles: ['alumni'], role: 'admin' })).toBe(false)
+  expect(isStaff(null)).toBe(false)
+  expect(isMember({ user: { id: 1, collection: 'users', role: 'editor' } as any })).toBe(false)
 })
 
 test('Payload provisions the same immutable identity once and keeps it out of editorial access', async () => {

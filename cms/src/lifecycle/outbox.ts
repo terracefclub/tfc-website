@@ -1,6 +1,9 @@
-import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { randomBytes } from 'node:crypto'
+import { chmodSync, closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { APIError, type Payload, type PayloadRequest } from 'payload'
+import { publicOrigin } from '../auth/production-input'
+import { invitationTtlMs } from './policy'
 import { pool } from './visibility'
 
 export type OutboxKind = 'invitation' | 'denial' | 'offboarding' | 'erasure-confirmation' | 'staff-notice'
@@ -21,6 +24,21 @@ export type Recorded = { id: number; createdAt: string; message: OutboxMessage }
 const REDACTED = { to: 'Former member', body: 'Redacted after erasure.' }
 const prefix = (id: number | string) => `${String(id).padStart(6, '0')}-`
 
+/**
+ * Write a file all at once: a private temporary file in the same directory (mode 0600), synced to disk,
+ * then renamed over the target. A reader or a crash sees the old file or the complete new one, never a partial one.
+ * Temporary names end in `.tmp`, so mirror listings (`*.json`) never pick them up.
+ */
+export function writeFileAtomic(file: string, content: string): void {
+  const temporary = `${file}.${randomBytes(6).toString('hex')}.tmp`
+  const handle = openSync(temporary, 'wx', 0o600)
+  try {
+    try { writeSync(handle, content); fsyncSync(handle) } finally { closeSync(handle) }
+    renameSync(temporary, file)
+  } catch (error) { rmSync(temporary, { force: true }); throw error }
+  try { const directory = openSync(resolve(file, '..'), 'r'); try { fsyncSync(directory) } finally { closeSync(directory) } } catch { /* directory sync is best effort */ }
+}
+
 /** Insert the outbox row only. Inside a transaction nothing outside the database changes. */
 export async function recordMessage(payload: Payload, message: OutboxMessage, req?: PayloadRequest): Promise<Recorded> {
   const record = await payload.create({
@@ -30,16 +48,19 @@ export async function recordMessage(payload: Payload, message: OutboxMessage, re
   return { id: Number(record.id), createdAt: record.createdAt, message }
 }
 
-/** Write the file copy of a recorded message with owner-only permissions. A no-op without LIFECYCLE_OUTBOX_DIR. */
-export function writeMirror(recorded: Recorded): void {
+/**
+ * Write the file copy of a recorded message with owner-only permissions. Throws if the file cannot be
+ * written. Returns true only when the complete file is in place (atomic rename); false (a no-op) without LIFECYCLE_OUTBOX_DIR.
+ */
+export function writeMirror(recorded: Recorded): boolean {
   const directory = process.env.LIFECYCLE_OUTBOX_DIR
-  if (!directory) return
+  if (!directory) return false
   const { id, createdAt, message } = recorded
   mkdirSync(directory, { recursive: true, mode: 0o700 })
   chmodSync(directory, 0o700)
   const file = resolve(directory, `${prefix(id)}${message.kind}.json`)
-  writeFileSync(file, JSON.stringify({ id, kind: message.kind, to: message.recipientEmail ?? message.recipientLabel, subject: message.subject, body: message.mirrorBody ?? message.body, createdAt }, null, 2), { mode: 0o600 })
-  chmodSync(file, 0o600)
+  writeFileAtomic(file, JSON.stringify({ id, kind: message.kind, to: message.recipientEmail ?? message.recipientLabel, subject: message.subject, body: message.mirrorBody ?? message.body, createdAt }, null, 2))
+  return true
 }
 
 /**
@@ -49,13 +70,13 @@ export function writeMirror(recorded: Recorded): void {
  */
 export async function enqueueMessage(payload: Payload, message: OutboxMessage, req?: PayloadRequest, options: { bestEffortMirror?: boolean } = {}): Promise<number> {
   const recorded = await recordMessage(payload, message, req)
-  try { writeMirror(recorded) } catch (error) { if (!options.bestEffortMirror) throw error }
+  try { if (writeMirror(recorded)) await markMirrored(payload, recorded.id, req) } catch (error) { if (!options.bestEffortMirror) throw error }
   return recorded.id
 }
 
 // Loopback, unspecified, trailing-dot and IPv6-literal hosts are never a valid public origin.
 const LOOPBACK = /^(localhost|.*\.localhost|0\.0\.0\.0|127(\.\d{1,3}){3}|\[.*\]|.*\.)$/i
-const localDevelopment = () => process.env.CMS_LOCAL_BOOTSTRAP === '1' && process.env.NODE_ENV !== 'production'
+const localDevelopment = (env: NodeJS.ProcessEnv) => env.CMS_LOCAL_BOOTSTRAP === '1' && env.NODE_ENV !== 'production'
 
 /**
  * Delivery settings. Invitation links exist only in the file mirror, so an invitation cannot be
@@ -63,16 +84,17 @@ const localDevelopment = () => process.env.CMS_LOCAL_BOOTSTRAP === '1' && proces
  * (CMS_LOCAL_BOOTSTRAP=1, never with NODE_ENV=production) may use the loopback default origin; every
  * other deployment must name a bare public https origin, or approval fails closed.
  */
-export function deliveryConfig(): { directory: string; origin: string } {
-  const directory = process.env.LIFECYCLE_OUTBOX_DIR
-  const origin = process.env.LIFECYCLE_PUBLIC_ORIGIN
+export function deliveryConfig(env: NodeJS.ProcessEnv = process.env): { directory: string; origin: string } {
+  const directory = env.LIFECYCLE_OUTBOX_DIR
+  const origin = env.LIFECYCLE_PUBLIC_ORIGIN
   if (!directory) throw new APIError('Invitation delivery is not configured: set LIFECYCLE_OUTBOX_DIR.', 503)
-  if (!localDevelopment() || origin) {
+  if (!localDevelopment(env) || origin) {
     let valid = false
     try {
       const url = new URL(origin ?? '')
-      const local = localDevelopment() && url.protocol === 'http:' && LOOPBACK.test(url.hostname)
-      valid = (local || url.protocol === 'https:' && !LOOPBACK.test(url.hostname)) && !url.username && !url.password && url.origin === origin
+      const local = localDevelopment(env) && url.protocol === 'http:' && LOOPBACK.test(url.hostname) && !url.username && !url.password && url.origin === origin
+      // Everything else must pass the one shared public-origin validator (also used by the CMS runtime policy).
+      valid = local || publicOrigin(origin) === origin
     } catch { /* invalid */ }
     if (!valid) throw new APIError('Invitation delivery is not configured: set LIFECYCLE_PUBLIC_ORIGIN to a bare public https origin.', 503)
   }
@@ -92,35 +114,122 @@ export function redactMirrorFiles(ids: Array<number | string>): number {
   for (const file of mirrorFiles(directory, ids)) {
     const message = JSON.parse(readFileSync(file, 'utf8'))
     if (message.to === REDACTED.to && message.body === REDACTED.body) continue
-    writeFileSync(file, JSON.stringify({ ...message, ...REDACTED }, null, 2), { mode: 0o600 })
+    writeFileAtomic(file, JSON.stringify({ ...message, ...REDACTED }, null, 2))
     count++
   }
   return count
 }
 
-/** Record that a message's file copy was written (reusing the otherwise unused dedupe key), so it is not written again. */
-export async function markMirrored(payload: Payload, id: number): Promise<void> {
-  await pool(payload).query(`UPDATE message_outbox SET dedupe_key = $2 WHERE id = $1 AND dedupe_key IS NULL`, [id, `mirrored:${id}`])
+/**
+ * Record that a message's file copy was confirmed in place (`mirrored_at`). With `req` the mark joins that
+ * transaction (the row may not be committed yet); without it the mark is a plain statement.
+ */
+export async function markMirrored(payload: Payload, id: number, req?: PayloadRequest): Promise<void> {
+  if (req) await payload.update({ collection: 'message-outbox', id, overrideAccess: true, req, context: { markMirrored: true }, data: { mirroredAt: new Date().toISOString() } })
+  else await pool(payload).query(`UPDATE message_outbox SET mirrored_at = now() WHERE id = $1 AND mirrored_at IS NULL`, [id])
 }
 
+export type MirrorReport = { redacted: number; written: number; failed?: number; undeliverable?: number[]; staleTemporaryRemoved?: number }
+export type InvitationState = 'live' | 'redeemed' | 'revoked' | 'expired' | 'unknown'
+
 /**
- * Finish what the database already decided: redact files of rows that erasure redacted and write
- * missing erasure confirmation files. Safe to repeat; the sweep runs it so a failed file step is retried.
+ * State of the invitation an outbox invitation message announced. The message has no foreign key, so it is the
+ * invitation of the application with the same contact email that was created closest in time (they are
+ * issued in one transaction). `live` means pending and not yet past its lifetime; `unknown` (for example after
+ * erasure removed the address) counts as not live.
  */
-export async function reconcileMirror(payload: Payload): Promise<{ redacted: number; written: number }> {
+export async function invitationState(payload: Payload, outboxId: number): Promise<InvitationState> {
+  const found = await pool(payload).query(
+    `SELECT i.status, i.expires_at <= now() AS past FROM message_outbox o
+       JOIN member_applications a ON lower(a.contact_email) = lower(o.recipient_email)
+       JOIN member_invitations i ON i.application_id = a.id
+      WHERE o.id = $1 ORDER BY abs(extract(epoch FROM (i.created_at - o.created_at))) LIMIT 1`, [outboxId])
+  const row = found.rows[0]
+  if (!row) return 'unknown'
+  if (row.status === 'pending') return row.past ? 'expired' : 'live'
+  return row.status === 'redeemed' || row.status === 'revoked' || row.status === 'expired' ? row.status : 'unknown'
+}
+
+const temporaryName = /^\d{6,}-[a-z-]+\.json\.[0-9a-f]{12}\.tmp$/
+const staleTemporaryMs = 10 * 60_000
+
+/** Remove leftovers of a crashed atomic write: only files of the temporary naming pattern, directly in the directory, older than ten minutes. Symlinks are never followed. */
+export function removeStaleTemporaryFiles(directory: string, now = Date.now()): number {
+  if (!existsSync(directory)) return 0
+  let removed = 0
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    if (!entry.isFile() || !temporaryName.test(entry.name)) continue // isFile() is false for a symlink
+    const file = resolve(directory, entry.name)
+    try {
+      if (now - lstatSync(file).mtimeMs > staleTemporaryMs) { rmSync(file, { force: true }); removed++ }
+    } catch { /* gone or unreadable: leave it */ }
+  }
+  return removed
+}
+
+type Client = { query: (text: string, values?: unknown[]) => Promise<{ rows: Array<Record<string, unknown>> }>; release: () => void }
+
+/**
+ * Finish what the database already decided, for every outbox row that should have a file copy:
+ * redact files of rows that erasure redacted, and write copies that are missing. Safe to repeat; the sweep
+ * runs it so a failed file step is retried. A row is marked only after its file is confirmed in place; a failed
+ * write leaves it pending and never stops the other rows (`failed` counts them).
+ *
+ * Rows whose file already exists are just marked. Missing files are rebuilt from the database for every kind
+ * except an invitation: its link exists only in the file and the plaintext token cannot be recovered (only its
+ * hash is stored). An invitation without a file whose invitation can still be redeemed is reported as
+ * `undeliverable` (reissue it); once the invitation is redeemed, revoked or expired nothing is owed and the
+ * row is marked settled so it is not revisited.
+ *
+ * A file is rebuilt from the row re-read under `FOR UPDATE`, in the transaction that marks it, so an erasure
+ * committing after the first read cannot leave an unredacted file behind: it waits for the lock, then redacts.
+ */
+export async function reconcileMirror(payload: Payload, seams: { beforeWrite?: (id: number) => Promise<void> } = {}): Promise<MirrorReport> {
   const directory = process.env.LIFECYCLE_OUTBOX_DIR
   if (!directory) return { redacted: 0, written: 0 }
-  const rows = (await pool(payload).query(`SELECT id, kind, recipient_label, subject, body, created_at, dedupe_key FROM message_outbox WHERE recipient_label = 'Former member' OR (kind = 'erasure-confirmation' AND dedupe_key IS NULL)`)).rows
+  const staleTemporaryRemoved = removeStaleTemporaryFiles(directory)
+  const rows = (await pool(payload).query(`SELECT id, kind, recipient_label, mirrored_at FROM message_outbox WHERE recipient_label = 'Former member' OR mirrored_at IS NULL ORDER BY id`)).rows
   let redacted = 0
   let written = 0
+  let failed = 0
+  const undeliverable: number[] = []
   for (const row of rows) {
-    if (row.recipient_label === 'Former member') redacted += redactMirrorFiles([String(row.id)])
-    else {
-      // Written once: marking the row means a file the operator later deleted is not recreated.
-      writeMirror({ id: Number(row.id), createdAt: new Date(String(row.created_at)).toISOString(), message: { kind: 'erasure-confirmation', recipientLabel: String(row.recipient_label), subject: String(row.subject), body: String(row.body) } })
-      await markMirrored(payload, row.id as number)
-      written++
-    }
+    const id = Number(row.id)
+    try {
+      if (row.recipient_label === 'Former member') {
+        redacted += redactMirrorFiles([String(id)])
+        if (!row.mirrored_at) await markMirrored(payload, id)
+      } else if (existsSync(directory) && mirrorFiles(directory, [id]).some((file) => statSync(file).isFile())) {
+        await markMirrored(payload, id)
+      } else if (row.kind === 'invitation') {
+        if (await invitationState(payload, id) === 'live') undeliverable.push(id)
+        else await markMirrored(payload, id) // nothing is owed any more
+      } else {
+        await seams.beforeWrite?.(id)
+        const client = await (payload.db as unknown as { pool: { connect: () => Promise<Client> } }).pool.connect()
+        try {
+          await client.query('BEGIN')
+          const locked = (await client.query(`SELECT id, kind, recipient_email, recipient_label, subject, body, created_at, mirrored_at FROM message_outbox WHERE id = $1 FOR UPDATE`, [id])).rows[0]
+          if (!locked || locked.mirrored_at) { await client.query('COMMIT'); continue }
+          if (locked.recipient_label === 'Former member') {
+            // Erased since the first read: write nothing, redact any file, settle.
+            redacted += redactMirrorFiles([String(id)])
+            await client.query(`UPDATE message_outbox SET mirrored_at = now() WHERE id = $1`, [id])
+            await client.query('COMMIT'); continue
+          }
+          const to = locked.recipient_email ? String(locked.recipient_email) : undefined
+          // Written once: marking the row means a file the operator later deletes is not recreated.
+          const wrote = writeMirror({ id, createdAt: new Date(String(locked.created_at)).toISOString(), message: { kind: locked.kind as OutboxKind, recipientEmail: to, recipientLabel: String(locked.recipient_label), subject: String(locked.subject), body: String(locked.body) } })
+          if (!wrote) { await client.query('ROLLBACK'); failed++; continue }
+          await client.query(`UPDATE message_outbox SET mirrored_at = now() WHERE id = $1`, [id])
+          await client.query('COMMIT')
+          written++
+        } catch (error) {
+          await client.query('ROLLBACK').catch(() => undefined)
+          throw error
+        } finally { client.release() }
+      }
+    } catch { failed++ }
   }
-  return { redacted, written }
+  return { redacted, written, ...(failed ? { failed } : {}), ...(undeliverable.length ? { undeliverable } : {}), ...(staleTemporaryRemoved ? { staleTemporaryRemoved } : {}) }
 }

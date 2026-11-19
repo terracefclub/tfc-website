@@ -1,12 +1,12 @@
 import type { CollectionConfig } from 'payload'
-import { publishedOrMember, memberOnly } from '@/access/rules'
+import { publishedOrStaff, staffOnly } from '@/access/rules'
 import { editorialAccess, publicMediaOnPublish, slugField, wpImportFields } from './shared'
 
 export const Initiatives: CollectionConfig = {
   slug: 'initiatives',
   admin: { useAsTitle: 'title' },
   versions: { drafts: true },
-  access: { ...editorialAccess, read: publishedOrMember, readVersions: memberOnly },
+  access: { ...editorialAccess, read: publishedOrStaff, readVersions: staffOnly },
   hooks: { beforeChange: [publicMediaOnPublish] },
   fields: [
     slugField,

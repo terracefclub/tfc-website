@@ -122,7 +122,7 @@ It verifies archive and file hashes, extracts into an unrelated private director
 and runs Node inside an empty Bubblewrap filesystem with only `/nix/store`, the
 immutable bundle, private writable cache/uploads and its fresh PostgreSQL socket.
 The source checkout and build database are absent. It runs the extracted CMS
-migrator against the empty database and repeats it with an unchanged six-migration
+migrator against the empty database and repeats it with an unchanged
 ledger, then normal editorial/member SSO, draft/publish/withdrawal and moderation
 browser checks. The final media check uploads synthetic PNGs, exercises native
 image optimization/cache and requests the exact private optimizer URL first with

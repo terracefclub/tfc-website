@@ -1,7 +1,7 @@
 import { APIError, type Access, type CollectionConfig, type Field, type FieldAccess, type PayloadRequest } from 'payload'
 import { isMember as isMemberUser, memberId } from '../access/members'
-import { adminOnly, isAdmin, isMember as isStaff } from '../access/rules'
-import { enqueueMessage } from './outbox'
+import { adminOnly, isAdmin, isStaff } from '../access/rules'
+import { enqueueMessage, invitationState } from './outbox'
 import { issueInvitation } from './invitations'
 import { eraseMember } from './erasure'
 import { graceMs } from './policy'
@@ -105,9 +105,10 @@ export const MemberInvitations: CollectionConfig = {
 /** Append-only: nothing deletes an outbox row, and the body is stored without links or tokens. */
 export const MessageOutbox: CollectionConfig = {
   slug: 'message-outbox',
-  admin: { group, useAsTitle: 'subject', defaultColumns: ['kind', 'recipientLabel', 'subject', 'status', 'createdAt'], hidden: ({ user }) => !isAdmin(user), description: 'Messages are recorded here and never sent by this system. There is no mail transport.' },
+  admin: { group, useAsTitle: 'subject', defaultColumns: ['kind', 'recipientLabel', 'subject', 'status', 'fileCopy', 'createdAt'], hidden: ({ user }) => !isAdmin(user), description: 'Messages are recorded here and never sent by this system. There is no mail transport.' },
   access: { create: fieldNever, read: adminOnly, update: adminOnly, delete: fieldNever },
-  hooks: { beforeValidate: [({ data, operation, originalDoc }) => operation === 'update' ? { ...originalDoc, status: data?.status ?? originalDoc.status } : data] },
+  // Only the status is editable; the server's own mirror mark (context.markMirrored) is the one other change allowed.
+  hooks: { beforeValidate: [({ data, operation, originalDoc, context }) => operation === 'update' ? { ...originalDoc, status: data?.status ?? originalDoc.status, mirroredAt: context?.markMirrored ? data?.mirroredAt : originalDoc.mirroredAt } : data] },
   fields: [
     { name: 'kind', type: 'select', required: true, options: ['invitation', 'denial', 'offboarding', 'erasure-confirmation', 'staff-notice'], admin: readOnly },
     { name: 'recipientLabel', type: 'text', required: true, admin: readOnly },
@@ -116,6 +117,18 @@ export const MessageOutbox: CollectionConfig = {
     { name: 'body', type: 'textarea', required: true, admin: readOnly },
     { name: 'status', type: 'select', required: true, defaultValue: 'queued', options: ['queued', 'delivered-by-operator'] },
     { name: 'dedupeKey', type: 'text', unique: true, admin: { hidden: true }, access: { read: fieldNever, create: fieldNever, update: fieldNever } },
+    // Set by the server once the file copy of the message is confirmed in place; never writable through the API.
+    { name: 'mirroredAt', type: 'date', admin: { hidden: true }, access: { read: ({ req }) => isAdmin(req.user), create: fieldNever, update: fieldNever } },
+    {
+      name: 'fileCopy', type: 'text', virtual: true, admin: { readOnly: true, description: 'Whether the operator file copy was written.' }, access: { read: ({ req }) => isAdmin(req.user), create: fieldNever, update: fieldNever },
+      hooks: { afterRead: [async ({ siblingData, req }) => {
+        if (siblingData?.mirroredAt) return 'written or settled'
+        if (siblingData?.kind !== 'invitation') return 'pending: the next sweep writes it'
+        // An invitation link exists only in its file and cannot be rebuilt: only a still-redeemable invitation is owed one.
+        const state = await invitationState(req.payload, Number(siblingData.id))
+        return state === 'live' ? 'Undeliverable: the link file was not written. Reissue the invitation.' : `No file copy; invitation ${state === 'unknown' ? 'no longer matched' : state}`
+      }] },
+    },
   ],
 }
 

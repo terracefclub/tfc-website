@@ -1,11 +1,15 @@
 import type { Handle } from '@sveltejs/kit';
-import { dev } from '$app/environment';
+import { building, dev } from '$app/environment';
 import { env } from '$env/dynamic/private';
 import { previewEditorLink, publishedPreviewCookie } from '$lib/server/local-preview';
 import { resolveMemberSession } from '$lib/server/member-auth';
 import { mediaOriginOf } from '$lib/render-body';
 import { contentMode } from '$lib/server/content';
 import { sharedRedirectResolver } from '$lib/server/redirects';
+import { reportProductionConfig } from '$lib/server/production-config';
+
+// Only a running server reports; build and prerender analysis load this module too and have no production environment.
+if (!building) reportProductionConfig(env);
 
 export const handle: Handle = async ({ event, resolve }) => {
   const editorSignIn = dev && previewEditorLink(event.url.origin, env);

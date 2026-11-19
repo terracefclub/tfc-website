@@ -14,6 +14,17 @@ export function productionOrigin(value: unknown): string {
   } catch { return invalid() }
 }
 
+// Names that only resolve inside a private network are never a public origin (single-label hosts and IP literals
+// already fail productionOrigin: it needs at least two DNS labels and a final label containing a letter).
+const privateSuffix = /(?:^|\.)(?:local|localdomain|internal|intranet|private|lan|corp|home|home\.arpa)$/
+
+/** A bare public https origin: `productionOrigin` plus no private-network or reserved suffix. Shared by CMS runtime policy and lifecycle delivery. */
+export function publicOrigin(value: unknown): string {
+  const origin = productionOrigin(value)
+  if (privateSuffix.test(new URL(origin).hostname)) return invalid()
+  return origin
+}
+
 export function productionSecret(value: unknown): string {
   if (typeof value !== 'string' || value.trim() !== value ||
       Buffer.byteLength(value) < 32 || Buffer.byteLength(value) > 4096 || /[\x00-\x1f\x7f-\x9f]/.test(value)) return invalid()

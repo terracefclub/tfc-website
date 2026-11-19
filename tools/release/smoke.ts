@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
 import { portAvailable, processIdentity } from '../local-stack.ts'
 import { stopOwnedGroup } from './child'
+import { expectedMigrationNames, ledgerMatches } from './migrations'
 import { fileManifest, validateRuntime } from './package'
 import pins from './runtime.json'
 
@@ -129,7 +130,7 @@ try {
   await run('relocated explicit migrations', bwrap, sandbox('cms', '/app/bin/migrate'), cmsEnv)
   const pgEnv = { ...base, PGHOST: socket, PGPORT: '55433', PGDATABASE: 'terrace_release' }
   const before = await run('migration ledger', 'psql', ['-Atqc', 'select name,batch from payload_migrations order by id'], pgEnv, root, true)
-  if (!before || before.split('\n').length !== 6) throw new Error()
+  if (!before || !ledgerMatches(before, expectedMigrationNames(join(root, 'cms/migrations/index.ts')))) throw new Error()
   await run('relocated no-op migration repeat', bwrap, sandbox('cms', '/app/bin/migrate'), cmsEnv)
   const after = await run('unchanged migration ledger', 'psql', ['-Atqc', 'select name,batch from payload_migrations order by id'], pgEnv, root, true)
   if (before !== after) throw new Error()
@@ -183,7 +184,7 @@ if (verifiedRevision && !process.exitCode) {
     if (!await portAvailable(port)) { console.error('Release proof cleanup left a fixture port occupied.'); process.exitCode = 1 }
   }
   if (!process.exitCode) {
-    writeFileSync(join(state, 'proof.json'), JSON.stringify({ revision: verifiedRevision, checks: ['archive/file hashes', 'empty filesystem/immutable code', 'six explicit migrations', 'repeat no-op migration ledger', 'editorial SSO/publication/withdrawal', 'member SSO/moderation', 'native image optimization/cache', 'authenticated-then-anonymous private-image denial', 'owned runtime cleanup/closed ports'] }, null, 2) + '\n', { mode: 0o600 })
+    writeFileSync(join(state, 'proof.json'), JSON.stringify({ revision: verifiedRevision, checks: ['archive/file hashes', 'empty filesystem/immutable code', 'explicit migrations', 'repeat no-op migration ledger', 'editorial SSO/publication/withdrawal', 'member SSO/moderation', 'native image optimization/cache', 'authenticated-then-anonymous private-image denial', 'owned runtime cleanup/closed ports'] }, null, 2) + '\n', { mode: 0o600 })
     console.log(`Relocated release proof passed for ${verifiedRevision}, including owned runtime cleanup. Private evidence retained in ${state}.`)
   }
 }

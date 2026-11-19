@@ -2,9 +2,10 @@ import path from 'node:path'
 import { editorialSettings } from './auth/editorial-policy'
 import { keycloakConfig } from './auth/keycloak'
 import { productionOrigin, productionSecret } from './auth/production-input'
+import { deliveryConfig } from './lifecycle/outbox'
 import { mediaDirectory } from './media-directory'
 
-export const runtimeFailure = 'Invalid CMS runtime configuration. Check the documented origin, identity, secret and media settings.'
+export const runtimeFailure = 'Invalid CMS runtime configuration. Check the documented origin, identity, secret, media and lifecycle (LIFECYCLE_OUTBOX_DIR, LIFECYCLE_PUBLIC_ORIGIN) settings.'
 
 function issuer(value: unknown): string {
   if (typeof value !== 'string') throw new Error()
@@ -43,6 +44,12 @@ export function cmsRuntimeOrigin(env = process.env, componentRoot = process.cwd(
     const root = path.resolve(/* turbopackIgnore: true */ componentRoot)
     if (!env.CMS_MEDIA_DIR || env.CMS_MEDIA_DIR !== media || path.resolve(/* turbopackIgnore: true */ media) !== media || media === path.parse(media).root ||
         /[\x00-\x1f\x7f-\x9f]/.test(media) || inside('/nix/store', media) || inside(root, media) || inside(media, root)) throw new Error()
+    // Member approvals issue invitation links that exist only in the outbox file mirror, so a public deployment
+    // needs a readable mirror directory outside the code and a public https origin for those links.
+    const delivery = deliveryConfig(env)
+    if (!path.isAbsolute(delivery.directory) || path.resolve(/* turbopackIgnore: true */ delivery.directory) !== delivery.directory || delivery.directory === path.parse(delivery.directory).root ||
+        /[\x00-\x1f\x7f-\x9f]/.test(delivery.directory) || inside('/nix/store', delivery.directory) || inside(root, delivery.directory) || inside(delivery.directory, root) ||
+        inside(media, delivery.directory) || inside(delivery.directory, media)) throw new Error()
     return origin
   } catch {
     // URL errors can retain an input property; never rethrow or attach their cause.

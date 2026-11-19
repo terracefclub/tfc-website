@@ -30,7 +30,9 @@ an editor has actually published.
 
 Default URLs are the website at `http://127.0.0.1:4194/`, CMS sign-in at
 `http://127.0.0.1:3040/admin/login`, and Keycloak at `http://127.0.0.1:8186/admin/`.
-The identity management port is 9186. Every listener is loopback-only.
+The identity management port is 9186. Every listener is loopback-only. (`8184` is the default only when the
+identity realm is started on its own, outside `tools/local-stack`, see `identity/README.md`; `KEYCLOAK_HTTP_PORT`
+selects the port for the identity tools, and a stack started with `--identity-port 8190` uses `8190`.)
 
 If another checkout already uses those ports, leave it running and choose a
 separate set before the first start:

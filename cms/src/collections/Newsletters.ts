@@ -1,12 +1,12 @@
 import type { CollectionConfig } from 'payload'
-import { publishedOrMember, memberOnly } from '@/access/rules'
+import { publishedOrStaff, staffOnly } from '@/access/rules'
 import { editorialAccess, publicMediaOnPublish, slugField, wpImportFields } from './shared'
 
 export const Newsletters: CollectionConfig = {
   slug: 'newsletters',
   admin: { useAsTitle: 'title' },
   versions: { drafts: true },
-  access: { ...editorialAccess, read: publishedOrMember, readVersions: memberOnly },
+  access: { ...editorialAccess, read: publishedOrStaff, readVersions: staffOnly },
   hooks: { beforeChange: [
     async ({ data, originalDoc, req }) => {
       const issue = Object.hasOwn(data ?? {}, 'issuePdf') ? data?.issuePdf : originalDoc?.issuePdf

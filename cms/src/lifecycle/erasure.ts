@@ -82,7 +82,7 @@ export async function eraseMember(payload: Payload, memberId: number, req?: Payl
 export async function finishErasure(payload: Payload, result: Erasure): Promise<{ mirror: 'complete' | 'pending' }> {
   try {
     redactMirrorFiles(result.redactedOutboxIds)
-    writeMirror(result.confirmation)
+    if (!writeMirror(result.confirmation)) return { mirror: 'pending' }
     await markMirrored(payload, result.confirmation.id)
     return { mirror: 'complete' }
   } catch { return { mirror: 'pending' } }
