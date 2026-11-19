@@ -11,6 +11,17 @@ import { reportProductionConfig } from '$lib/server/production-config';
 // Only a running server reports; build and prerender analysis load this module too and have no production environment.
 if (!building) reportProductionConfig(env);
 
+/**
+ * The one place response policy for these routes is set (so nothing else may call `setHeaders` for these headers:
+ * SvelteKit throws if one is set twice, and a no-script form POST runs both an action and `load`).
+ * `/join` carries a single-use token in its page, so it also sends no referrer.
+ */
+const routePolicy: Array<{ route: RegExp; headers: Record<string, string> }> = [
+  { route: /^\/apply$/, headers: { 'Cache-Control': 'private, no-store', 'X-Robots-Tag': 'noindex, nofollow' } },
+  { route: /^\/join$/, headers: { 'Cache-Control': 'private, no-store', 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' } },
+  { route: /^\/donate$/, headers: { 'Cache-Control': 'no-store' } },
+];
+
 export const handle: Handle = async ({ event, resolve }) => {
   const editorSignIn = dev && previewEditorLink(event.url.origin, env);
   if (editorSignIn) {
@@ -51,6 +62,8 @@ export const handle: Handle = async ({ event, resolve }) => {
     const media = origin ? ` ${origin}` : '';
     response.headers.set('Content-Security-Policy', `base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:${media}`);
   }
+  const policy = routePolicy.find(({ route }) => route.test(event.route.id ?? ''));
+  if (policy) for (const [name, value] of Object.entries(policy.headers)) response.headers.set(name, value);
   if (privatePath || authPath || event.locals.localPreview) {
     response.headers.set('Cache-Control', 'private, no-store');
     response.headers.set('X-Robots-Tag', 'noindex, nofollow');
