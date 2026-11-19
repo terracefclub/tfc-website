@@ -163,4 +163,18 @@ describe('link lookup deadline', () => {
     expect(performance.now() - started).toBeLessThan(3400);
     expect(html).toContain('href="/slow/"');
   }, 6000);
+
+  test('an absurd or invalid deadline is clamped to a sane range', async () => {
+    const never = () => new Promise<string | null>(() => {});
+    for (const lookupDeadlineMs of [-5, 0]) {
+      const started = performance.now();
+      expect(await renderBody('<a href="/x/">x</a>', { resolveOldPath: never, lookupDeadlineMs })).toContain('href="/x/"');
+      expect(performance.now() - started).toBeLessThan(500);
+    }
+    // NaN and Infinity fall back to the 3 s default instead of waiting forever (checked with a fast resolver).
+    for (const lookupDeadlineMs of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      const html = await renderBody('<a href="/x/">x</a>', { resolveOldPath: async () => '/news/x/', lookupDeadlineMs });
+      expect(html).toContain('href="/news/x/"');
+    }
+  });
 });

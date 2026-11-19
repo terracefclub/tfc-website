@@ -5,7 +5,7 @@ import { productionOrigin, productionSecret } from './auth/production-input'
 import { deliveryConfig } from './lifecycle/outbox'
 import { mediaDirectory } from './media-directory'
 
-export const runtimeFailure = 'Invalid CMS runtime configuration. Check the documented origin, identity, secret and media settings.'
+export const runtimeFailure = 'Invalid CMS runtime configuration. Check the documented origin, identity, secret, media and lifecycle (LIFECYCLE_OUTBOX_DIR, LIFECYCLE_PUBLIC_ORIGIN) settings.'
 
 function issuer(value: unknown): string {
   if (typeof value !== 'string') throw new Error()

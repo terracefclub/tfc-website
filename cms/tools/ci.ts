@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { setTimeout as delay } from 'node:timers/promises'
 import pg from 'pg'
 import { stopOwnedGroup } from '../../tools/release/child'
+import { expectedMigrationNames, ledgerMatches } from '../../tools/release/migrations'
 
 const env: NodeJS.ProcessEnv = {
   PATH: process.env.PATH,
@@ -63,7 +64,7 @@ try {
   const migrated = new pg.Pool({ connectionString: migrationURI.href })
   try {
     const first = await migrated.query('SELECT name,batch FROM payload_migrations ORDER BY id')
-    if (first.rows.length !== 9) throw new Error('Extracted release migration ledger is incomplete.')
+    if (!ledgerMatches(first.rows.map(row => `${row.name}|${row.batch}`).join('\n'), expectedMigrationNames(resolve('migrations/index.ts')))) throw new Error('Extracted release migration ledger is incomplete.')
     await run(resolve(unpacked, 'bin/migrate'), [], migrationEnv, 90000)
     const second = await migrated.query('SELECT name,batch FROM payload_migrations ORDER BY id')
     if (JSON.stringify(first.rows) !== JSON.stringify(second.rows)) throw new Error('Repeated release migration was not a no-op.')

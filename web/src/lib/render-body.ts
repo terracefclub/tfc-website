@@ -9,7 +9,7 @@ export type RenderOptions = {
   mediaOrigin?: string;
   /** Maps an old-site path to its new same-site path (the redirect map), or null. */
   resolveOldPath?: (path: string) => Promise<string | null>;
-  /** Overall time allowed for the whole link-lookup step (default 3000 ms). Links not resolved by then stay as written. */
+  /** Overall time allowed for the whole link-lookup step (default 3000 ms, clamped to 0 to 10000). Links not resolved by then stay as written. */
   lookupDeadlineMs?: number;
 };
 
@@ -17,7 +17,9 @@ export type RenderOptions = {
 const mediaPath = /^\/api\/media\/file\/(?!.*\.\.)[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const escapeAttr = (value: string) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const attribute = (tag: string, name: string) => new RegExp(`\\s${name}="([^"]*)"`).exec(tag)?.[1];
-const maxLookups = 25, batchSize = 4, defaultLookupDeadlineMs = 3000;
+const maxLookups = 25, batchSize = 4, defaultLookupDeadlineMs = 3000, maxLookupDeadlineMs = 10_000;
+/** A finite value in [0, 10 s]; anything else (NaN, Infinity, negative, not a number) uses the default. */
+const deadlineMs = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? Math.min(Math.max(value, 0), maxLookupDeadlineMs) : defaultLookupDeadlineMs;
 
 /**
  * Image policy: imported media bytes are not on the site yet, so a body image survives only when it points at the
@@ -68,7 +70,7 @@ export async function renderBody(bodyHtml: string, options: RenderOptions = {}):
     // One deadline for the whole step: a stalled CMS costs a first render at most this long, not (25 / 4) x the
     // per-request timeout. Batches not yet started when it passes are never sent, so nothing about them is cached;
     // a request already in flight ends under its own timeout and its result is simply not waited for.
-    const deadline = Date.now() + (options.lookupDeadlineMs ?? defaultLookupDeadlineMs);
+    const deadline = Date.now() + deadlineMs(options.lookupDeadlineMs);
     let expired!: () => void;
     const late = new Promise<void>(resolve => { expired = resolve; });
     const timer = setTimeout(expired, Math.max(0, deadline - Date.now()));

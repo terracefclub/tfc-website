@@ -242,7 +242,7 @@ test('mirror files are untouched when erasure rolls back, and a file failure aft
   expect(reconciled.redacted).toBeGreaterThanOrEqual(1)
   expect(reconciled.written).toBeGreaterThanOrEqual(1) // the confirmation file that was missing
   expect(readFileSync(path, 'utf8')).not.toContain(email)
-  expect((await reconcileMirror(payload))).toEqual({ redacted: 0, written: 0 }) // idempotent
+  expect(await reconcileMirror(payload)).toMatchObject({ redacted: 0, written: 0 }) // idempotent
 })
 
 // ---- M1: moderation and offboarding hides are independent ---------------------------------------------
@@ -363,6 +363,11 @@ test('the invitation origin must be a bare public https origin everywhere except
     ;(process.env as any).NODE_ENV = 'production'
     setOrigin('http://127.0.0.1:4252')
     expect(() => deliveryConfig()).toThrow()
+    // Private-network hosts are never a public origin (the same validator the CMS runtime policy uses).
+    for (const bad of ['https://10.0.0.5', 'https://192.168.0.4', 'https://169.254.1.1', 'https://[fd00::1]', 'https://intranet', 'https://host.local', 'https://files.corp']) {
+      setOrigin(bad)
+      expect(() => deliveryConfig()).toThrow(/LIFECYCLE_PUBLIC_ORIGIN/)
+    }
     // A real public origin works and the link lands in the mirror.
     setOrigin('https://members.example.org')
     const { token } = await attempt()
@@ -608,25 +613,59 @@ test('the reconcile step writes a confirmation file once and does not recreate o
   expect(file()).toBeUndefined()
 })
 
-test('a confirmation file that could not be written stays pending and is retried by the next sweep', async () => {
-  const subject = await makeMember(`Pending Mirror ${suffix}`)
+async function erasedWithPendingConfirmation(label: string) {
+  const subject = await makeMember(`${label} ${suffix}`)
   await offboard(subject)
   await payload.create({ collection: 'data-requests', data: { member: subject.id, kind: 'erasure' }, user: admin, overrideAccess: false })
   const row = (await q(`SELECT id FROM message_outbox WHERE recipient_label = $1`, [`Former member #${subject.id}`])).rows[0]
-  const prefix = String(row.id).padStart(6, '0') + '-'
-  const target = join(outbox, `${prefix}erasure-confirmation.json`)
-  mkdirSync(target) // a directory where the file belongs: the write fails
-  const mirroredAt = async () => (await q(`SELECT mirrored_at FROM message_outbox WHERE id = $1`, [row.id])).rows[0].mirrored_at
+  return { id: Number(row.id), path: join(outbox, `${String(row.id).padStart(6, '0')}-erasure-confirmation.json`) }
+}
+const mirroredAt = async (id: number) => (await q(`SELECT mirrored_at FROM message_outbox WHERE id = $1`, [id])).rows[0].mirrored_at
+
+test('a file that could not be written stays pending, one failure does not stop the others, and the next sweep retries it', async () => {
+  const bad = await erasedWithPendingConfirmation('Pending Mirror A')
+  const good = await erasedWithPendingConfirmation('Pending Mirror B')
+  mkdirSync(bad.path) // a directory where the file belongs: the write fails
   try {
     const failed = await sweep(payload)
-    expect(failed.mirror).toMatchObject({ written: 0 })
-    expect((failed.mirror as any).failed).toBeGreaterThanOrEqual(1)
-    expect(await mirroredAt()).toBeNull() // not marked: the next sweep tries again
-  } finally { rmSync(target, { recursive: true }) }
-  expect((await sweep(payload)).mirror.written).toBeGreaterThanOrEqual(1)
-  expect(statSync(target).isFile()).toBe(true)
-  expect(await mirroredAt()).not.toBeNull()
-  expect((await q(`SELECT dedupe_key FROM message_outbox WHERE id = $1`, [row.id])).rows[0].dedupe_key).toBeNull() // the marker no longer borrows the dedupe key
+    expect(failed.mirror.failed).toBe(1) // counted, not thrown
+    expect(failed.mirror.written).toBeGreaterThanOrEqual(1)
+    expect(await mirroredAt(bad.id)).toBeNull() // not marked: the next sweep tries again
+    expect(statSync(good.path).isFile()).toBe(true) // the other row in the same sweep was written...
+    expect(await mirroredAt(good.id)).not.toBeNull() // ...and marked
+  } finally { rmSync(bad.path, { recursive: true }) }
+  const retried = await sweep(payload)
+  expect(retried.mirror.failed).toBeUndefined()
+  expect(retried.mirror.written).toBe(1)
+  expect(statSync(bad.path).isFile()).toBe(true)
+  expect(statSync(bad.path).mode & 0o777).toBe(0o600)
+  expect(await mirroredAt(bad.id)).not.toBeNull()
+  expect((await q(`SELECT dedupe_key FROM message_outbox WHERE id = $1`, [bad.id])).rows[0].dedupe_key).toBeNull() // the marker no longer borrows the dedupe key
+  expect(readdirSync(outbox).filter((name) => name.endsWith('.tmp'))).toEqual([]) // atomic writes leave no temporary files behind
+})
+
+test('a denial whose file is missing is rebuilt by the sweep; a missing invitation file is reported as undeliverable and never re-derived', async () => {
+  const denial = await enqueueMessage(payload, { kind: 'denial', recipientEmail: `denied-${suffix}@terrace.invalid`, recipientLabel: `Denied ${suffix}`, subject: 'About your application', body: 'No link here.' })
+  const invitation = await enqueueMessage(payload, { kind: 'invitation', recipientEmail: `invited-${suffix}@terrace.invalid`, recipientLabel: `Invited ${suffix}`, subject: 'Your invitation', body: 'Stored text.', mirrorBody: 'SECRET-LINK-BODY' })
+  const file = (id: number) => readdirSync(outbox).find((name) => name.startsWith(String(id).padStart(6, '0') + '-'))
+  expect(await mirroredAt(denial)).not.toBeNull() // written and marked at enqueue
+  expect(await mirroredAt(invitation)).not.toBeNull()
+  // Simulate failed first writes: the marker was never set and the files are absent.
+  await q(`UPDATE message_outbox SET mirrored_at = NULL WHERE id = ANY($1::int[])`, [[denial, invitation]])
+  rmSync(join(outbox, file(denial)!)); rmSync(join(outbox, file(invitation)!))
+  const report = (await sweep(payload)).mirror
+  expect(report.undeliverable).toContain(invitation)
+  expect(file(invitation)).toBeUndefined() // nothing was invented for the invitation
+  expect(file(denial)).toBeDefined()
+  expect(readFileSync(join(outbox, file(denial)!), 'utf8')).toContain('No link here.')
+  expect(await mirroredAt(denial)).not.toBeNull()
+  expect(await mirroredAt(invitation)).toBeNull()
+  const admin = await payload.findByID({ collection: 'message-outbox', id: invitation, user: await makeUser('admin'), overrideAccess: false }) as any
+  expect(admin.fileCopy).toContain('Reissue the invitation')
+  // An invitation whose file exists is just marked, not reported.
+  writeFileSync(join(outbox, `${String(invitation).padStart(6, '0')}-invitation.json`), '{}', { mode: 0o600 })
+  expect((await sweep(payload)).mirror.undeliverable ?? []).not.toContain(invitation)
+  expect(await mirroredAt(invitation)).not.toBeNull()
 })
 
 test('purging the stories of a hidden group blanks their report snapshots', async () => {

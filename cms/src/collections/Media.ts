@@ -1,5 +1,5 @@
 import type { CollectionConfig, PayloadRequest } from 'payload'
-import { isStaff, memberOnly, publicMediaOrMember } from '@/access/rules'
+import { isStaff, staffOnly, publicMediaOrStaff } from '@/access/rules'
 import { mediaDirectory } from '../media-directory'
 import { wpImportFields } from './shared'
 
@@ -18,7 +18,7 @@ async function assertNoPublishedReferences(req: PayloadRequest, id: string | num
 
 export const Media: CollectionConfig = {
   slug: 'media',
-  access: { create: memberOnly, read: publicMediaOrMember, update: memberOnly, delete: memberOnly },
+  access: { create: staffOnly, read: publicMediaOrStaff, update: staffOnly, delete: staffOnly },
   admin: { useAsTitle: 'alt' },
   upload: {
     staticDir: mediaDirectory(),

@@ -19,41 +19,45 @@ data stay private; invalid or unapproved authentication fails closed (401/403).
 | Spam guard (rate limit, honeypot, signed timing token) | `web/src/lib/server/apply-guard.ts` |
 | Realm user tooling (idempotent) | `identity/tools/provision-member.ts` |
 
-Configuration (local values are generated into the ignored `identity/.state/app.env` by the identity
-bootstrap; never print or commit them):
-
-| Variable | Purpose |
-| --- | --- |
-| `LIFECYCLE_INTAKE_SECRET` | Shared website-to-CMS secret for apply/redeem (32+ chars). Unset means the endpoints answer 503 and `/apply/` shows "not open". |
-| `LIFECYCLE_OUTBOX_DIR` | **Required to approve anyone.** Directory for the file mirror of the outbox (`cms/.state/outbox` locally). It is forced to mode 0700 and files are 0600. If unset, approval fails (503) and rolls back rather than issuing an invitation nobody can see. |
-| `LIFECYCLE_PUBLIC_ORIGIN` | Origin used in invitation links. Default `http://127.0.0.1:4194` outside production; when `NODE_ENV=production` it must be an explicit public `https` origin or approval fails (503). Only the local profile (`CMS_LOCAL_BOOTSTRAP=1` without `NODE_ENV=production`) may use a loopback origin; the value must be a bare origin (no path, query or fragment) and may not be a loopback or unspecified host. |
-| `LIFECYCLE_APPLICATION_DAYS` | Pending applications older than this are withdrawn automatically, default 60. **[OWNER]** placeholder. |
-| `ADDRESS_HEADER`, `XFF_DEPTH` (website) | Required in production behind a proxy so the rate limit sees real client addresses (see below). Without them `/apply/` stays closed, unless `LIFECYCLE_DIRECT_CLIENTS=1` states there is no proxy. |
-| `LIFECYCLE_INVITATION_DAYS` | Invitation lifetime, default 7. **[OWNER]** placeholder. |
-| `LIFECYCLE_GRACE_DAYS` | Offboarding and moderation grace period, default 30. **[OWNER]** placeholder. |
-
 ## Production configuration
 
-Everything the member lifecycle and the imported-content frontend need in production, in one place. The CMS
-refuses to start in a public deployment (`CMS_PUBLIC_DEPLOYMENT=1`) when its own rows are invalid
-(`cms/src/runtime-policy.ts`, covered by `cms/test/runtime-policy.test.ts`). The website never refuses to start
-for these; it logs one `[config]` line per missing setting at startup (names only, never values;
+The single list of settings for the member lifecycle and the imported-content frontend. Local values are
+generated into the ignored `identity/.state/app.env` by the identity bootstrap; never print or commit them. In
+production supply them through protected service credentials or an external owner-only environment file, never
+in the bundle or on a command line.
+
+The CMS refuses to start in a public deployment (`CMS_PUBLIC_DEPLOYMENT=1`) when its settings below are
+invalid (`cms/src/runtime-policy.ts`, covered by `cms/test/runtime-policy.test.ts`). The website never refuses
+to start for these; at startup it logs one `[config]` line per missing setting (names only, never values;
 `web/src/lib/server/production-config.ts`) and the affected feature fails closed, as the last column says.
-Provide them through protected service credentials or an external owner-only environment file, never in the bundle.
 
-| Variable | Component | Purpose | When unset or invalid |
-| --- | --- | --- | --- |
-| `LIFECYCLE_OUTBOX_DIR` | CMS | Absolute directory outside the code, media and `/nix/store` for the outbox file mirror (invitation links exist only there). Must be writable by the CMS user and the sweep. | Public CMS refuses to start. Elsewhere approving an application fails with 503 and rolls back. |
-| `LIFECYCLE_PUBLIC_ORIGIN` | CMS | Bare public `https` origin used in invitation links. | Public CMS refuses to start. Elsewhere approval fails with 503 (no loopback default in production). |
-| `LIFECYCLE_INTAKE_SECRET` | CMS and website (same value, 32+ characters) | Authenticates the website's calls to `/api/lifecycle/apply` and `/redeem`. | Endpoints answer 503 and `/apply/` and `/join/` show "not open"; the website logs a `[config]` line. |
-| `ADDRESS_HEADER` (with `XFF_DEPTH` for `X-Forwarded-For`) | Website | Header the proxy overwrites with the real client address, so the `/apply/` rate limit sees visitors rather than the proxy. | `/apply/` stays closed in production, and a `[config]` line is logged. |
-| `LIFECYCLE_DIRECT_CLIENTS=1` | Website | Alternative to `ADDRESS_HEADER`: states there is no proxy in front of the website. | Same as above if neither is set. |
-| `CMS_ORIGIN` | Website | Trusted server-to-server origin of the CMS (content, redirects, lifecycle calls). | The website falls back to sample content; a `[config]` line is logged. |
-| `CMS_PUBLIC_ORIGIN` | Website | Public HTTPS origin that serves `/api/media/file/...`; the only origin imported body images and the news/pages CSP may use. | Every image in imported bodies is dropped and the CSP names no media origin; a `[config]` line is logged. |
-| `LIFECYCLE_APPLICATION_DAYS`, `LIFECYCLE_INVITATION_DAYS`, `LIFECYCLE_GRACE_DAYS` | CMS | Placeholder retention periods (60, 7, 30 days). **[OWNER]** | The defaults apply. |
+**CMS** (`bin/start`, `bin/migrate` and the housekeeping sweep need the same CMS values; the sweep also needs
+the outbox settings):
 
-The member sign-in, editorial sign-in, secrets and media directory settings are validated by the same CMS policy and are
-described in `cms/README.md` and `web/README.md`; `ORIGIN` for the website is in `tools/release/README.md`.
+| Variable | Purpose | When unset or invalid |
+| --- | --- | --- |
+| `CMS_PUBLIC_DEPLOYMENT=1` | Turns on the production validation of everything below. | Only the loopback trial profile is accepted. |
+| `CMS_ORIGIN` | The CMS's canonical public HTTPS origin. | Public CMS refuses to start. |
+| `DATABASE_URI`, `PAYLOAD_SECRET`, `CMS_MEDIA_DIR` | PostgreSQL connection, the Payload secret (32+ characters) and the absolute uploads directory outside the release. | Public CMS refuses to start (or cannot connect). |
+| `CMS_AUTH_*` (`ISSUER`, `CLIENT_ID`, `CLIENT_SECRET`, `AUDIENCE`, `INTROSPECTION_CLIENT_ID`, `INTROSPECTION_SECRET`) and `MEMBER_AUTH_*` (`ISSUER`, `CLIENT_ID`, `AUDIENCE`, `INTROSPECTION_CLIENT_ID`, `INTROSPECTION_SECRET`) | Editorial and member sign-in; exact values in `cms/README.md`. | Public CMS refuses to start. |
+| `LIFECYCLE_OUTBOX_DIR` | Absolute directory outside the code and media directories for the outbox file mirror (invitation links exist only there). It is forced to mode 0700 and its files to 0600, so **the CMS and the sweep must run as the same account**. | Public CMS refuses to start. Elsewhere approving an application fails with 503 and rolls back. |
+| `LIFECYCLE_PUBLIC_ORIGIN` | Bare public `https` origin used in invitation links: no path, credentials, IP address, single-label or private-network host (`.local`, `.internal`, `.lan`, ...). No default in production; only the local profile (`CMS_LOCAL_BOOTSTRAP=1` without `NODE_ENV=production`) falls back to `http://127.0.0.1:4194` and may use a loopback origin. | Public CMS refuses to start. Elsewhere approval fails with 503. |
+| `LIFECYCLE_INTAKE_SECRET` | Shared website-to-CMS secret for apply/redeem (32+ characters; the same value on the website). | The endpoints answer 503 and `/apply/` and `/join/` show "not open". |
+| `LIFECYCLE_APPLICATION_DAYS`, `LIFECYCLE_INVITATION_DAYS`, `LIFECYCLE_GRACE_DAYS` (optional) | Retention placeholders: 60, 7 and 30 days. **[OWNER]** | The defaults apply. |
+
+**Website:**
+
+| Variable | Purpose | When unset or invalid |
+| --- | --- | --- |
+| `ORIGIN` | Canonical origin of the website (HTTPS, or HTTP on 127.0.0.1); equals `MEMBER_AUTH_ORIGIN` when member sign-in is configured. | Form and callback origin checks fail. |
+| `CMS_ORIGIN` | Trusted server-to-server origin of the CMS (content, redirects, lifecycle calls). | Sample content; a `[config]` line is logged. |
+| `CMS_PUBLIC_ORIGIN` | Public HTTPS origin that serves `/api/media/file/...`; the only origin imported body images and the news/pages CSP may use. | Every image in imported bodies is dropped and the CSP names no media origin; a `[config]` line is logged. |
+| `MEMBER_AUTH_ISSUER`, `MEMBER_AUTH_CLIENT_ID`, `MEMBER_AUTH_CLIENT_SECRET`, `MEMBER_AUTH_ORIGIN` | Member sign-in (`web/README.md`). | The member space is unavailable. |
+| `LIFECYCLE_INTAKE_SECRET` | Same value as the CMS. | `/apply/` and `/join/` show "not open"; a `[config]` line is logged. |
+| `ADDRESS_HEADER` (with `XFF_DEPTH` when it is `X-Forwarded-For`) **or** `LIFECYCLE_DIRECT_CLIENTS=1` | The header your proxy overwrites with the real client address, so the `/apply/` rate limit sees visitors rather than the proxy; or the statement that no proxy is in front. | `/apply/` stays closed in production; a `[config]` line is logged. |
+
+**Must NOT be set in production:** `CMS_LOCAL_BOOTSTRAP` and every `CMS_BOOTSTRAP_*` variable (the public CMS
+refuses to start if any is present), and `NODE_ENV` other than `production` for the website.
 
 ## 1. Apply
 
@@ -123,7 +127,7 @@ account still needs a realm role. The operator creates it, repeatably:
 ```sh
 # Keycloak realm user for the local synthetic realm (loopback only; the admin password is read
 # from the protected identity/.state/credentials.json and never printed)
-KEYCLOAK_HTTP_PORT=8190 direnv exec identity bun identity/tools/provision-member.ts provision \
+KEYCLOAK_HTTP_PORT=8186 direnv exec identity bun identity/tools/provision-member.ts provision \
   --username verify.alumna --email person@example.org --name "Verify Alumna" --role alumni
 ```
 
@@ -152,7 +156,7 @@ email). On creation:
 Then the operator closes the realm side:
 
 ```sh
-KEYCLOAK_HTTP_PORT=8190 direnv exec identity bun identity/tools/provision-member.ts offboard --username verify.alumna
+KEYCLOAK_HTTP_PORT=8186 direnv exec identity bun identity/tools/provision-member.ts offboard --username verify.alumna
 ```
 
 This removes member roles, disables the account and ends live sessions. It is safe to repeat.
@@ -227,7 +231,7 @@ rolled-back erasure never touches them). If that file step fails, the erasure st
 `mirror: pending` and `lifecycle:sweep` completes it (it is idempotent). An administrator-initiated erasure runs
 inside the admin save, so it cannot redact mirror files or write its confirmation file itself: **run
 `lifecycle:sweep` after every administrator-initiated erasure** (the Data requests admin page says so too). The
-confirmation file is written once and marked (`mirrored_at`, set only after the file is confirmed written), so a copy an operator deletes is not recreated; a write that fails leaves the row unmarked and the next sweep retries it, reporting the count as `mirror.failed`. Staff notices
+confirmation file is written once and marked (`mirrored_at`, set only after the file is confirmed written), so a copy an operator deletes is not recreated; a write that fails leaves the row unmarked and the next sweep retries it, reporting the count as `mirror.failed`. Files are written atomically (private temporary file, sync, rename). The sweep retries every outbox row that has no file copy: it rebuilds denial, offboarding, staff and confirmation files from the database, but never an invitation, whose link exists only in its file (only a hash of the token is stored). An invitation without a file that could still be redeemed is listed as `mirror.undeliverable` and shown as "Undeliverable" in the admin outbox list: reissue the invitation. Staff notices
 (`staff-notice`) have a mirror file only if the directory was writable at the time; otherwise they are visible
 in the admin outbox only. Erasure and offboarding also **revoke any still-pending invitation** for the person,
 so its link answers like any dead token.

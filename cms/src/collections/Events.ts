@@ -1,12 +1,12 @@
 import type { CollectionConfig } from 'payload'
-import { publishedOrMember, memberOnly } from '@/access/rules'
+import { publishedOrStaff, staffOnly } from '@/access/rules'
 import { editorialAccess, imageCoverOnly, posterImageMimeTypes, publicMediaOnPublish, slugField, wpImportFields } from './shared'
 
 export const Events: CollectionConfig = {
   slug: 'events',
   admin: { useAsTitle: 'title', defaultColumns: ['title', 'startsAt', '_status'] },
   versions: { drafts: true },
-  access: { ...editorialAccess, read: publishedOrMember, readVersions: memberOnly },
+  access: { ...editorialAccess, read: publishedOrStaff, readVersions: staffOnly },
   hooks: { beforeChange: [
     ({ data, originalDoc }) => {
       const start = data?.startsAt ?? originalDoc?.startsAt

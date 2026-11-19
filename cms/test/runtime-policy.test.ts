@@ -132,5 +132,11 @@ test('startup parser failures expose static errors rather than URI or secret mar
 test('a public CMS requires a usable lifecycle outbox directory and public invitation origin', () => {
   expect(cmsRuntimeOrigin(baseline, root)).toBe(cms)
   for (const value of [undefined, '', 'relative/outbox', '/', '/var/lib/terrace-outbox/../terrace-outbox', '/nix/store/outbox', root + '/outbox', '/var/lib/terrace-media/outbox', '/var/lib/terrace-outbox\n']) rejected({ LIFECYCLE_OUTBOX_DIR: value })
-  for (const value of [undefined, '', 'http://www.terrace.example', 'https://localhost', web + '/', web + '/path', 'https://user@www.terrace.example', 'www.terrace.example']) rejected({ LIFECYCLE_PUBLIC_ORIGIN: value })
+  for (const value of [undefined, '', 'http://www.terrace.example', 'https://localhost', web + '/', web + '/path', 'https://user@www.terrace.example', 'www.terrace.example', 'https://10.0.0.5', 'https://192.168.1.10', 'https://169.254.1.1', 'https://[fd00::1]', 'https://[fe80::1]', 'https://intranet', 'https://files.corp', 'https://host.local', 'https://host.internal', 'https://printer.lan', 'https://router.home.arpa']) rejected({ LIFECYCLE_PUBLIC_ORIGIN: value })
+})
+
+test('the runtime failure message names the lifecycle variables and no values', () => {
+  expect(runtimeFailure).toContain('LIFECYCLE_OUTBOX_DIR')
+  expect(runtimeFailure).toContain('LIFECYCLE_PUBLIC_ORIGIN')
+  try { cmsRuntimeOrigin({ ...baseline, LIFECYCLE_PUBLIC_ORIGIN: 'https://10.0.0.5' }, root) } catch (error) { expect((error as Error).message).toBe(runtimeFailure) }
 })

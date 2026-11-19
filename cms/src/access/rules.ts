@@ -7,15 +7,15 @@ function roleOf(user: unknown): unknown {
 export const isStaff = (user: unknown): boolean => roleOf(user) === 'admin' || roleOf(user) === 'editor'
 export const isAdmin = (user: unknown): boolean => roleOf(user) === 'admin'
 
-export const memberOnly: Access = ({ req }) => isStaff(req.user) || false
+export const staffOnly: Access = ({ req }) => isStaff(req.user) || false
 export const adminOnly: Access = ({ req }) => isAdmin(req.user) || false
 export const adminField: FieldAccess = ({ req }) => isAdmin(req.user) || false
 
-export const publishedOrMember: Access = ({ req }) =>
+export const publishedOrStaff: Access = ({ req }) =>
   isStaff(req.user) || { _status: { equals: 'published' } }
 
-export const publicMediaOrMember: Access = ({ req }) =>
+export const publicMediaOrStaff: Access = ({ req }) =>
   isStaff(req.user) || { public: { equals: true } }
 
-export const activeRedirectOrMember: Access = ({ req }) =>
+export const activeRedirectOrStaff: Access = ({ req }) =>
   isStaff(req.user) || { active: { equals: true } }

@@ -277,7 +277,7 @@ is null), before rendering the 404, for GET and HEAD. So a redirect row can neve
   up to five minutes to appear (use the one-minute miss window for new rows).
 - Fail open: an unreachable, slow or malformed CMS answer is the ordinary 404 page. With the CMS unreachable, each distinct unmatched path waits up to 1.5 s once, then the 10 s failure cache answers instantly.
 - A redirect whose destination is a draft redirects and then shows the 404, so redirects must be activated only after their target is published (the importer already does this).
-- Limits: it relies on the public API hiding inactive rows (`activeRedirectOrMember`); a 302 or 301 from a cache outlives a
+- Limits: it relies on the public API hiding inactive rows (`activeRedirectOrStaff`); a 302 or 301 from a cache outlives a
   later deactivation in browsers (`Cache-Control: public, max-age=300` is sent). Redirect rules held only by Kinsta or
   Nginx are not part of this.
 
@@ -294,5 +294,5 @@ direnv exec . tools/with-local bun run migrate && direnv exec . tools/with-local
 Dry run only, report written `0600` beside the preflight report. It reproduces the preflight: **245 items** and
 **87 publish-status candidates** (equal). Mapped 215 documents (122 media, 41 posts, 25 pages, 14 events, 12 newsletters,
 1 initiative); 30 records unmapped by design (11 venues/organizers, 11 menu items, 4 Divi layouts, 3 style records, 1
-event with no start date); 88 published items yield 87 redirects (81 redirect, 6 served in place) and one explicit gap
-(site root); 56 documents are publish-eligible by status and review flags (everything else needs review first).
+event with no start date); 88 published items yield 86 redirects (80 redirect, 6 served in place) and two explicit gaps
+(the site root and one source that collides with a reserved route; this is the final dry run, after the reserved-route rule); 56 documents are publish-eligible by status and review flags (everything else needs review first).

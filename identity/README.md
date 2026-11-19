@@ -14,7 +14,7 @@ direnv exec identity bun test identity/test
 
 The bootstrap downloads the pinned official Keycloak26.8.1 archive, checks its SHA256, starts OpenJDK25 from devenv, then idempotently reconciles the dedicated `terrace` realm. Keycloak listens on `http://127.0.0.1:8184`; its native H2 database, logs, runtime and synthetic credentials live in ignored `identity/.state/` (directory0700, credential files0600). No containers or globally installed packages are needed. The release archive's official GitHub asset digest was checked on2026-10-28.
 
-To run an isolated local realm without using the usual port, set `KEYCLOAK_HTTP_PORT`; the management port is 1000 higher. For example, `KEYCLOAK_HTTP_PORT=8186 direnv exec identity bun identity/tools/local-up.ts` binds only to `127.0.0.1:8186` and `127.0.0.1:9186`.
+The standalone default port is 8184; `tools/local-stack` (see `docs/local-preview.md`) defaults to 8186 and takes `--identity-port`. To run an isolated local realm without using the usual port, set `KEYCLOAK_HTTP_PORT`; the management port is 1000 higher. For example, `KEYCLOAK_HTTP_PORT=8186 direnv exec identity bun identity/tools/local-up.ts` binds only to `127.0.0.1:8186` and `127.0.0.1:9186`.
 
 Start the CMS with both environments, from `cms/` after `tools/local-up`:
 
