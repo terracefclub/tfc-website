@@ -63,8 +63,8 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   await db.execute(sql`
    ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT IF EXISTS "payload_locked_documents_rels_roster_runs_fk";
   ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT IF EXISTS "payload_locked_documents_rels_roster_run_items_fk";
-  ALTER TABLE "roster_runs" DISABLE ROW LEVEL SECURITY;
-  ALTER TABLE "roster_run_items" DISABLE ROW LEVEL SECURITY;
+  ALTER TABLE IF EXISTS "roster_runs" DISABLE ROW LEVEL SECURITY;
+  ALTER TABLE IF EXISTS "roster_run_items" DISABLE ROW LEVEL SECURITY;
   DROP TABLE IF EXISTS "roster_runs" CASCADE;
   DROP TABLE IF EXISTS "roster_run_items" CASCADE;
   ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT IF EXISTS "payload_locked_documents_rels_roster_runs_fk";

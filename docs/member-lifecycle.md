@@ -365,10 +365,12 @@ affiliation, reviewer = the operator, decided now), calls `issueInvitation`, the
 setting, and its outbox row are what an approval produces), and journals the row. The mirror file, which holds the link, is written **after the commit**, so a
 failed row leaves no file. Because these applications are inserted already approved, the status-transition hooks of a UI approval (which run only when a pending
 application is updated) do not run; the tool calls the one that matters, `issueInvitation`, itself, and the reviewer and decision time the hook would record are set directly.
-A failure before commit rolls the row back and stops the run. A failure writing the file after commit also stops the run: that row exists with a live invitation and no file
-(the sweep reports it as undeliverable); roll the run back. The run is `failed`; a failed run can be rolled back.
+A failure before commit rolls the row back and stops the run. A failure writing the file after commit is retried up to three times while the link is still in memory, and the link is dropped from memory after the last attempt either way. If it still fails the run stops
+(`failure: mirror-failed`, `failed`) with that one invitation committed, live and without a link file; its outbox id is printed as `undeliverable`, and the sweep and the admin outbox list show it as "Undeliverable". **Recovery without
+rolling back the delivered links:** in the admin set that one invitation's status to `revoked`, then reissue it by running the tool on a one-row file for that person (a dry run, then apply with `--reinvite-lapsed`, since a revoked invitation counts as lapsed).
+Rolling back the whole run remains possible (a failed run can be rolled back).
 
-**What is skipped on a re-run, and what is not.** Skipped always: an address with a redeemed or live invitation (`invitation-redeemed`, `invitation-live`), an approved
+**What is skipped on a re-run, and what is not.** Skipped always: an address whose application or invitation is linked to a member, active or offboarded (`member-linked`, whatever the flag), an address with a redeemed or live invitation (`invitation-redeemed`, `invitation-live`), an approved
 application (`application-approved`) or a pending one (`application-pending`). Skipped by default, re-invited only with **`--reinvite-lapsed`** (part of the plan hash):
 a denied application (`previously-denied`), a withdrawn one (`application-withdrawn`), an expired invitation (`invitation-expired`) or a revoked one (`invitation-revoked`). So running
 a finished file again creates nobody, but a file whose earlier invitations have lapsed is not silently re-sent either. After a rollback the people are lapsed (withdrawn, revoked) and
@@ -384,8 +386,10 @@ notice a day to the outbox.
 
 **What the plan hash proves, and what it does not.** `planSha256` is the SHA-256 of: the file's bytes, the limit, the operator's account id, `--reinvite-lapsed`, the identity of the database
 (its name and, where the server allows reading it, the cluster's system identifier) and the sorted set of row numbers that apply would create **right now**. `apply` recomputes it against the live
-database. A match therefore means: the same file, limit, operator and flag, the same database, and the same set of rows to create, as a dry run someone looked at. A different limit, a dry run
-against a staging copy, or rows that became duplicates since (another run, an application arriving) all refuse with "re-run the dry run"; apply never quietly creates a different set. For the same
+database. A match therefore means: the same file, limit, operator and flag, the same database, and the same set of rows to create, as a dry run someone looked at. The identity is printed (`databaseIdentity`) with `clusterBound: true|false`.
+A logical copy (dump and restore) has a different cluster identifier and cannot unlock production; a physical clone with the same system identifier and the same database name would. Where `pg_control_system` is unavailable to the connecting role
+(`clusterBound: false`, identity `name:unavailable`) only the database name is bound, which a staging database of the same name would match: check the flag in the dry-run summary. A different limit, a dry run
+against a differently named or logically copied database, or rows that became duplicates since (another run, an application arriving) all refuse with "re-run the dry run"; apply never quietly creates a different set. For the same
 reason a finished file's old hash no longer matches (the set to create is now empty): run the dry run again; it shows nothing to do. It is **not authentication**: anyone who can run the tool and
 read the dry run can produce the hash.
 
@@ -399,7 +403,7 @@ read the dry run can produce the hash.
 * A production target (`CMS_PUBLIC_DEPLOYMENT=1`, or a database that is not a local socket or loopback) requires the complete public-deployment configuration (the CMS runtime validator, including `LIFECYCLE_OUTBOX_DIR`, `LIFECYCLE_PUBLIC_ORIGIN`, no `CMS_LOCAL_BOOTSTRAP`) and `--confirm-production`.
   A non-local database without `CMS_PUBLIC_DEPLOYMENT=1` is refused as inconsistent. **Caveat:** an SSH tunnel to a production database arrives on loopback, so without `CMS_PUBLIC_DEPLOYMENT=1` it is treated as local and
   `--confirm-production` is not asked for. Always run the tool with the real production environment loaded (as shown above), not a development profile pointed at a tunnel.
-* Terminal output is fixed text, counts and hashes. Errors never quote the file, a path or a connection string. The summary is printed first, then the private report is written, so a report failure never hides the run id.
+* Terminal output is fixed text, counts, hashes and the database identity (not secret). The per-address lock waits at most a few seconds (`LIFECYCLE_LOCK_TIMEOUT_MS`, default 3000): a public submission for an address held that long gets the generic 503 `Unavailable.` and stores nothing, and a roster row stops the run with `failure: address-locked`. Two overlapping applies cannot both start: claiming the running slot is atomic and the second is refused (`run-in-progress`). Errors never quote the file, a path or a connection string. The summary is printed first, then the private report is written, so a report failure never hides the run id.
 
 **Journal and rollback.** Each apply is recorded in `roster-runs` (run id, operator id and display name, limit, flag, database identity, the file's and the plan's SHA-256, counts, and who rolled it back and when) with one
 `roster-run-items` row per created application (row number, application and invitation ids). Both are administrator-readable and written only by the tool; the operator's display name stays if the account is deleted. A run that

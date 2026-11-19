@@ -110,7 +110,7 @@ if (import.meta.main) {
     if (command === 'dry-run') {
       const plan = await planRoster(payload, parsed!, { operatorId: operator.id, limit, reinviteLapsed })
       report = { mode: 'dry-run', notice: ERASED_NOTICE, ...plan }
-      summary = { mode: 'dry-run', notice: ERASED_NOTICE, fileSha256: plan.fileSha256, planSha256: plan.planSha256, limit, reinviteLapsed, counts: plan.counts, reasons: plan.reasons, pendingApplications: plan.pendingApplications, liveInvitations: plan.liveInvitations, exceedsPendingCap: plan.exceedsPendingCap, operatorSsoManaged: operator.sso }
+      summary = { mode: 'dry-run', notice: ERASED_NOTICE, fileSha256: plan.fileSha256, planSha256: plan.planSha256, databaseIdentity: plan.databaseIdentity, clusterBound: plan.clusterBound, limit, reinviteLapsed, counts: plan.counts, reasons: plan.reasons, pendingApplications: plan.pendingApplications, liveInvitations: plan.liveInvitations, exceedsPendingCap: plan.exceedsPendingCap, operatorSsoManaged: operator.sso }
     } else if (command === 'apply') {
       const result = await applyRoster(payload, parsed!, { operator, operatorId: operator.id, planSha256: values['--plan-sha256'], limit, reinviteLapsed })
       report = { mode: 'apply', ...result }
@@ -119,7 +119,7 @@ if (import.meta.main) {
     } else {
       const result = await rollbackRoster(payload, values['--run'], operator)
       report = { mode: 'rollback', ...result }
-      summary = { mode: 'rollback', ...result }
+      summary = { mode: 'rollback', ...result, operatorSsoManaged: operator.sso }
       if (!result.ok || result.filesPending) exit = 1
     }
     exit = emitResult(summary, report, values['--report']) || exit

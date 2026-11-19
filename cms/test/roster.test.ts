@@ -11,6 +11,7 @@ import { MAX_PENDING } from '../src/lifecycle/intake-validation'
 import { hashToken } from '../src/lifecycle/tokens'
 import { applyRoster, boundPlanHash, ERASED_NOTICE, failStaleRuns, parseRoster, planRoster, resolveOperator, rollbackRoster, ROSTER_HARD_MAX, RosterError, type Operator } from '../src/lifecycle/roster'
 import { sweep } from '../src/lifecycle/sweep'
+import { reconcileMirror } from '../src/lifecycle/outbox'
 import { pool } from '../src/lifecycle/visibility'
 import { OutputRefused, readPrivateInput } from '../../web/tools/private-output'
 import { emitResult, parseArgs, productionGuard } from '../tools/roster-invite'
@@ -211,6 +212,10 @@ test('a dry run writes nothing, prints only counts, and reports row numbers with
   expect(summary.reasons).toEqual({ 'invalid-fields': 1 })
   expect(summary.planSha256).toMatch(/^[0-9a-f]{64}$/)
   expect(summary.notice).toBe(ERASED_NOTICE)
+  expect(typeof summary.clusterBound).toBe('boolean')
+  expect(summary.databaseIdentity).toMatch(/^[a-z0-9_]+:(\d+|unavailable)$/)
+  expect(summary.clusterBound).toBe(!summary.databaseIdentity.endsWith(':unavailable'))
+  expect(typeof summary.operatorSsoManaged).toBe('boolean')
   for (const needle of [suffix, 'Roster', '@terrace.invalid', 'Dry One']) { expect(result.out).not.toContain(needle); expect(result.err).not.toContain(needle) }
   expect(statSync(report).mode & 0o777).toBe(0o600)
   const written = JSON.parse(readFileSync(report, 'utf8'))
@@ -381,7 +386,8 @@ test('the command line applies a reviewed dry run end to end, prints no personal
   expect((await counts()).applications).toBe(baseline + 2)
   const back = run(['rollback', '--run', summary.runId, '--operator', String(admin.id), '--confirm-production'], writer())
   expect(back.code).toBe(0)
-  expect(summaryOf(back.out)).toMatchObject({ ok: true, revoked: 2, withdrawn: 2 })
+  expect(summaryOf(back.out)).toMatchObject({ ok: true, revoked: 2, withdrawn: 2, operatorSsoManaged: false })
+  expect(summary.databaseIdentity).toBeTruthy()
   expect(back.out + back.err).not.toContain(suffix)
   // A file that is readable by others, or a bad file, fails with fixed text that never quotes it.
   const loose = run(['dry-run', '--file', csvFile(csv(person('Loose')), 0o644), '--operator', String(admin.id), '--report', reportPath()])
@@ -704,4 +710,92 @@ test('the public form and the roster tool queue on one lock per address, so neit
     expect(rows).toEqual(['pending'])
     expect(result.counts).toMatchObject({ created: 0, skip: 1 }) // the form's pending application was seen under the lock
   } finally { await holder.query('ROLLBACK').catch(() => undefined); holder.release() }
+})
+
+// ---- second review ---------------------------------------------------------------------------------------------------------------
+
+test('an address already linked to a member is never invited again, even with the flag', async () => {
+  const insert = (name: string, status: string) => q(`INSERT INTO member_applications (name, affiliation, contact_email, status, grant_role, updated_at, created_at) VALUES ($1, 'alumni', $2, $3, 'alumni', now(), now()) RETURNING id`, [`Roster ${name} ${suffix}`, email(name), status]).then((result) => Number(result.rows[0].id))
+  const invite = (id: number, status: string, memberId: number | null) => q(`INSERT INTO member_invitations (application_id, token_hash, role, status, expires_at, member_id, updated_at, created_at) VALUES ($1, $2, 'alumni', $3, now() - interval '1 day', $4, now(), now())`, [id, `hash-${suffix}-linked-${id}`, status, memberId])
+  const active = await payload.create({ collection: 'members', overrideAccess: true, data: { identityKey: `${suffix}-linked-a`, issuer: settings.issuer, subject: `${suffix}-linked-a`, displayName: 'Linked A', roles: ['alumni'] } })
+  const gone = await payload.create({ collection: 'members', overrideAccess: true, data: { identityKey: `${suffix}-linked-b`, issuer: settings.issuer, subject: `${suffix}-linked-b`, displayName: 'Linked B', roles: [], status: 'offboarded' } })
+  members.push(active.id, gone.id)
+  const onApplication = await insert('Linked App', 'approved')
+  await invite(onApplication, 'expired', null)
+  await q(`UPDATE member_applications SET member_id = $1 WHERE id = $2`, [active.id, onApplication])
+  const onInvitation = await insert('Linked Invite', 'approved')
+  await invite(onInvitation, 'revoked', gone.id) // only the invitation is linked, to an offboarded member
+  await insert('Linked Plain', 'withdrawn') // lapsed, linked to nobody: the flag may re-invite this one
+  const roster = parsed(person('Linked App'), person('Linked Invite'), person('Linked Plain'))
+  expect((await planFor(roster)).outcomes.map((outcome) => outcome.reason ?? outcome.outcome)).toEqual(['member-linked', 'member-linked', 'application-withdrawn'])
+  const flagged = await planFor(roster, undefined, { reinviteLapsed: true })
+  expect(flagged.outcomes.map((outcome) => outcome.reason ?? outcome.outcome)).toEqual(['member-linked', 'member-linked', 'create'])
+  const before = await counts()
+  expect((await apply(roster, undefined, { reinviteLapsed: true })).counts).toMatchObject({ created: 1, skip: 2 })
+  expect((await counts()).applications).toBe(before.applications + 1)
+})
+
+test('a stuck holder of an address lock fails the form closed with the generic answer and the roster row with a fixed reason; nothing is stored', async () => {
+  const address = email('Timeout One')
+  const holder = await (payload.db as any).pool.connect()
+  const saved = process.env.LIFECYCLE_LOCK_TIMEOUT_MS
+  process.env.LIFECYCLE_LOCK_TIMEOUT_MS = '300'
+  try {
+    await holder.query('BEGIN')
+    await holder.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [`terrace-application-email:${address}`])
+    const started = Date.now()
+    const form = await intake.apply(request(null, { name: `Roster Timeout ${suffix}`, affiliation: 'alumni', contactEmail: address }, { 'x-terrace-intake': secret }))
+    expect(Date.now() - started).toBeLessThan(5000)
+    expect(form.status).toBe(503)
+    expect(await form.json()).toEqual({ error: 'Unavailable.' }) // the same answer as a full queue
+    expect((await q(`SELECT count(*)::int AS n FROM member_applications WHERE lower(contact_email) = $1`, [address])).rows[0].n).toBe(0)
+    const roster = parsed(person('Timeout One'))
+    const result = await apply(roster)
+    expect(result).toMatchObject({ failure: 'address-locked', counts: { created: 0, failed: 1 } })
+    expect((await q(`SELECT count(*)::int AS n FROM member_applications WHERE lower(contact_email) = $1`, [address])).rows[0].n).toBe(0)
+  } finally { await holder.query('ROLLBACK').catch(() => undefined); holder.release(); if (saved === undefined) delete process.env.LIFECYCLE_LOCK_TIMEOUT_MS; else process.env.LIFECYCLE_LOCK_TIMEOUT_MS = saved }
+  // With the holder gone the same submission goes through.
+  expect((await intake.apply(request(null, { name: `Roster Timeout ${suffix}`, affiliation: 'alumni', contactEmail: address }, { 'x-terrace-intake': secret }))).status).toBe(202)
+})
+
+test('a link file that cannot be written is retried; success on a retry delivers, and failing every try surfaces that one invitation as undeliverable', async () => {
+  const attempts: Array<[number, number]> = []
+  const ok = await apply(parsed(person('Retry One'), person('Retry Two')), undefined, { seams: { beforeMirror: (row: number, attempt: number) => { attempts.push([row, attempt]); if (row === 2 && attempt < 2) throw new Error('transient') } } })
+  expect(ok.counts).toMatchObject({ created: 2, failed: 0, mirrorFailed: 0 })
+  expect(attempts).toEqual([[2, 0], [2, 1], [2, 2], [3, 0]])
+  expect(mirror().filter((entry) => entry.text.includes(email('Retry One')) || entry.text.includes(email('Retry Two'))).length).toBe(2)
+  // Every attempt fails for the second row: the first is delivered and untouched, the second is committed without a file and reported.
+  const failing = await apply(parsed(person('Retry Three'), person('Retry Four')), undefined, { seams: { beforeMirror: (row: number) => { if (row === 3) throw new Error('disk full') } } })
+  expect(failing).toMatchObject({ failure: 'mirror-failed', counts: { created: 2, failed: 1, mirrorFailed: 1 } })
+  expect(failing.undeliverable).toHaveLength(1)
+  const report = await reconcileMirror(payload)
+  expect(report.undeliverable).toContain(failing.undeliverable![0])
+  expect((await q(`SELECT i.status FROM message_outbox o JOIN member_invitations i ON i.id = o.invitation_id WHERE o.id = $1`, [failing.undeliverable![0]])).rows[0].status).toBe('pending')
+  // The link was never written anywhere once the attempt ended.
+  expect(mirror().map((entry) => entry.text).join('\n')).not.toContain(email('Retry Four'))
+  expect(JSON.stringify(failing)).not.toMatch(/#[A-Za-z0-9_-]{43}/)
+  // Recovery for that one: revoke it in the admin (status revoked), leaving the delivered link alone, then a one-row file reissues it.
+  const target = (await q(`SELECT i.id FROM message_outbox o JOIN member_invitations i ON i.id = o.invitation_id WHERE o.id = $1`, [failing.undeliverable![0]])).rows[0].id
+  await payload.update({ collection: 'member-invitations', id: target, data: { status: 'revoked' }, user: admin, overrideAccess: false })
+  expect((await q(`SELECT i.status FROM member_invitations i JOIN member_applications a ON a.id = i.application_id WHERE a.contact_email = $1`, [email('Retry Three')])).rows[0].status).toBe('pending')
+})
+
+test('two overlapping applies cannot both start: the second is refused while the first holds the running slot', async () => {
+  const first = parsed(person('Overlap One'))
+  const second = parsed(person('Overlap Two'))
+  let release!: () => void
+  const paused = new Promise<void>((resolve) => { release = resolve })
+  let reached!: () => void
+  const claimed = new Promise<void>((resolve) => { reached = resolve })
+  const running = apply(first, undefined, { seams: { afterClaim: async () => { reached(); await paused } } })
+  await claimed
+  await expect(apply(second)).rejects.toThrow('run-in-progress')
+  release()
+  expect((await running).counts.created).toBe(1)
+  expect((await apply(second)).counts.created).toBe(1) // the slot is free again
+  // Simultaneous claims: at most one wins.
+  const a = parsed(person('Overlap Three')), b = parsed(person('Overlap Four'))
+  const settled = await Promise.allSettled([apply(a), apply(b)])
+  expect(settled.filter((outcome) => outcome.status === 'fulfilled').length).toBeGreaterThanOrEqual(1)
+  for (const outcome of settled) if (outcome.status === 'rejected') expect(String(outcome.reason)).toContain('run-in-progress')
 })

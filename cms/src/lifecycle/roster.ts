@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { commitTransaction, createLocalReq, initTransaction, killTransaction, type Payload, type PayloadRequest } from 'payload'
-import { withApplicationLock } from './application-lock'
+import { LockTimeout, withApplicationLock } from './application-lock'
 import { issueInvitation } from './invitations'
 import { MAX_PENDING, parseApplication, type ValidApplication } from './intake-validation'
 import { deliveryConfig, enqueueMessage, markMirrored, redactMirrorFiles, writeMirror } from './outbox'
@@ -28,7 +28,7 @@ export type ParsedRoster = { fileSha256: string; rows: ParsedRow[] }
 export type Outcome = { row: number; outcome: 'create' | 'reject' | 'skip' | 'deferred'; reason?: string }
 export type Counts = { rows: number; create: number; reject: number; skip: number; deferred: number }
 export type PlanOptions = { operatorId: number; limit?: number; reinviteLapsed?: boolean }
-export type RosterPlan = { fileSha256: string; planSha256: string; databaseIdentity: string; limit: number; reinviteLapsed: boolean; outcomes: Outcome[]; counts: Counts; reasons: Record<string, number>; pendingApplications: number; liveInvitations: number; exceedsPendingCap: boolean }
+export type RosterPlan = { fileSha256: string; planSha256: string; databaseIdentity: string; clusterBound: boolean; limit: number; reinviteLapsed: boolean; outcomes: Outcome[]; counts: Counts; reasons: Record<string, number>; pendingApplications: number; liveInvitations: number; exceedsPendingCap: boolean }
 
 /** RFC 4180 records: quoted fields may hold commas, quotes (doubled) and line breaks. Throws on an unterminated quote. */
 export function csvRecords(source: string): string[][] {
@@ -87,7 +87,7 @@ export function parseRoster(input: Buffer): ParsedRoster {
   return { fileSha256, rows }
 }
 
-type Existing = { status: string; live: boolean; redeemed: boolean; expired: boolean; revoked: boolean }
+type Existing = { status: string; live: boolean; redeemed: boolean; expired: boolean; revoked: boolean; linked: boolean }
 async function existingByEmail(payload: Payload, emails: string[], req?: PayloadRequest): Promise<Map<string, Existing[]>> {
   const found = new Map<string, Existing[]>()
   if (!emails.length) return found
@@ -96,11 +96,12 @@ async function existingByEmail(payload: Payload, emails: string[], req?: Payload
             EXISTS (SELECT 1 FROM member_invitations i WHERE i.application_id = a.id AND i.status = 'redeemed') AS redeemed,
             EXISTS (SELECT 1 FROM member_invitations i WHERE i.application_id = a.id AND i.status = 'pending' AND i.expires_at > now()) AS live,
             EXISTS (SELECT 1 FROM member_invitations i WHERE i.application_id = a.id AND (i.status = 'expired' OR (i.status = 'pending' AND i.expires_at <= now()))) AS expired,
-            EXISTS (SELECT 1 FROM member_invitations i WHERE i.application_id = a.id AND i.status = 'revoked') AS revoked
+            EXISTS (SELECT 1 FROM member_invitations i WHERE i.application_id = a.id AND i.status = 'revoked') AS revoked,
+            (a.member_id IS NOT NULL OR EXISTS (SELECT 1 FROM member_invitations i WHERE i.application_id = a.id AND i.member_id IS NOT NULL)) AS linked
        FROM member_applications a WHERE lower(a.contact_email) = ANY($1::text[])`, [emails])
   for (const row of result.rows) {
     const list = found.get(String(row.email)) ?? []
-    list.push({ status: String(row.status), live: Boolean(row.live), redeemed: Boolean(row.redeemed), expired: Boolean(row.expired), revoked: Boolean(row.revoked) })
+    list.push({ status: String(row.status), live: Boolean(row.live), redeemed: Boolean(row.redeemed), expired: Boolean(row.expired), revoked: Boolean(row.revoked), linked: Boolean(row.linked) })
     found.set(String(row.email), list)
   }
   return found
@@ -108,11 +109,13 @@ async function existingByEmail(payload: Payload, emails: string[], req?: Payload
 
 /**
  * Why a row must be skipped given what the database already holds for its address, or null.
- * Always skipped: a redeemed or live invitation, an approved application, a pending application. "Lapsed" history (a denied or withdrawn application,
+ * Always skipped: an application linked to a member (`member-linked`), a redeemed or live invitation, an approved application, a pending application. "Lapsed" history (a denied or withdrawn application,
  * an expired or revoked invitation) is skipped too unless `reinviteLapsed` is set: an operator has to choose to contact those people again.
  */
 export function skipReason(existing: Existing[] | undefined, reinviteLapsed = false): string | null {
   if (!existing?.length) return null
+  // Someone who already has an account (an application or invitation linked to a member, active or offboarded) is never invited again, flag or not.
+  if (existing.some((entry) => entry.linked)) return 'member-linked'
   if (existing.some((entry) => entry.redeemed)) return 'invitation-redeemed'
   if (existing.some((entry) => entry.live)) return 'invitation-live'
   const lapsedInvitation = (entry: Existing) => entry.expired || entry.revoked
@@ -162,7 +165,7 @@ export async function planRoster(payload: Payload, parsed: ParsedRoster, options
   const liveInvitations = Number((await q.query(`SELECT count(*)::int AS n FROM member_invitations WHERE status = 'pending' AND expires_at > now()`)).rows[0].n)
   const identity = await databaseIdentity(payload)
   const planSha256 = boundPlanHash({ fileSha256: parsed.fileSha256, limit, operatorId: options.operatorId, reinviteLapsed, databaseIdentity: identity, create: outcomes.filter((outcome) => outcome.outcome === 'create').map((outcome) => outcome.row) })
-  return { fileSha256: parsed.fileSha256, planSha256, databaseIdentity: identity, limit, reinviteLapsed, outcomes, counts, reasons, pendingApplications, liveInvitations, exceedsPendingCap: pendingApplications + liveInvitations + counts.create > MAX_PENDING }
+  return { fileSha256: parsed.fileSha256, planSha256, databaseIdentity: identity, clusterBound: !identity.endsWith(':unavailable'), limit, reinviteLapsed, outcomes, counts, reasons, pendingApplications, liveInvitations, exceedsPendingCap: pendingApplications + liveInvitations + counts.create > MAX_PENDING }
 }
 
 export type Operator = { id: number; label: string; sso: boolean }
@@ -182,8 +185,27 @@ export async function resolveOperator(payload: Payload, reference: string): Prom
   return { id: user.id, label: String(user.displayName ?? `user ${user.id}`).slice(0, 120), sso: Boolean(user.identityKey) }
 }
 
-export type ApplyResult = { runId: string | null; planSha256: string; fileSha256: string; counts: Counts & { created: number; failed: number; mirrorFailed: number }; exceedsPendingCap: boolean; reasons: Record<string, number>; notice: string }
-type Seams = { beforeCommit?: (row: number) => void | Promise<void>; beforeMirror?: (row: number) => void | Promise<void> }
+export type ApplyResult = { runId: string | null; planSha256: string; fileSha256: string; databaseIdentity: string; clusterBound: boolean; failure?: 'address-locked' | 'row-failed' | 'mirror-failed'; undeliverable?: number[]; counts: Counts & { created: number; failed: number; mirrorFailed: number }; exceedsPendingCap: boolean; reasons: Record<string, number>; notice: string }
+type Seams = { beforeCommit?: (row: number) => void | Promise<void>; beforeMirror?: (row: number, attempt: number) => void | Promise<void>; afterClaim?: () => void | Promise<void> }
+const MIRROR_ATTEMPTS = 3
+
+/** Claim the single running slot: stale runs are failed, and the check for another running run and the insert of this one happen under one advisory lock, so two overlapping applies cannot both pass. */
+async function claimRun(payload: Payload, data: Record<string, unknown>) {
+  const req = await createLocalReq({}, payload)
+  await initTransaction(req)
+  try {
+    const q = pool(payload, req)
+    await q.query(`SELECT pg_advisory_xact_lock(hashtext('terrace-roster-run'))`)
+    await q.query(`UPDATE roster_runs SET status = 'failed', finished_at = now() WHERE status = 'running' AND updated_at < now() - ($1 || ' minutes')::interval`, [String(ROSTER_STALE_MINUTES)])
+    if (Number((await q.query(`SELECT count(*)::int AS n FROM roster_runs WHERE status = 'running'`)).rows[0].n)) throw new RosterError('run-in-progress')
+    const run = await payload.create({ collection: 'roster-runs', overrideAccess: true, req, data: data as never })
+    await commitTransaction(req)
+    return run
+  } catch (error) {
+    await killTransaction(req).catch(() => undefined)
+    throw error
+  }
+}
 
 /** Mark runs that stopped heartbeating as failed, so a crash never blocks the next run or its own rollback. */
 export async function failStaleRuns(payload: Payload): Promise<number> {
@@ -203,17 +225,18 @@ export async function applyRoster(payload: Payload, parsed: ParsedRoster, option
   const limit = Math.min(options.limit ?? ROSTER_DEFAULT_LIMIT, ROSTER_HARD_MAX)
   if (!Number.isInteger(limit) || limit < 1) throw new RosterError('limit-invalid')
   deliveryConfig() // fails closed: no outbox directory or no valid public origin, no invitations
-  await failStaleRuns(payload)
-  if (Number((await pool(payload).query(`SELECT count(*)::int AS n FROM roster_runs WHERE status = 'running'`)).rows[0].n)) throw new RosterError('run-in-progress')
   const plan = await planRoster(payload, parsed, { operatorId: options.operator.id, limit, reinviteLapsed: options.reinviteLapsed })
   if (options.planSha256 !== plan.planSha256) throw new RosterError('plan-mismatch')
-  const result = (counts: ApplyResult['counts'], runId: string | null, exceeds: boolean, reasons: Record<string, number>): ApplyResult => ({ runId, planSha256: plan.planSha256, fileSha256: parsed.fileSha256, counts, exceedsPendingCap: exceeds, reasons, notice: ERASED_NOTICE })
+  const result = (counts: ApplyResult['counts'], runId: string | null, exceeds: boolean, reasons: Record<string, number>, failure?: ApplyResult['failure'], undeliverable: number[] = []): ApplyResult => ({ runId, planSha256: plan.planSha256, fileSha256: parsed.fileSha256, databaseIdentity: plan.databaseIdentity, clusterBound: plan.clusterBound, ...(failure ? { failure } : {}), ...(undeliverable.length ? { undeliverable } : {}), counts, exceedsPendingCap: exceeds, reasons, notice: ERASED_NOTICE })
   // Nothing to create: a no-op leaves no journal entry, so re-running a finished file changes nothing at all.
   if (!plan.counts.create) return result({ ...plan.counts, created: 0, failed: 0, mirrorFailed: 0 }, null, plan.exceedsPendingCap, plan.reasons)
   const runId = options.runId ?? `roster-${randomBytes(6).toString('hex')}`
-  const run = await payload.create({ collection: 'roster-runs', overrideAccess: true, data: { runId, operator: options.operator.id, operatorLabel: options.operator.label, status: 'running', fileSha256: parsed.fileSha256, planSha256: plan.planSha256, runLimit: limit, reinviteLapsed: plan.reinviteLapsed, databaseIdentity: plan.databaseIdentity, startedAt: new Date().toISOString() } })
+  const run = await claimRun(payload, { runId, operator: options.operator.id, operatorLabel: options.operator.label, status: 'running', fileSha256: parsed.fileSha256, planSha256: plan.planSha256, runLimit: limit, reinviteLapsed: plan.reinviteLapsed, databaseIdentity: plan.databaseIdentity, startedAt: new Date().toISOString() })
+  await options.seams?.afterClaim?.()
   const byRow = new Map(parsed.rows.map((entry) => [entry.row, entry]))
   let created = 0, failed = 0, mirrorFailed = 0
+  let failure: ApplyResult['failure']
+  const undeliverable: number[] = []
   const reasons = { ...plan.reasons }
   for (const outcome of plan.outcomes) {
     if (outcome.outcome !== 'create') continue
@@ -234,15 +257,25 @@ export async function applyRoster(payload: Payload, parsed: ParsedRoster, option
         return null
       })
       if (skipped) { plan.counts.skip++; plan.counts.create--; reasons[skipped] = (reasons[skipped] ?? 0) + 1; continue }
-    } catch { failed++; break } // nothing was committed for this row and no file was written
+    } catch (error) { failed++; failure = error instanceof LockTimeout ? 'address-locked' : 'row-failed'; break } // nothing was committed for this row and no file was written
     created++
+    // The link exists only in memory here. Try a few times to put it in the file, then drop it whatever happened.
+    const outboxId = recorded!.id
+    let delivered = false
     try {
-      await options.seams?.beforeMirror?.(outcome.row)
-      if (!writeMirror(recorded!)) throw new Error('no outbox directory')
-      await markMirrored(payload, recorded!.id)
-    } catch {
-      // Committed but the link file is not in place: the invitation exists and is undeliverable (the sweep reports it). Stop; rollback revokes it.
-      mirrorFailed++; failed++
+      for (let attempt = 0; attempt < MIRROR_ATTEMPTS && !delivered; attempt++) {
+        try {
+          await options.seams?.beforeMirror?.(outcome.row, attempt)
+          if (!writeMirror(recorded!)) throw new Error('no outbox directory')
+          delivered = true
+        } catch { if (attempt + 1 < MIRROR_ATTEMPTS) await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1))) }
+      }
+    } finally { recorded!.message = { ...recorded!.message, mirrorBody: undefined }; recorded = undefined }
+    if (delivered) await markMirrored(payload, outboxId).catch(() => undefined) // the sweep marks a row whose file is in place
+    else {
+      // Committed with no link file: the invitation stays pending and unmarked, so the sweep and the admin outbox list show it as undeliverable
+      // (reissue just this one: revoke it in the admin). Stop; the rows before it are delivered.
+      mirrorFailed++; failed++; failure = 'mirror-failed'; undeliverable.push(outboxId)
       break
     }
     await pool(payload).query(`UPDATE roster_runs SET updated_at = now() WHERE id = $1`, [run.id]) // heartbeat
@@ -259,7 +292,7 @@ export async function applyRoster(payload: Payload, parsed: ParsedRoster, option
     }
   }
   await payload.update({ collection: 'roster-runs', id: run.id, overrideAccess: true, data: { status: failed ? 'failed' : 'completed', counts, finishedAt: new Date().toISOString() } })
-  return result(counts, runId, exceeds, reasons)
+  return result(counts, runId, exceeds, reasons, failure, undeliverable)
 }
 
 export type RollbackResult = { ok: boolean; runId: string; status: string; items: number; revoked: number; withdrawn: number; filesRedacted: number; filesPending: boolean; refused?: { redeemed: number; linked: number } }

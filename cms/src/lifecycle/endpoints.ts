@@ -4,7 +4,7 @@ import { eraseMember, finishErasure } from './erasure'
 import { buildExport } from './export'
 import { inspectInvitation, redeemInvitation } from './invitations'
 import { erasureConfirmMs } from './policy'
-import { withApplicationLock } from './application-lock'
+import { LockTimeout, withApplicationLock } from './application-lock'
 import { MAX_PENDING, parseApplication, WARN_PENDING } from './intake-validation'
 import { enqueueMessage } from './outbox'
 import { expireStaleApplications } from './sweep'
@@ -51,10 +51,16 @@ export const intake = {
     if (pending.totalDocs >= MAX_PENDING) return json({ error: 'Unavailable.' }, 503)
     // A repeat submission looks identical to a first one, so the form cannot be used to probe who has applied. The check and the create
     // share one transaction under the per-address lock, so a roster run (tools/roster-invite.ts) cannot interleave between them.
-    await withApplicationLock(req.payload, email, async (tx) => {
-      const duplicate = await req.payload.find({ collection: 'member-applications', where: { and: [{ status: { equals: 'pending' } }, { contactEmail: { equals: email } }] }, limit: 1, depth: 0, overrideAccess: true, req: tx })
-      if (!duplicate.totalDocs) await req.payload.create({ collection: 'member-applications', overrideAccess: true, req: tx, data: { name, affiliation, classYear: classYearValue, contactEmail: email, note: note ?? undefined, status: 'pending' } })
-    })
+    try {
+      await withApplicationLock(req.payload, email, async (tx) => {
+        const duplicate = await req.payload.find({ collection: 'member-applications', where: { and: [{ status: { equals: 'pending' } }, { contactEmail: { equals: email } }] }, limit: 1, depth: 0, overrideAccess: true, req: tx })
+        if (!duplicate.totalDocs) await req.payload.create({ collection: 'member-applications', overrideAccess: true, req: tx, data: { name, affiliation, classYear: classYearValue, contactEmail: email, note: note ?? undefined, status: 'pending' } })
+      })
+    } catch (error) {
+      // A stuck holder of this address's lock: fail closed with the same generic answer as a full queue; nothing was stored.
+      if (error instanceof LockTimeout) return json({ error: 'Unavailable.' }, 503)
+      throw error
+    }
     return json({ received: true }, 202)
   },
 
