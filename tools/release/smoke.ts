@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
 import { portAvailable, processIdentity } from '../local-stack.ts'
 import { stopOwnedGroup } from './child'
+import { parseIdentityEnv } from './identity-env'
+import { assertSweepSummary } from './sweep-summary'
 import { expectedMigrationNames, ledgerMatches } from './migrations'
 import { fileManifest, validateRuntime } from './package'
 import pins from './runtime.json'
@@ -113,14 +115,9 @@ try {
     } catch { /* no newly started fixture */ }
   }
   if (!identityRecord) throw new Error()
-  // Consume only the dedicated producer's settings internally; never print them.
-  // The producer also writes local-preview lifecycle settings (LIFECYCLE_*); this proof sets its own outbox and
-  // origins, so it takes only the identity settings and rejects any other unexpected key.
-  const auth = Object.fromEntries(readFileSync(join(root, 'identity/.state/app.env'), 'utf8').trim().split('\n').flatMap(line => {
-    const split = line.indexOf('='); const key = line.slice(0, split)
-    if (split < 1 || !/^(MEMBER_AUTH|CMS_AUTH|LIFECYCLE)_[A-Z_]+$/.test(key)) throw new Error()
-    return key.startsWith('LIFECYCLE_') ? [] : [[key, line.slice(split + 1)]]
-  }))
+  // Consume only the dedicated producer's settings internally; never print them. The parser accepts exactly the keys the
+  // identity bootstrap writes and drops its local-preview lifecycle settings: this proof sets its own outbox and origins.
+  const auth = parseIdentityEnv(readFileSync(join(root, 'identity/.state/app.env'), 'utf8'))
   databaseOwned = true
   await run('fresh runtime database initialization', 'initdb', ['-D', data, '--auth-local=trust', '--auth-host=reject'])
   writeFileSync(join(data, 'postgresql.auto.conf'), `listen_addresses = ''\nport = 55433\nunix_socket_directories = '${socket}'\n`, { mode: 0o600 })
@@ -141,9 +138,8 @@ try {
   const outboxId = await run('synthetic pending outbox row', 'psql', ['-Atqc', "insert into message_outbox (kind, recipient_label, recipient_email, subject, body) values ('denial', 'Synthetic Applicant', 'release-proof@terrace.invalid', 'Synthetic subject', 'Synthetic body') returning id"], pgEnv, root, true)
   if (!/^\d+$/.test(outboxId)) throw new Error()
   const summary = JSON.parse(await run('relocated lifecycle sweep', bwrap, sandbox('cms', '/app/bin/sweep'), sweepEnv, root, true))
-  // Counts only: the summary shape a timer's journal records.
-  if (summary.mirror?.written !== 1 || summary.mirror.failed || typeof summary.unlinkedRedeemedApplications !== 'number' || typeof summary.invitationsExpired !== 'number' ||
-      typeof summary.applicationsWithdrawn !== 'number' || typeof summary.offboardedPastGrace !== 'number' || JSON.stringify(summary).includes('release-proof@terrace.invalid')) throw new Error()
+  // Counts only: the summary shape a timer's journal records, shared with the CI test of the sweep entry.
+  assertSweepSummary(summary, { written: 1, forbidden: ['release-proof@terrace.invalid'] })
   const mirrored = join(outbox, 'mirror', `${outboxId.padStart(6, '0')}-denial.json`)
   if ((statSync(join(outbox, 'mirror')).mode & 0o777) !== 0o700 || (statSync(mirrored).mode & 0o777) !== 0o600 || JSON.parse(readFileSync(mirrored, 'utf8')).to !== 'release-proof@terrace.invalid') throw new Error()
   if (await run('marked outbox copy', 'psql', ['-Atqc', 'select count(*) from message_outbox where mirrored_at is null'], pgEnv, root, true) !== '0') throw new Error()
@@ -200,7 +196,7 @@ if (verifiedRevision && !process.exitCode) {
     if (!await portAvailable(port)) { console.error('Release proof cleanup left a fixture port occupied.'); process.exitCode = 1 }
   }
   if (!process.exitCode) {
-    writeFileSync(join(state, 'proof.json'), JSON.stringify({ revision: verifiedRevision, checks: ['archive/file hashes', 'empty filesystem/immutable code', 'explicit migrations', 'repeat no-op migration ledger', 'packaged lifecycle sweep outbox write/redaction', 'editorial SSO/publication/withdrawal', 'member SSO/moderation', 'native image optimization/cache', 'authenticated-then-anonymous private-image denial', 'owned runtime cleanup/closed ports'] }, null, 2) + '\n', { mode: 0o600 })
+    writeFileSync(join(state, 'proof.json'), JSON.stringify({ revision: verifiedRevision, checks: ['archive/file hashes', 'empty filesystem/immutable code', 'explicit migrations', 'repeat no-op migration ledger', 'packaged lifecycle sweep summary (counts only, no mirror failures), outbox write/redaction', 'editorial SSO/publication/withdrawal', 'member SSO/moderation', 'native image optimization/cache', 'authenticated-then-anonymous private-image denial', 'owned runtime cleanup/closed ports'] }, null, 2) + '\n', { mode: 0o600 })
     console.log(`Relocated release proof passed for ${verifiedRevision}, including owned runtime cleanup. Private evidence retained in ${state}.`)
   }
 }

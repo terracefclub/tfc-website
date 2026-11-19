@@ -3,10 +3,10 @@
 // CMS runtime configuration of `bin/start`. Meant for a systemd timer, so it always ends on its own.
 import type { Config } from 'payload'
 Object.assign(process.env, { NODE_ENV: 'production' })
+const args = process.argv.slice(2)
+if (args.some(argument => argument !== '--purge-moderated')) { console.error('Usage: bin/sweep [--purge-moderated]'); process.exit(64) }
 setTimeout(() => { console.error('lifecycle sweep timed out'); process.exit(2) }, 120_000).unref()
 try {
-  const args = process.argv.slice(2)
-  if (args.some(argument => argument !== '--purge-moderated')) throw new Error()
   const [{ default: payload }, { default: config }, { sweep, sweepExit }, { pino }] = await Promise.all([
     import('payload'), import('../src/payload.config'), import('../src/lifecycle/sweep'), import('pino'),
   ])

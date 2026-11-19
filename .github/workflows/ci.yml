@@ -93,7 +93,9 @@ jobs:
           revision=$(git -c safe.directory="$GITHUB_WORKSPACE" rev-parse HEAD)
           timestamp=$(git -c safe.directory="$GITHUB_WORKSPACE" show -s --format=%cI HEAD)
           printf 'CI_COMMIT_SHA=%s\nCI_COMMIT_TIMESTAMP=%s\n' "$revision" "$timestamp" >> "$GITHUB_ENV"
-      - name: Check migrations, release build and real PostgreSQL tests
+      # Includes the release-proof staleness tests (cms/test/release-proof.test.ts), the sweep summary check, type checks of the
+      # release tooling and browser checks (check:release) and the packaged sweep, all of which the Linux builder smoke relies on.
+      - name: Check migrations, release proof coverage, release build and real PostgreSQL tests
         run: |
           cd cms
           bun install --frozen-lockfile

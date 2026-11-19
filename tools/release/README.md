@@ -83,10 +83,16 @@ runtime configuration of `bin/start`, as the same operating-system account as th
 CMS (it writes `LIFECYCLE_OUTBOX_DIR`, forced to mode 0700 with 0600 files), on a
 daily timer and after every administrator-initiated erasure. It accepts only
 `--purge-moderated`. It prints one JSON line of counts and outbox row ids (never
-addresses or message text), always ends on its own (a 120 s bound; exit 2 means it timed out), and exits
-1 with a labelled line when mirror work failed, the unlinked-application
-count could not be read or, in a public deployment, the outbox directory is unset,
-so the timer unit shows the failure; the next run retries it. Like `bin/migrate`, it
+addresses or message text) and always ends on its own. Exit codes:
+
+| Code | Meaning |
+| ---- | ------- |
+| 0 | Everything it set out to do was done. |
+| 1 | A labelled failure: mirror work failed, the unlinked-application count could not be read, the runtime configuration or database was unusable or, in a public deployment, the outbox directory is unset. The timer unit shows the failure; the next run retries it. |
+| 2 | It timed out (a 120 s bound). |
+| 64 | Usage error: an unknown argument. It prints `Usage: bin/sweep [--purge-moderated]` and does nothing else (no configuration is loaded, no database is touched). |
+
+Like `bin/migrate`, it
 needs no `PORT` and opens no listener. A public CMS (`CMS_PUBLIC_DEPLOYMENT=1`)
 refuses to run either command without valid lifecycle settings.
 
@@ -115,6 +121,16 @@ with the matching uploads and application version, following the hosting recover
 procedure. Never delete the previous data or upload directory during a release.
 
 ## Validation
+
+CI cannot run the Linux-only smoke, so the CMS job keeps it from going stale
+(`cms/test/release-proof.test.ts`, run early by `cms/tools/ci.ts` and again in the full test run):
+the identity-settings parser (`identity-env.ts`) is tested against the key set the identity bootstrap exports
+(`identity/tools/app-env-keys.ts`); every `/api/<slug>` and `/admin/collections/<slug>` the smoke and
+`cms/tools/test-*.ts` use, and every report field the moderation browser check reads, must exist in the Payload
+configuration; the sweep summary check shared with the smoke (`sweep-summary.ts`) is applied to the source
+`release-sweep.ts` and the packaged `bin/sweep` against a migrated PostgreSQL database; and `check:release` type-checks
+this directory and the browser checks. A change to the smoke, the sweep entry or the browser checks still
+needs the builder proof below at its head commit.
 
 From the repository root:
 
