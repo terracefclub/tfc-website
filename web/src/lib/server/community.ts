@@ -9,7 +9,7 @@ export interface Membership { id: number; member: number; group: number }
 export interface Offer { id: number; member: number; displayName: string; optIn: boolean; topics?: string; about?: string }
 export interface MentorRequest { id: number; requester: number; mentor: number; requesterName: string; mentorName: string; message: string; reply?: string; status: 'pending' | 'accepted' | 'declined' }
 
-const collections = new Set(['member-profiles', 'member-stories', 'story-reports', 'member-groups', 'group-memberships', 'mentorship-offers', 'mentorship-requests']);
+const collections = new Set(['member-profiles', 'member-stories', 'moderation-reports', 'member-groups', 'group-memberships', 'mentorship-offers', 'mentorship-requests']);
 export function list<T>(locals: App.Locals, collection: string, query: Record<string, string> = {}) {
   if (!collections.has(collection)) throw new Error('Unknown community collection.');
   const params = new URLSearchParams({ depth: '0', limit: '24', sort: '-createdAt', ...query });
@@ -40,6 +40,17 @@ export async function change(locals: App.Locals, collection: string, method: 'PO
   await memberApi(locals, `/api/${collection}${id ? `/${id}` : ''}`, {
     method, headers: { 'Content-Type': 'application/json' }, ...(data !== undefined ? { body: JSON.stringify(data) } : {}),
   });
+}
+
+export const reportTargets = ['story', 'group', 'mentorship-request'] as const;
+export async function report(locals: App.Locals, request: Request, targetType: typeof reportTargets[number]) {
+  try {
+    const form = await request.formData();
+    const reason = field(form, 'reason', 20);
+    if (!['privacy', 'harassment', 'other'].includes(reason)) throw new Error('Choose a reason.');
+    await change(locals, 'moderation-reports', 'POST', { targetType, targetId: idField(form, 'id'), reason });
+    return { success: 'Your report was sent to the Terrace moderators. It is hidden from other members.' };
+  } catch (error) { return formFailure(error); }
 }
 
 export function formFailure(error: unknown) {

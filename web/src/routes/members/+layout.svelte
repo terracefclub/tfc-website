@@ -2,7 +2,7 @@
   import { page } from '$app/state';
   import './members.css';
   let { data, children } = $props();
-  const links = [['/members/', 'The living room'], ['/members/stories/', 'Stories'], ['/members/people/', 'People'], ['/members/groups/', 'Groups'], ['/members/mentorship/', 'Mentorship'], ['/members/profile/', 'My profile']];
+  const links = [['/members/', 'The living room'], ['/members/stories/', 'Stories'], ['/members/people/', 'People'], ['/members/groups/', 'Groups'], ['/members/mentorship/', 'Mentorship'], ['/members/profile/', 'My profile'], ['/members/account/', 'My data']];
 </script>
 
 <div class="members">

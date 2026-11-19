@@ -116,6 +116,12 @@ independently using the owner's recorded identities, then a new startup from the
 retained state will create current ownership records. Old state is never removed
 to bypass this check.
 
+## Member lifecycle
+
+Application, approval, invitation, offboarding, moderation, export and erasure flows, with their
+local outbox mirror and the realm provisioning script, are described in
+[member-lifecycle.md](member-lifecycle.md).
+
 ## Checks and release boundary
 
 From the repository root:

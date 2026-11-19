@@ -1,5 +1,5 @@
 import type { Actions, PageServerLoad } from './$types';
-import { change, field, formFailure, idField, list, pageNumber, type Group, type Membership } from '$lib/server/community';
+import { change, field, formFailure, idField, list, pageNumber, report, type Group, type Membership } from '$lib/server/community';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const [groups, memberships] = await Promise.all([
@@ -10,6 +10,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   return { groups, memberships: [...memberships.docs, ...(more?.docs ?? [])] };
 };
 export const actions: Actions = {
+  report: ({ locals, request }) => report(locals, request, 'group'),
   create: async ({ locals, request }) => {
     try { const form = await request.formData(); await change(locals, 'member-groups', 'POST', { name: field(form, 'name', 100), description: field(form, 'description', 2000) }); return { success: 'Your group is open. You are its first member.' }; }
     catch (error) { return formFailure(error); }

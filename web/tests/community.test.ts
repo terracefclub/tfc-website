@@ -80,7 +80,7 @@ test('reporting sends only the selected story and reason, never a client-written
   });
   calls.length = 0;
   expect((await submit({ id: '5', reason: 'privacy', storyBody: 'Forged', status: 'reviewed' })).success).toBeDefined();
-  expect(calls).toEqual([{ path: '/api/story-reports', method: 'POST', body: { storyId: 5, reason: 'privacy' } }]);
+  expect(calls).toEqual([{ path: '/api/moderation-reports', method: 'POST', body: { targetType: 'story', targetId: 5, reason: 'privacy' } }]);
   calls.length = 0;
   expect((await submit({ id: '5', reason: 'unknown' })).status).toBe(400);
   expect((await submit({ id: '-2', reason: 'privacy' })).status).toBe(400);
