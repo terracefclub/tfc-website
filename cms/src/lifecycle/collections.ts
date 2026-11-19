@@ -1,7 +1,7 @@
 import { APIError, type Access, type CollectionConfig, type Field, type FieldAccess, type PayloadRequest } from 'payload'
 import { isMember as isMemberUser, memberId } from '../access/members'
 import { adminOnly, isAdmin, isStaff } from '../access/rules'
-import { enqueueMessage } from './outbox'
+import { enqueueMessage, invitationState } from './outbox'
 import { issueInvitation } from './invitations'
 import { eraseMember } from './erasure'
 import { graceMs } from './policy'
@@ -121,10 +121,12 @@ export const MessageOutbox: CollectionConfig = {
     { name: 'mirroredAt', type: 'date', admin: { hidden: true }, access: { read: ({ req }) => isAdmin(req.user), create: fieldNever, update: fieldNever } },
     {
       name: 'fileCopy', type: 'text', virtual: true, admin: { readOnly: true, description: 'Whether the operator file copy was written.' }, access: { read: ({ req }) => isAdmin(req.user), create: fieldNever, update: fieldNever },
-      hooks: { afterRead: [({ siblingData }) => {
-        if (siblingData?.mirroredAt) return 'written'
-        // An invitation link exists only in its file and cannot be rebuilt from the database.
-        return siblingData?.kind === 'invitation' ? 'Undeliverable: the link file was not written. Reissue the invitation.' : 'pending: the next sweep writes it'
+      hooks: { afterRead: [async ({ siblingData, req }) => {
+        if (siblingData?.mirroredAt) return 'written or settled'
+        if (siblingData?.kind !== 'invitation') return 'pending: the next sweep writes it'
+        // An invitation link exists only in its file and cannot be rebuilt: only a still-redeemable invitation is owed one.
+        const state = await invitationState(req.payload, Number(siblingData.id))
+        return state === 'live' ? 'Undeliverable: the link file was not written. Reissue the invitation.' : `No file copy; invitation ${state === 'unknown' ? 'no longer matched' : state}`
       }] },
     },
   ],

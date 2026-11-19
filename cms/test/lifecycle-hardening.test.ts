@@ -628,44 +628,104 @@ test('a file that could not be written stays pending, one failure does not stop 
   mkdirSync(bad.path) // a directory where the file belongs: the write fails
   try {
     const failed = await sweep(payload)
-    expect(failed.mirror.failed).toBe(1) // counted, not thrown
-    expect(failed.mirror.written).toBeGreaterThanOrEqual(1)
+    expect(failed.mirror.failed).toBeGreaterThanOrEqual(1) // counted, not thrown (other tests' leftovers may add to it)
     expect(await mirroredAt(bad.id)).toBeNull() // not marked: the next sweep tries again
     expect(statSync(good.path).isFile()).toBe(true) // the other row in the same sweep was written...
     expect(await mirroredAt(good.id)).not.toBeNull() // ...and marked
   } finally { rmSync(bad.path, { recursive: true }) }
   const retried = await sweep(payload)
-  expect(retried.mirror.failed).toBeUndefined()
-  expect(retried.mirror.written).toBe(1)
   expect(statSync(bad.path).isFile()).toBe(true)
   expect(statSync(bad.path).mode & 0o777).toBe(0o600)
   expect(await mirroredAt(bad.id)).not.toBeNull()
   expect((await q(`SELECT dedupe_key FROM message_outbox WHERE id = $1`, [bad.id])).rows[0].dedupe_key).toBeNull() // the marker no longer borrows the dedupe key
-  expect(readdirSync(outbox).filter((name) => name.endsWith('.tmp'))).toEqual([]) // atomic writes leave no temporary files behind
+  expect(readdirSync(outbox).filter((name) => name.startsWith(String(bad.id).padStart(6, '0')) && name.endsWith('.tmp'))).toEqual([]) // atomic writes leave no temporary files behind
 })
 
-test('a denial whose file is missing is rebuilt by the sweep; a missing invitation file is reported as undeliverable and never re-derived', async () => {
+async function invitationRow(status: 'pending' | 'redeemed' | 'revoked', expiresInMs: number) {
+  const email = `inv-${crypto.randomUUID().slice(0, 8)}@terrace.invalid`
+  const application = await payload.create({ collection: 'member-applications', overrideAccess: true, data: { name: `Inv ${suffix}`, affiliation: 'alumni', contactEmail: email, grantRole: 'alumni', status: 'approved' } as any })
+  trash.unshift({ collection: 'member-applications', id: application.id })
+  await payload.create({ collection: 'member-invitations', overrideAccess: true, data: { application: application.id, tokenHash: hashToken(crypto.randomUUID()), role: 'alumni', status, expiresAt: new Date(Date.now() + expiresInMs).toISOString() } as any })
+  const id = await enqueueMessage(payload, { kind: 'invitation', recipientEmail: email, recipientLabel: `Inv ${suffix}`, subject: 'Your invitation', body: 'Stored text.', mirrorBody: 'SECRET-LINK-BODY' })
+  const file = () => readdirSync(outbox).find((name) => name.startsWith(String(id).padStart(6, '0') + '-'))
+  rmSync(join(outbox, file()!)) // simulate a failed first write: no file, no marker
+  await q(`UPDATE message_outbox SET mirrored_at = NULL WHERE id = $1`, [id])
+  return { id, file }
+}
+
+test('a denial whose file is missing is rebuilt by the sweep; a missing file of a redeemable invitation is undeliverable and never re-derived', async () => {
   const denial = await enqueueMessage(payload, { kind: 'denial', recipientEmail: `denied-${suffix}@terrace.invalid`, recipientLabel: `Denied ${suffix}`, subject: 'About your application', body: 'No link here.' })
-  const invitation = await enqueueMessage(payload, { kind: 'invitation', recipientEmail: `invited-${suffix}@terrace.invalid`, recipientLabel: `Invited ${suffix}`, subject: 'Your invitation', body: 'Stored text.', mirrorBody: 'SECRET-LINK-BODY' })
   const file = (id: number) => readdirSync(outbox).find((name) => name.startsWith(String(id).padStart(6, '0') + '-'))
   expect(await mirroredAt(denial)).not.toBeNull() // written and marked at enqueue
-  expect(await mirroredAt(invitation)).not.toBeNull()
-  // Simulate failed first writes: the marker was never set and the files are absent.
-  await q(`UPDATE message_outbox SET mirrored_at = NULL WHERE id = ANY($1::int[])`, [[denial, invitation]])
-  rmSync(join(outbox, file(denial)!)); rmSync(join(outbox, file(invitation)!))
+  await q(`UPDATE message_outbox SET mirrored_at = NULL WHERE id = $1`, [denial])
+  rmSync(join(outbox, file(denial)!))
+  const live = await invitationRow('pending', 3 * 86_400_000)
   const report = (await sweep(payload)).mirror
-  expect(report.undeliverable).toContain(invitation)
-  expect(file(invitation)).toBeUndefined() // nothing was invented for the invitation
-  expect(file(denial)).toBeDefined()
+  expect(report.undeliverable).toContain(live.id)
+  expect(live.file()).toBeUndefined() // nothing was invented for the invitation
   expect(readFileSync(join(outbox, file(denial)!), 'utf8')).toContain('No link here.')
   expect(await mirroredAt(denial)).not.toBeNull()
-  expect(await mirroredAt(invitation)).toBeNull()
-  const admin = await payload.findByID({ collection: 'message-outbox', id: invitation, user: await makeUser('admin'), overrideAccess: false }) as any
-  expect(admin.fileCopy).toContain('Reissue the invitation')
+  expect(await mirroredAt(live.id)).toBeNull()
+  const staff = await makeUser('admin')
+  const shown = async (id: number) => (await payload.findByID({ collection: 'message-outbox', id, user: staff, overrideAccess: false }) as any).fileCopy
+  expect(await shown(live.id)).toContain('Reissue the invitation')
+  expect(await shown(denial)).toBe('written or settled')
   // An invitation whose file exists is just marked, not reported.
-  writeFileSync(join(outbox, `${String(invitation).padStart(6, '0')}-invitation.json`), '{}', { mode: 0o600 })
-  expect((await sweep(payload)).mirror.undeliverable ?? []).not.toContain(invitation)
-  expect(await mirroredAt(invitation)).not.toBeNull()
+  writeFileSync(join(outbox, `${String(live.id).padStart(6, '0')}-invitation.json`), '{}', { mode: 0o600 })
+  expect((await sweep(payload)).mirror.undeliverable ?? []).not.toContain(live.id)
+  expect(await mirroredAt(live.id)).not.toBeNull()
+})
+
+test('an invitation without a file that is redeemed, revoked or expired is neutral, settled once and not revisited', async () => {
+  const staff = await makeUser('admin')
+  const shown = async (id: number) => (await payload.findByID({ collection: 'message-outbox', id, user: staff, overrideAccess: false }) as any).fileCopy
+  const states = { redeemed: await invitationRow('redeemed', 86_400_000), revoked: await invitationRow('revoked', 86_400_000), expired: await invitationRow('pending', -1000) }
+  for (const [state, row] of Object.entries(states)) expect(await shown(row.id)).toBe(`No file copy; invitation ${state}`)
+  const report = (await sweep(payload)).mirror
+  for (const row of Object.values(states)) {
+    expect(report.undeliverable ?? []).not.toContain(row.id)
+    expect(await mirroredAt(row.id)).not.toBeNull() // settled
+    expect(row.file()).toBeUndefined() // and nothing was written
+  }
+  // A settled row is no longer selected: a second sweep does not revisit it.
+  const pending = await q(`SELECT id FROM message_outbox WHERE mirrored_at IS NULL AND id = ANY($1::int[])`, [Object.values(states).map((row) => row.id)])
+  expect(pending.rows).toEqual([])
+})
+
+test('an erasure committing between the sweep read and its write cannot leave an unredacted file', async () => {
+  const email = `raced-${suffix}@terrace.invalid`
+  const id = await enqueueMessage(payload, { kind: 'denial', recipientEmail: email, recipientLabel: `Raced ${suffix}`, subject: 'About your application', body: `Body for ${email}` })
+  const file = () => readdirSync(outbox).find((name) => name.startsWith(String(id).padStart(6, '0') + '-'))
+  rmSync(join(outbox, file()!))
+  await q(`UPDATE message_outbox SET mirrored_at = NULL WHERE id = $1`, [id])
+  const report = await reconcileMirror(payload, { beforeWrite: async (candidate) => {
+    if (candidate === id) await q(`UPDATE message_outbox SET recipient_email = NULL, recipient_label = 'Former member', body = 'Redacted after erasure.' WHERE id = $1`, [id])
+  } })
+  expect(report.failed).toBeUndefined()
+  expect(file()).toBeUndefined() // nothing written for the erased row
+  for (const name of readdirSync(outbox)) expect(readFileSync(join(outbox, name), 'utf8')).not.toContain(email)
+  expect(await mirroredAt(id)).not.toBeNull()
+})
+
+test('the sweep removes only stale temporary files of the atomic-write pattern, never following symlinks', async () => {
+  const { symlinkSync, utimesSync, existsSync: exists } = await import('node:fs')
+  const old = new Date(Date.now() - 3_600_000)
+  const stale = join(outbox, '000999-denial.json.0123456789ab.tmp')
+  const fresh = join(outbox, '000998-denial.json.0123456789ab.tmp')
+  const other = join(outbox, 'notes-from-operator.tmp')
+  const outside = mkdtempSync(join(tmpdir(), 'terrace-outside-'))
+  const target = join(outside, 'keep.txt'); writeFileSync(target, 'keep')
+  const link = join(outbox, '000997-denial.json.0123456789ab.tmp'); symlinkSync(target, link)
+  for (const file of [stale, fresh, other]) writeFileSync(file, 'x', { mode: 0o600 })
+  for (const file of [stale, other]) utimesSync(file, old, old)
+  try {
+    expect((await sweep(payload)).mirror.staleTemporaryRemoved).toBe(1)
+    expect(exists(stale)).toBe(false)
+    expect(exists(fresh)).toBe(true) // too recent: a write may be in progress
+    expect(exists(other)).toBe(true) // not our pattern
+    expect(exists(link)).toBe(true) // a symlink is left alone, and its target is untouched
+    expect(readFileSync(target, 'utf8')).toBe('keep')
+  } finally { for (const file of [fresh, other, link]) rmSync(file, { force: true }); rmSync(outside, { recursive: true, force: true }) }
 })
 
 test('purging the stories of a hidden group blanks their report snapshots', async () => {

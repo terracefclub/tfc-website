@@ -232,8 +232,9 @@ rolled-back erasure never touches them). If that file step fails, the erasure st
 inside the admin save, so it cannot redact mirror files or write its confirmation file itself: **run
 `lifecycle:sweep` after every administrator-initiated erasure** (the Data requests admin page says so too). The
 confirmation file is written once and marked (`mirrored_at`, set only after the file is confirmed written), so a copy an operator deletes is not recreated; a write that fails leaves the row unmarked and the next sweep retries it, reporting the count as `mirror.failed`. Files are written atomically (private temporary file, sync, rename). The sweep retries every outbox row that has no file copy: it rebuilds denial, offboarding, staff and confirmation files from the database, but never an invitation, whose link exists only in its file (only a hash of the token is stored). An invitation without a file that could still be redeemed is listed as `mirror.undeliverable` and shown as "Undeliverable" in the admin outbox list: reissue the invitation. Staff notices
-(`staff-notice`) have a mirror file only if the directory was writable at the time; otherwise they are visible
-in the admin outbox only. Erasure and offboarding also **revoke any still-pending invitation** for the person,
+(`staff-notice`) are recorded even when the directory is unwritable, and the sweep writes their file later. An invitation whose
+invitation is already redeemed, revoked or expired is marked settled (nothing is owed), and the sweep removes leftover
+`*.tmp` files of crashed writes older than ten minutes. Erasure and offboarding also **revoke any still-pending invitation** for the person,
 so its link answers like any dead token.
 The member row becomes a tombstone (status
 `erased`, no roles, name and OIDC subject wiped) keeping only the one-way identity hash so a still-live

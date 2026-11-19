@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { chmodSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeSync } from 'node:fs'
+import { chmodSync, closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { APIError, type Payload, type PayloadRequest } from 'payload'
 import { publicOrigin } from '../auth/production-input'
@@ -129,7 +129,45 @@ export async function markMirrored(payload: Payload, id: number, req?: PayloadRe
   else await pool(payload).query(`UPDATE message_outbox SET mirrored_at = now() WHERE id = $1 AND mirrored_at IS NULL`, [id])
 }
 
-export type MirrorReport = { redacted: number; written: number; failed?: number; undeliverable?: number[] }
+export type MirrorReport = { redacted: number; written: number; failed?: number; undeliverable?: number[]; staleTemporaryRemoved?: number }
+export type InvitationState = 'live' | 'redeemed' | 'revoked' | 'expired' | 'unknown'
+
+/**
+ * State of the invitation an outbox invitation message announced. The message has no foreign key, so it is the
+ * invitation of the application with the same contact email that was created closest in time (they are
+ * issued in one transaction). `live` means pending and not yet past its lifetime; `unknown` (for example after
+ * erasure removed the address) counts as not live.
+ */
+export async function invitationState(payload: Payload, outboxId: number): Promise<InvitationState> {
+  const found = await pool(payload).query(
+    `SELECT i.status, i.expires_at <= now() AS past FROM message_outbox o
+       JOIN member_applications a ON lower(a.contact_email) = lower(o.recipient_email)
+       JOIN member_invitations i ON i.application_id = a.id
+      WHERE o.id = $1 ORDER BY abs(extract(epoch FROM (i.created_at - o.created_at))) LIMIT 1`, [outboxId])
+  const row = found.rows[0]
+  if (!row) return 'unknown'
+  if (row.status === 'pending') return row.past ? 'expired' : 'live'
+  return row.status === 'redeemed' || row.status === 'revoked' || row.status === 'expired' ? row.status : 'unknown'
+}
+
+const temporaryName = /^\d{6,}-[a-z-]+\.json\.[0-9a-f]{12}\.tmp$/
+const staleTemporaryMs = 10 * 60_000
+
+/** Remove leftovers of a crashed atomic write: only files of the temporary naming pattern, directly in the directory, older than ten minutes. Symlinks are never followed. */
+export function removeStaleTemporaryFiles(directory: string, now = Date.now()): number {
+  if (!existsSync(directory)) return 0
+  let removed = 0
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    if (!entry.isFile() || !temporaryName.test(entry.name)) continue // isFile() is false for a symlink
+    const file = resolve(directory, entry.name)
+    try {
+      if (now - lstatSync(file).mtimeMs > staleTemporaryMs) { rmSync(file, { force: true }); removed++ }
+    } catch { /* gone or unreadable: leave it */ }
+  }
+  return removed
+}
+
+type Client = { query: (text: string, values?: unknown[]) => Promise<{ rows: Array<Record<string, unknown>> }>; release: () => void }
 
 /**
  * Finish what the database already decided, for every outbox row that should have a file copy:
@@ -139,14 +177,18 @@ export type MirrorReport = { redacted: number; written: number; failed?: number;
  *
  * Rows whose file already exists are just marked. Missing files are rebuilt from the database for every kind
  * except an invitation: its link exists only in the file and the plaintext token cannot be recovered (only its
- * hash is stored), so an invitation without a file is reported as `undeliverable` (reissue the invitation) while
- * it could still be redeemed, and is never re-derived.
+ * hash is stored). An invitation without a file whose invitation can still be redeemed is reported as
+ * `undeliverable` (reissue it); once the invitation is redeemed, revoked or expired nothing is owed and the
+ * row is marked settled so it is not revisited.
+ *
+ * A file is rebuilt from the row re-read under `FOR UPDATE`, in the transaction that marks it, so an erasure
+ * committing after the first read cannot leave an unredacted file behind: it waits for the lock, then redacts.
  */
-export async function reconcileMirror(payload: Payload): Promise<MirrorReport> {
+export async function reconcileMirror(payload: Payload, seams: { beforeWrite?: (id: number) => Promise<void> } = {}): Promise<MirrorReport> {
   const directory = process.env.LIFECYCLE_OUTBOX_DIR
   if (!directory) return { redacted: 0, written: 0 }
-  const rows = (await pool(payload).query(`SELECT id, kind, recipient_email, recipient_label, subject, body, created_at, mirrored_at FROM message_outbox WHERE recipient_label = 'Former member' OR mirrored_at IS NULL ORDER BY id`)).rows
-  const invitationCutoff = Date.now() - invitationTtlMs()
+  const staleTemporaryRemoved = removeStaleTemporaryFiles(directory)
+  const rows = (await pool(payload).query(`SELECT id, kind, recipient_label, mirrored_at FROM message_outbox WHERE recipient_label = 'Former member' OR mirrored_at IS NULL ORDER BY id`)).rows
   let redacted = 0
   let written = 0
   let failed = 0
@@ -160,16 +202,34 @@ export async function reconcileMirror(payload: Payload): Promise<MirrorReport> {
       } else if (existsSync(directory) && mirrorFiles(directory, [id]).some((file) => statSync(file).isFile())) {
         await markMirrored(payload, id)
       } else if (row.kind === 'invitation') {
-        if (new Date(String(row.created_at)).getTime() > invitationCutoff) undeliverable.push(id)
+        if (await invitationState(payload, id) === 'live') undeliverable.push(id)
+        else await markMirrored(payload, id) // nothing is owed any more
       } else {
-        const to = row.recipient_email ? String(row.recipient_email) : undefined
-        // Written once: marking the row means a file the operator later deletes is not recreated.
-        const wrote = writeMirror({ id, createdAt: new Date(String(row.created_at)).toISOString(), message: { kind: row.kind as OutboxKind, recipientEmail: to, recipientLabel: String(row.recipient_label), subject: String(row.subject), body: String(row.body) } })
-        if (!wrote) { failed++; continue }
-        await markMirrored(payload, id)
-        written++
+        await seams.beforeWrite?.(id)
+        const client = await (payload.db as unknown as { pool: { connect: () => Promise<Client> } }).pool.connect()
+        try {
+          await client.query('BEGIN')
+          const locked = (await client.query(`SELECT id, kind, recipient_email, recipient_label, subject, body, created_at, mirrored_at FROM message_outbox WHERE id = $1 FOR UPDATE`, [id])).rows[0]
+          if (!locked || locked.mirrored_at) { await client.query('COMMIT'); continue }
+          if (locked.recipient_label === 'Former member') {
+            // Erased since the first read: write nothing, redact any file, settle.
+            redacted += redactMirrorFiles([String(id)])
+            await client.query(`UPDATE message_outbox SET mirrored_at = now() WHERE id = $1`, [id])
+            await client.query('COMMIT'); continue
+          }
+          const to = locked.recipient_email ? String(locked.recipient_email) : undefined
+          // Written once: marking the row means a file the operator later deletes is not recreated.
+          const wrote = writeMirror({ id, createdAt: new Date(String(locked.created_at)).toISOString(), message: { kind: locked.kind as OutboxKind, recipientEmail: to, recipientLabel: String(locked.recipient_label), subject: String(locked.subject), body: String(locked.body) } })
+          if (!wrote) { await client.query('ROLLBACK'); failed++; continue }
+          await client.query(`UPDATE message_outbox SET mirrored_at = now() WHERE id = $1`, [id])
+          await client.query('COMMIT')
+          written++
+        } catch (error) {
+          await client.query('ROLLBACK').catch(() => undefined)
+          throw error
+        } finally { client.release() }
       }
     } catch { failed++ }
   }
-  return { redacted, written, ...(failed ? { failed } : {}), ...(undeliverable.length ? { undeliverable } : {}) }
+  return { redacted, written, ...(failed ? { failed } : {}), ...(undeliverable.length ? { undeliverable } : {}), ...(staleTemporaryRemoved ? { staleTemporaryRemoved } : {}) }
 }
