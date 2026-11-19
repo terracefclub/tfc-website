@@ -388,6 +388,35 @@ test('REST: sort is allow-listed, and select, count and populated relations neve
   await q(`DELETE FROM member_invitations WHERE id = $1`, [invitation.id])
 })
 
+// ---- a genuine member credential at the CMS REST API cannot read moderation reports ----------------------------------
+
+test('REST: a signed member token is refused (403) on moderation-reports, list and by id, for the reporter and for another member', async () => {
+  const author = await makeMember(`Report Author ${suffix}`)
+  const story = await payload.create({ collection: 'member-stories', data: { title: `Reported ${suffix}`, body: 'Synthetic story.', audience: 'community' }, user: author, overrideAccess: false })
+  const reporter = await signIn(`sub-reporter-${suffix}`, { name: `Reporter ${suffix}` })
+  const other = await signIn(`sub-bystander-${suffix}`, { name: `Bystander ${suffix}` })
+  expect(reporter.id).not.toBe(other.id)
+  const report = await payload.create({ collection: 'moderation-reports', data: { targetType: 'story', targetId: story.id, reason: 'other', detail: `Detail ${suffix}` }, user: reporter, overrideAccess: false })
+  try {
+    for (const subject of [`sub-reporter-${suffix}`, `sub-bystander-${suffix}`]) {
+      const headers = { authorization: `Bearer ${await signed(subject)}` }
+      // The credential is genuine: the same token reads the member's own account, so a refusal below is the CMS access rule, not a failed login.
+      expect((await rest('/members?depth=0', { headers })).status).toBe(200)
+      for (const path of ['/moderation-reports', '/moderation-reports?limit=1&depth=2', `/moderation-reports/${report.id}`, `/moderation-reports/${report.id}?depth=2`]) {
+        const response = await rest(path, { headers })
+        expect([path, response.status]).toEqual([path, 403])
+        expect(JSON.stringify(await response.json())).not.toContain(`Detail ${suffix}`)
+      }
+    }
+    // Staff still can, so the refusal is about who is asking.
+    const staff = { headers: { authorization: `JWT ${await login(editor, await passwordOf(editor))}` } }
+    expect((await rest(`/moderation-reports/${report.id}`, staff)).status).toBe(200)
+  } finally {
+    await q(`DELETE FROM moderation_reports WHERE id = $1`, [report.id])
+    await q(`DELETE FROM member_stories WHERE id = $1`, [story.id])
+  }
+})
+
 // ---- the sweep as a scheduled job ----------------------------------------------------------------------------------
 
 test('the sweep process exits by itself with code 0 within a bound, and says when it skipped mirror work', async () => {
