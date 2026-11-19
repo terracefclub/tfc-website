@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "incremental": false, "types": ["bun"], "allowImportingTsExtensions": true },
+  "include": ["tools/roster-invite.ts", "tools/local-database.ts"],
+  "exclude": ["node_modules"]
+}

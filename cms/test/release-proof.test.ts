@@ -158,7 +158,7 @@ test('the report browser check reads only fields the moderation queue defines', 
 
 // --- C. typechecking -------------------------------------------------------------------------------------------------------
 test('every TypeScript file under cms/tools and tools/release is in a type-checked project (check:release)', () => {
-  const patterns = ['tsconfig.release.json', 'tsconfig.migrate.json', 'tsconfig.import.json'].flatMap(name => JSON.parse(read(`cms/${name}`)).include as string[])
+  const patterns = ['tsconfig.release.json', 'tsconfig.migrate.json', 'tsconfig.import.json', 'tsconfig.roster.json'].flatMap(name => JSON.parse(read(`cms/${name}`)).include as string[])
   const files = [...readdirSync(join(repo, 'cms/tools')).filter(name => name.endsWith('.ts')).map(name => `tools/${name}`),
     ...readdirSync(join(repo, 'tools/release')).filter(name => name.endsWith('.ts')).map(name => `../tools/release/${name}`)]
   expect(files.length).toBeGreaterThan(10)

@@ -18,6 +18,7 @@ data stay private; invalid or unapproved authentication fails closed (401/403).
 | Public pages `/apply/`, `/join/#<token>`; member page `/members/account/` | `web/src/routes/` |
 | Spam guard (rate limit, honeypot, signed timing token) | `web/src/lib/server/apply-guard.ts` |
 | Realm user tooling (idempotent) | `identity/tools/provision-member.ts` |
+| Bulk roster onboarding (opt-in operator tool) | `cms/tools/roster-invite.ts`, `cms/src/lifecycle/roster.ts` |
 
 ## Production configuration
 
@@ -317,6 +318,105 @@ Erase. From a source checkout the same housekeeping remains `bun run lifecycle:s
 intermediate `021150`) must be reset: roll back or drop it and run `migrate` again; the migration was
 regenerated and is not an upgrade of those.
 
+## Bulk roster onboarding
+
+**Opt-in and unused by default.** The public `/apply/` form (everyone applies, a reviewer approves) is the only flow the
+website uses. For a club that already holds a roster of members and alumni there is an operator tool that turns a CSV
+into approved applications and invitations. **[OWNER]** whether to use it at all (everyone-applies versus bulk-invite)
+is undecided. Nothing changes if it is never run: the apply form, approval, invitations, linking and erasure behave as before.
+(One internal change: the form's "is there a pending application for this address, then create one" step now runs in one transaction under a
+per-address lock, which the roster tool shares; the responses are the same.)
+
+The tool never sends anything. There is no mail transport; it writes the same outbox mirror files a UI approval does, and
+an operator delivers each link from them.
+
+```sh
+# Run from a source checkout (see "Known gap") with the host's real environment, as for the importer. In local development:
+#   cd cms && direnv exec . tools/with-local bun run roster:invite -- ...
+# 1. A dry run reads the file and writes nothing to the database. Terminal output is counts and hashes only.
+bun run roster:invite -- dry-run --file ~/.terrace-private/roster.csv --operator admin@example.invalid --report ~/.terrace-private/roster-dry-run.json [--limit 50] [--reinvite-lapsed]
+# 2. Review the report (row numbers and reasons), then apply with the planSha256 it printed and the SAME file, operator, limit and flags.
+bun run roster:invite -- apply --file ~/.terrace-private/roster.csv --operator admin@example.invalid --plan-sha256 <planSha256> [--limit 50] [--reinvite-lapsed] [--report OUT.json] [--confirm-production]
+# 3. Undo a run that nobody has redeemed or been linked to.
+bun run roster:invite -- rollback --run <runId> --operator admin@example.invalid [--report OUT.json] [--confirm-production]
+```
+
+A production invocation uses the host's own environment (the CMS service's environment file, exactly what `bin/start` runs with), never `tools/with-local`:
+
+```sh
+set -a; . /etc/terrace/cms.env; set +a      # the CMS runtime environment, with CMS_PUBLIC_DEPLOYMENT=1
+cd /path/to/source-checkout/cms && bun run roster:invite -- apply --file ~/.terrace-private/roster.csv --operator admin@example.invalid \
+  --plan-sha256 <planSha256> --confirm-production
+```
+
+**CSV format.** UTF-8, comma separated (RFC 4180 quoting), a header row required, at most 1 MiB and 2000 rows. Columns:
+`name`, `affiliation` (`current-member` or `alumni`), `class_year` (optional, a four-digit year) and `contact_email`. Cells are trimmed;
+no other column is accepted. Row numbers in reports are spreadsheet rows (the header is row 1). The file must be owned by you with mode `0600`
+in an owner-only directory **outside every Git checkout** (the same refusals as the importer's private outputs); reports are new `0600` files
+there too, and the report path is checked before anything is applied. The file is never copied or stored: the database holds only what an application holds.
+
+**Validation is the apply form's.** A row is valid exactly when `/apply/` would accept it (one shared function,
+`cms/src/lifecycle/intake-validation.ts`): name 1 to 120 characters, a well-formed address, affiliation, class year 1904 to 2200. The file adds
+three strictnesses of its own: a four-digit class year only, no control characters, and an address that appears more than once in the file rejects
+every row that uses it (`duplicate-email-in-file`). Rejected rows are listed in the report with a row number and a reason, never a name or address.
+
+**What `apply` does**, per valid row, in one transaction under the per-address lock: creates the application already `approved` (role granted = the row's
+affiliation, reviewer = the operator, decided now), calls `issueInvitation`, the function approval calls (so the invitation, using the invitation lifetime
+setting, and its outbox row are what an approval produces), and journals the row. The mirror file, which holds the link, is written **after the commit**, so a
+failed row leaves no file. Because these applications are inserted already approved, the status-transition hooks of a UI approval (which run only when a pending
+application is updated) do not run; the tool calls the one that matters, `issueInvitation`, itself, and the reviewer and decision time the hook would record are set directly.
+A failure before commit rolls the row back and stops the run. A failure writing the file after commit is retried up to three times while the link is still in memory, and the link is dropped from memory after the last attempt either way. If it still fails the run stops
+(`failure: mirror-failed`, `failed`) with that one invitation committed, live and without a link file; its outbox id is printed as `undeliverable`, and the sweep and the admin outbox list show it as "Undeliverable". **Recovery without
+rolling back the delivered links:** in the admin set that one invitation's status to `revoked`, then reissue it by running the tool on a one-row file for that person (a dry run, then apply with `--reinvite-lapsed`, since a revoked invitation counts as lapsed).
+Rolling back the whole run remains possible (a failed run can be rolled back).
+
+**What is skipped on a re-run, and what is not.** Skipped always: an address whose application or invitation is linked to a member, active or offboarded (`member-linked`, whatever the flag), an address with a redeemed or live invitation (`invitation-redeemed`, `invitation-live`), an approved
+application (`application-approved`) or a pending one (`application-pending`). Skipped by default, re-invited only with **`--reinvite-lapsed`** (part of the plan hash):
+a denied application (`previously-denied`), a withdrawn one (`application-withdrawn`), an expired invitation (`invitation-expired`) or a revoked one (`invitation-revoked`). So running
+a finished file again creates nobody, but a file whose earlier invitations have lapsed is not silently re-sent either. After a rollback the people are lapsed (withdrawn, revoked) and
+need the flag.
+**The tool cannot recognise people who asked to be erased.** Erasure keeps no identifier (their application's address becomes a placeholder), so their real address matches nothing and
+a roster that still lists them would invite them again. Remove them from the roster file before running; every dry-run summary repeats this. **[OWNER]** an optional suppression list (a keyed hash
+of an erased person's address kept only to avoid contacting them again) is not implemented; decide whether the club wants one.
+
+**Bounds.** `--limit N` (default 50) caps the rows created by a run; no setting exceeds the hard maximum of 200. Refused before anything is written: no
+`LIFECYCLE_OUTBOX_DIR`, or a `LIFECYCLE_PUBLIC_ORIGIN` that is not a valid origin (the same check approval makes); a `--plan-sha256` that does not match. Roster-created invitations count towards
+the pending-queue size the form protects (pending applications plus live invitations above 500): the dry run reports `exceedsPendingCap`, and an apply that crosses it writes one staff
+notice a day to the outbox.
+
+**What the plan hash proves, and what it does not.** `planSha256` is the SHA-256 of: the file's bytes, the limit, the operator's account id, `--reinvite-lapsed`, the identity of the database
+(its name and, where the server allows reading it, the cluster's system identifier) and the sorted set of row numbers that apply would create **right now**. `apply` recomputes it against the live
+database. A match therefore means: the same file, limit, operator and flag, the same database, and the same set of rows to create, as a dry run someone looked at. The identity is printed (`databaseIdentity`) with `clusterBound: true|false`.
+A logical copy (dump and restore) has a different cluster identifier and cannot unlock production; a physical clone with the same system identifier and the same database name would. Where `pg_control_system` is unavailable to the connecting role
+(`clusterBound: false`, identity `name:unavailable`) only the database name is bound, which a staging database of the same name would match: check the flag in the dry-run summary. A different limit, a dry run
+against a differently named or logically copied database, or rows that became duplicates since (another run, an application arriving) all refuse with "re-run the dry run"; apply never quietly creates a different set. For the same
+reason a finished file's old hash no longer matches (the set to create is now empty): run the dry run again; it shows nothing to do. It is **not authentication**: anyone who can run the tool and
+read the dry run can produce the hash.
+
+**Safety model (it may run against production).** The tool does not refuse a non-local database, as the importer does. Instead:
+
+* `--operator` names an existing **administrator** (staff user id or email) and is recorded as the reviewer. It is **attribution, not authentication**: nothing proves the person at the keyboard is that account.
+  The real control is who can reach the database and the production environment. Editors cannot be named: the tool issues many links at once and the outbox is administrator-only.
+  The check reads `users.role` from the database. Under editorial SSO that column is set when the staff row is first created and is not refreshed at later sign-ins, and the row keeps no last-sign-in time, so a demotion
+  in the identity provider is **not** seen by this check (the summary shows `operatorSsoManaged`, true for SSO-created rows). No recency window is enforced because none can be: it is a known limitation, mitigated only by who holds the production environment.
+* `apply` requires `--plan-sha256` (above), in every environment.
+* A production target (`CMS_PUBLIC_DEPLOYMENT=1`, or a database that is not a local socket or loopback) requires the complete public-deployment configuration (the CMS runtime validator, including `LIFECYCLE_OUTBOX_DIR`, `LIFECYCLE_PUBLIC_ORIGIN`, no `CMS_LOCAL_BOOTSTRAP`) and `--confirm-production`.
+  A non-local database without `CMS_PUBLIC_DEPLOYMENT=1` is refused as inconsistent. **Caveat:** an SSH tunnel to a production database arrives on loopback, so without `CMS_PUBLIC_DEPLOYMENT=1` it is treated as local and
+  `--confirm-production` is not asked for. Always run the tool with the real production environment loaded (as shown above), not a development profile pointed at a tunnel.
+* Terminal output is fixed text, counts, hashes and the database identity (not secret). The per-address lock waits at most a few seconds (`LIFECYCLE_LOCK_TIMEOUT_MS`, default 3000): a public submission for an address held that long gets the generic 503 `Unavailable.` and stores nothing, and a roster row stops the run with `failure: address-locked`. Two overlapping applies cannot both start: claiming the running slot is atomic and the second is refused (`run-in-progress`). Errors never quote the file, a path or a connection string. The summary is printed first, then the private report is written, so a report failure never hides the run id.
+
+**Journal and rollback.** Each apply is recorded in `roster-runs` (run id, operator id and display name, limit, flag, database identity, the file's and the plan's SHA-256, counts, and who rolled it back and when) with one
+`roster-run-items` row per created application (row number, application and invitation ids). Both are administrator-readable and written only by the tool; the operator's display name stays if the account is deleted. A run that
+creates nothing leaves no entry. A run that has stopped heartbeating for 30 minutes is marked `failed` by the next apply or rollback. `rollback --run ID` revokes the run's invitations and withdraws its applications in one
+transaction **only if none of them was redeemed or linked to a member**; otherwise it changes nothing and reports the counts (`redeemed`, `linked`). After the commit it redacts the run's own mirror files (the existing erasure redaction: names and addresses removed);
+repeating a rollback repeats only that redaction. The outbox database rows are not redacted, as for any withdrawn application.
+
+**What the operator still does by hand.** (1) Deliver each link from the mirror files in `LIFECYCLE_OUTBOX_DIR` privately. (2) For everyone who accepts, create the realm
+user with `provision-member.ts provision --application ID` (section 4); first sign-in then binds the person to their application by verified email. (3) Watch the
+sweep's `unlinkedRedeemedApplications` and `undeliverable` counts. **[OWNER]** who is on the roster, who may run it, how links are delivered at this volume, the per-run limit, and the suppression list above.
+
+**Known gap.** The tool is not in the release bundle: running it on a host needs a source checkout (Bun and `cms/node_modules`), as the importer does. Packaging it is a follow-up.
+
 ## Permissions summary
 
 | Actor | Can |
@@ -347,3 +447,4 @@ the link from the outbox mirror, accept it at `/join/#<token>`, then run the pro
   reports, tombstones, the outbox and audit rows (all current numbers are placeholders).
 * Moderation owner and backup, appeal process, who may approve (editors or only administrators).
 * Whether alumni and current members need different approval evidence.
+* Whether to bulk-invite an existing roster at all, who may run it and at what volume (see Bulk roster onboarding).

@@ -7,11 +7,14 @@
 import { closeSync, constants, fstatSync, openSync, readSync } from 'node:fs'
 import { getPayload } from 'payload'
 import { OutputRefused, writePrivateJson } from '../../web/tools/private-output'
+import { isLocalDatabase } from './local-database'
 import { apply, dryRun, publishExisting, rollback } from './wp-import/apply'
 
 const usage = 'Usage: wp-import.ts dry-run|apply --plan PLAN [--report OUT] [--publish] [--run-id ID] [--overwrite-edited] | publish --plan PLAN [--report OUT] [--run-id ID] [--dry-run] | rollback --run ID [--report OUT] [--discard-edits] [--take-over-stale [--stale-after-minutes N]] [--allow-nonlocal-database]'
 const valueFlags = new Set(['--plan', '--report', '--run-id', '--run', '--stale-after-minutes'])
 const boolFlags = new Set(['--publish', '--overwrite-edited', '--dry-run', '--discard-edits', '--take-over-stale', '--allow-nonlocal-database'])
+
+export { isLocalDatabase }
 
 export function parseArgs(argv: string[]) {
   const [command, ...rest] = argv
@@ -27,24 +30,6 @@ export function parseArgs(argv: string[]) {
   if (values['--stale-after-minutes'] !== undefined && (command !== 'rollback' || !flags.has('--take-over-stale') || !/^[1-9]\d{0,6}$/.test(values['--stale-after-minutes']))) throw new Error(usage)
   if (command === 'rollback' ? !values['--run'] || values['--plan'] : !values['--plan'] || values['--run']) throw new Error(usage)
   return { command, values, flags }
-}
-
-/**
- * The database must be local unless the operator explicitly allows otherwise: a Unix-socket `host=` path or a
- * loopback host. An empty host is NOT local (libpq would fall back to PGHOST), and PGHOST itself must be unset or
- * local. Loopback also admits an SSH tunnel to a remote database, so the flag guards intent, not network topology.
- */
-export function isLocalDatabase(uri: string | undefined, env: Record<string, string | undefined> = process.env): boolean {
-  if (!uri) return false
-  const local = (host: string) => host.startsWith('/') || ['localhost', '127.0.0.1', '[::1]', '::1'].includes(host)
-  try {
-    const url = new URL(uri)
-    if (url.searchParams.getAll('host').length > 1) return false // libpq uses the last one; do not guess
-    const socket = url.searchParams.get('host')
-    if (env.PGHOST && !local(env.PGHOST)) return false
-    if (socket !== null) return local(socket)
-    return url.hostname !== '' && local(url.hostname)
-  } catch { return false }
 }
 
 /**
