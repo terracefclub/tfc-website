@@ -15,6 +15,7 @@ import { Members } from './collections/Members'
 import { communityCollections } from './community/collections'
 import { editorialEndpoints } from './auth/editorial'
 import { lifecycleCollections } from './lifecycle/collections'
+import { rosterCollections } from './lifecycle/roster-collections'
 import { lifecycleEndpoints } from './lifecycle/endpoints'
 import { cmsRuntimeOrigin } from './runtime-policy'
 
@@ -36,7 +37,7 @@ export default buildConfig({
   endpoints: [...editorialEndpoints, ...lifecycleEndpoints],
   editor: lexicalEditor(),
   db: postgresAdapter({ pool: { connectionString: process.env.DATABASE_URI }, push: false }),
-  collections: [Users, Members, Media, Events, Newsletters, Initiatives, Redirects, Posts, Pages, WpImportRuns, WpImportJournal, ...communityCollections, ...lifecycleCollections],
+  collections: [Users, Members, Media, Events, Newsletters, Initiatives, Redirects, Posts, Pages, WpImportRuns, WpImportJournal, ...communityCollections, ...lifecycleCollections, ...rosterCollections],
   typescript: { outputFile: path.resolve(dirname, '../payload-types.ts') },
   cors: [origin],
   csrf: [origin],

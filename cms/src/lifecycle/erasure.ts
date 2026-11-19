@@ -63,6 +63,8 @@ export async function eraseMember(payload: Payload, memberId: number, req?: Payl
   counts['applications-anonymised'] = (await q.query(
     `UPDATE member_applications SET name = 'Erased applicant', contact_email = 'erased@terrace.invalid', note = NULL, decision_note = NULL, class_year = NULL, status = 'withdrawn'
      WHERE id = ANY($1::int[]) OR (member_id IS NULL AND lower(contact_email) = ANY($2::text[]))`, [ids, emails])).rowCount ?? 0
+  // A bulk roster run journals a keyed hash of each row it created; it identifies no one without the CMS secret, but it goes too.
+  await q.query(`UPDATE roster_run_items SET row_hash = NULL WHERE application_id = ANY($1::int[])`, [candidates])
   // A still-pending invitation must not stay redeemable after its person is erased.
   counts['invitations-revoked'] = (await q.query(`UPDATE member_invitations SET status = 'revoked' WHERE status = 'pending' AND (member_id = $1 OR application_id = ANY($2::int[]))`, [memberId, ids])).rowCount ?? 0
   const outbox = await q.query(

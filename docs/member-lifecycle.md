@@ -18,6 +18,7 @@ data stay private; invalid or unapproved authentication fails closed (401/403).
 | Public pages `/apply/`, `/join/#<token>`; member page `/members/account/` | `web/src/routes/` |
 | Spam guard (rate limit, honeypot, signed timing token) | `web/src/lib/server/apply-guard.ts` |
 | Realm user tooling (idempotent) | `identity/tools/provision-member.ts` |
+| Bulk roster onboarding (opt-in operator tool) | `cms/tools/roster-invite.ts`, `cms/src/lifecycle/roster.ts` |
 
 ## Production configuration
 
@@ -317,6 +318,73 @@ Erase. From a source checkout the same housekeeping remains `bun run lifecycle:s
 intermediate `021150`) must be reset: roll back or drop it and run `migrate` again; the migration was
 regenerated and is not an upgrade of those.
 
+## Bulk roster onboarding
+
+**Opt-in and unused by default.** The public `/apply/` form (everyone applies, a reviewer approves) is the only flow the
+website uses. For a club that already holds a roster of members and alumni there is an operator tool that turns a CSV
+into approved applications and invitations, **[OWNER]** whether to use it at all (everyone-applies versus bulk-invite)
+is undecided. Nothing else changes if it is never run: the apply form, approval, invitations, linking and erasure are untouched, and
+the tool only calls the same functions they use.
+
+The tool never sends anything. There is no mail transport; it writes the same outbox mirror files a UI approval does, and
+an operator delivers each link from them.
+
+```sh
+# 1. A dry run reads the file and writes nothing to the database. Terminal output is counts and hashes only.
+cd cms && direnv exec . tools/with-local bun run roster:invite -- dry-run --file ~/.terrace-private/roster.csv --report ~/.terrace-private/roster-dry-run.json [--limit 50]
+# 2. Review the report (row numbers and reasons), then apply exactly that file with its planSha256.
+cd cms && direnv exec . tools/with-local bun run roster:invite -- apply --file ~/.terrace-private/roster.csv --operator admin@example.invalid --plan-sha256 <planSha256 from the dry run> [--limit 50] [--report OUT.json] [--confirm-production]
+# 3. Undo a run that nobody has redeemed or been linked to.
+cd cms && direnv exec . tools/with-local bun run roster:invite -- rollback --run <runId> --operator admin@example.invalid [--confirm-production]
+```
+
+**CSV format.** UTF-8, comma separated (RFC 4180 quoting), a header row required, at most 1 MiB and 2000 rows. Columns:
+`name`, `affiliation` (`current-member` or `alumni`), `class_year` (optional, a four-digit year) and `contact_email`. Cells are trimmed;
+no other column is accepted. Row numbers in reports are spreadsheet rows (the header is row 1). The file must be owned by you with mode `0600`
+in an owner-only directory **outside every Git checkout** (the same refusals as the importer's private outputs); reports are new `0600` files
+there too. The file is never copied or stored: the database holds only what an application holds.
+
+**Validation is the apply form's.** A row is valid exactly when `/apply/` would accept it (one shared function,
+`cms/src/lifecycle/intake-validation.ts`): name 1 to 120 characters, a well-formed address, affiliation, class year 1904 to 2200. The file adds
+three strictnesses of its own: a four-digit class year only, no control characters, and an address that appears more than once in the file rejects
+every row that uses it (`duplicate-email-in-file`). Rejected rows are listed in the report with a row number and a reason, never a name or address.
+
+**What `apply` does**, per valid row, in one transaction: creates the application already `approved` (role granted = the row's affiliation, reviewer =
+the operator, decided now) and calls `issueInvitation`, the function approval calls, so the invitation (using the invitation lifetime setting), its outbox row
+and its mirror file are exactly what an approval produces. Rows that already have a pending or approved application, a live or redeemed invitation, or a
+denied application are skipped with a reason (`application-pending`, `application-approved`, `invitation-live`, `invitation-redeemed`,
+`previously-denied`), so running the same file again changes nothing. An application someone withdrew, or whose invitation expired or was revoked, can be invited again.
+The first failing row stops the run (its transaction rolls back and any link file it wrote is removed); earlier rows stay.
+
+**Bounds.** `--limit N` (default 50) caps the rows created by a run; no setting exceeds the hard maximum of 200. Refused before anything is written: no
+`LIFECYCLE_OUTBOX_DIR`, or a `LIFECYCLE_PUBLIC_ORIGIN` that is not a valid origin (the same check approval makes); a missing `PAYLOAD_SECRET`; a
+`--plan-sha256` that does not match the file. Roster-created invitations count towards the pending-queue size the form protects
+(pending applications plus live invitations above 500): the dry run reports `exceedsPendingCap`, and an apply that crosses it writes one staff
+notice a day to the outbox.
+
+**Safety model (it may run against production).** The tool does not refuse a non-local database, as the importer does. Instead:
+
+* `apply` and `rollback` require `--operator` to name (staff user id or email) an existing **administrator**. Editors cannot run it: it issues many
+  links at once and the outbox is administrator-only. Applications record that account as reviewer.
+* `apply` requires `--plan-sha256`, the `planSha256` of a dry run of the identical file (it covers the file's bytes and the validation outcome of every
+  row, not database state, so re-running a finished file still matches and is a no-op). A production apply is therefore always preceded by a reviewed dry run.
+* A production target (`CMS_PUBLIC_DEPLOYMENT=1`, or any database that is not a local socket or loopback) requires the complete public-deployment
+  configuration (the CMS runtime validator, including `LIFECYCLE_OUTBOX_DIR`, `LIFECYCLE_PUBLIC_ORIGIN` and no `CMS_LOCAL_BOOTSTRAP`) and the explicit
+  `--confirm-production` flag. A non-local database without `CMS_PUBLIC_DEPLOYMENT=1` is refused as inconsistent.
+* Terminal output is fixed text, counts and hashes. Errors never quote the file, a path or a connection string.
+
+**Journal and rollback.** Each apply is recorded in `roster-runs` (run id, operator, counts, the file's and the plan's SHA-256) with one `roster-run-items` row per
+created application: row number, application and invitation ids, and an HMAC of the row under `PAYLOAD_SECRET` (never a name or address; erasure clears it). Both
+are administrator-readable and written only by the tool. A run that creates nothing leaves no entry. `rollback --run ID` revokes the run's invitations and
+withdraws its applications in one transaction **only if none of them was redeemed or linked to a member**; otherwise it changes nothing and reports the counts
+(`redeemed`, `linked`). It does not remove the undelivered link files from the outbox directory: their tokens are dead, but delete them if the addresses should not stay on disk.
+
+**What the operator still does by hand.** (1) Deliver each link from the mirror files in `LIFECYCLE_OUTBOX_DIR` privately. (2) For everyone who accepts, create the realm
+user with `provision-member.ts provision --application ID` (section 4); first sign-in then binds the person to their application by verified email. (3) Watch the
+sweep's `unlinkedRedeemedApplications`. **[OWNER]** who is on the roster, who may run it, how links are delivered at this volume, and the per-run limit.
+
+**Known gap.** The tool is not in the release bundle: running it on a host needs a source checkout (Bun and `cms/node_modules`), as the importer does. Packaging it is a follow-up.
+
 ## Permissions summary
 
 | Actor | Can |
@@ -347,3 +415,4 @@ the link from the outbox mirror, accept it at `/join/#<token>`, then run the pro
   reports, tombstones, the outbox and audit rows (all current numbers are placeholders).
 * Moderation owner and backup, appeal process, who may approve (editors or only administrators).
 * Whether alumni and current members need different approval evidence.
+* Whether to bulk-invite an existing roster at all, who may run it and at what volume (see Bulk roster onboarding).

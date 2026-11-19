@@ -9,6 +9,7 @@ import * as migration_20261119_023303_member_lifecycle from './20261119_023303_m
 import * as migration_20261119_045216_mirrored_at from './20261119_045216_mirrored_at';
 import * as migration_20261119_052852_invitation_link from './20261119_052852_invitation_link';
 import * as migration_20261119_063012_link_indexes from './20261119_063012_link_indexes';
+import * as migration_20261119_161856_roster_journal from './20261119_161856_roster_journal';
 
 export const migrations = [
   {
@@ -64,6 +65,11 @@ export const migrations = [
   {
     up: migration_20261119_063012_link_indexes.up,
     down: migration_20261119_063012_link_indexes.down,
-    name: '20261119_063012_link_indexes'
+    name: '20261119_063012_link_indexes',
+  },
+  {
+    up: migration_20261119_161856_roster_journal.up,
+    down: migration_20261119_161856_roster_journal.down,
+    name: '20261119_161856_roster_journal'
   },
 ];

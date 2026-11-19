@@ -4,6 +4,7 @@ import { eraseMember, finishErasure } from './erasure'
 import { buildExport } from './export'
 import { inspectInvitation, redeemInvitation } from './invitations'
 import { erasureConfirmMs } from './policy'
+import { MAX_PENDING, parseApplication, WARN_PENDING } from './intake-validation'
 import { enqueueMessage } from './outbox'
 import { expireStaleApplications } from './sweep'
 import { constantTimeEqual, hashToken, newToken, tokenShape } from './tokens'
@@ -27,13 +28,6 @@ async function body(req: PayloadRequest): Promise<Record<string, unknown> | null
   } catch { return null }
 }
 
-const emailShape = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/
-const text = (value: unknown, max: number, required = false): string | null | undefined => {
-  if (value == null || value === '') return required ? null : undefined
-  return typeof value === 'string' && value.trim().length <= max && value.trim().length > 0 ? value.trim() : null
-}
-const MAX_PENDING = 500
-const WARN_PENDING = Math.floor(MAX_PENDING * 0.8)
 const EXPORTS_PER_HOUR = 5
 
 export const intake = {
@@ -42,13 +36,9 @@ export const intake = {
     if (denied) return denied
     const data = await body(req)
     if (!data) return json({ error: 'Invalid request.' }, 400)
-    const name = text(data.name, 120, true)
-    const email = text(data.contactEmail, 254, true)?.toLowerCase()
-    const affiliation = data.affiliation
-    const note = text(data.note, 1000)
-    const classYearValue = data.classYear == null || data.classYear === '' ? undefined : Number(data.classYear)
-    if (!name || !email || !emailShape.test(email) || (affiliation !== 'current-member' && affiliation !== 'alumni') || note === null ||
-        (classYearValue !== undefined && (!Number.isInteger(classYearValue) || classYearValue < 1904 || classYearValue > 2200))) return json({ error: 'Check the application fields.' }, 400)
+    const application = parseApplication(data)
+    if (!application) return json({ error: 'Check the application fields.' }, 400)
+    const { name, affiliation, classYear: classYearValue, contactEmail: email, note } = application
     await expireStaleApplications(req.payload)
     const pending = await req.payload.count({ collection: 'member-applications', where: { status: { equals: 'pending' } }, overrideAccess: true })
     if (pending.totalDocs >= WARN_PENDING) {
