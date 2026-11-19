@@ -132,3 +132,35 @@ describe('many old-site links', () => {
     expect(html).not.toContain('href="/old-');
   });
 });
+
+describe('link lookup deadline', () => {
+  test('a stalled CMS cannot hold a first render beyond the overall deadline; unresolved links stay as written and are not cached', async () => {
+    const asked: string[] = [];
+    // Answers the first four lookups at once, then stalls every request until its own abort.
+    const fetch = (input: string | URL, init?: RequestInit) => {
+      const source = new URL(String(input)).searchParams.get('where[sourcePath][equals]')!;
+      asked.push(source);
+      if (asked.length <= 4) return Promise.resolve(Response.json({ docs: [{ sourcePath: source, destinationUrl: `/news${source}`, statusCode: '301', active: true }] }));
+      return new Promise<Response>((_resolve, reject) => init?.signal?.addEventListener('abort', () => reject(new Error('aborted'))));
+    };
+    const resolver = createRedirectResolver({ origin: 'http://cms.test', fetch: fetch as never, timeoutMs: 1500 });
+    const body = Array.from({ length: 25 }, (_, i) => `<a href="/old-${i}/">l${i}</a>`).join(' ');
+    const started = performance.now();
+    const html = await renderBody(body, { resolveOldPath: resolver.destination, lookupDeadlineMs: 250 });
+    const elapsed = performance.now() - started;
+    expect(elapsed).toBeLessThan(900); // far below the 1500 ms request timeout times the 6 batches
+    for (let i = 0; i < 4; i++) expect(html).toContain(`href="/news/old-${i}/"`);
+    for (let i = 4; i < 25; i++) expect(html).toContain(`href="/old-${i}/"`);
+    expect(isSafeHtml(html)).toBe(true);
+    // Only the batch that was in flight was ever asked; the rest were never sent, so they are not negatively cached.
+    expect(asked.length).toBe(8);
+    expect(resolver.size).toBe(4);
+  });
+
+  test('the default deadline is about three seconds', async () => {
+    const started = performance.now();
+    const html = await renderBody('<a href="/slow/">x</a>', { resolveOldPath: () => new Promise<string | null>(resolve => setTimeout(() => resolve('/news/slow/'), 3600)) });
+    expect(performance.now() - started).toBeLessThan(3400);
+    expect(html).toContain('href="/slow/"');
+  }, 6000);
+});

@@ -1,5 +1,5 @@
 import type { Field, Payload, PayloadRequest, Where } from 'payload'
-import { isMember as isStaff } from '../access/rules'
+import { isStaff } from '../access/rules'
 
 /**
  * Content can be hidden for two independent reasons that never interfere: its owner was offboarded

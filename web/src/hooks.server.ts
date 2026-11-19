@@ -6,6 +6,9 @@ import { resolveMemberSession } from '$lib/server/member-auth';
 import { mediaOriginOf } from '$lib/render-body';
 import { contentMode } from '$lib/server/content';
 import { sharedRedirectResolver } from '$lib/server/redirects';
+import { reportProductionConfig } from '$lib/server/production-config';
+
+reportProductionConfig(env);
 
 export const handle: Handle = async ({ event, resolve }) => {
   const editorSignIn = dev && previewEditorLink(event.url.origin, env);

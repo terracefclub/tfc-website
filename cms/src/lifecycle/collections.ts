@@ -1,6 +1,6 @@
 import { APIError, type Access, type CollectionConfig, type Field, type FieldAccess, type PayloadRequest } from 'payload'
 import { isMember as isMemberUser, memberId } from '../access/members'
-import { adminOnly, isAdmin, isMember as isStaff } from '../access/rules'
+import { adminOnly, isAdmin, isStaff } from '../access/rules'
 import { enqueueMessage } from './outbox'
 import { issueInvitation } from './invitations'
 import { eraseMember } from './erasure'
@@ -116,6 +116,8 @@ export const MessageOutbox: CollectionConfig = {
     { name: 'body', type: 'textarea', required: true, admin: readOnly },
     { name: 'status', type: 'select', required: true, defaultValue: 'queued', options: ['queued', 'delivered-by-operator'] },
     { name: 'dedupeKey', type: 'text', unique: true, admin: { hidden: true }, access: { read: fieldNever, create: fieldNever, update: fieldNever } },
+    // Set by the server once the file copy of the message is confirmed written; never writable through the API.
+    { name: 'mirroredAt', type: 'date', admin: { hidden: true }, access: { read: fieldNever, create: fieldNever, update: fieldNever } },
   ],
 }
 

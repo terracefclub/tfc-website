@@ -608,6 +608,27 @@ test('the reconcile step writes a confirmation file once and does not recreate o
   expect(file()).toBeUndefined()
 })
 
+test('a confirmation file that could not be written stays pending and is retried by the next sweep', async () => {
+  const subject = await makeMember(`Pending Mirror ${suffix}`)
+  await offboard(subject)
+  await payload.create({ collection: 'data-requests', data: { member: subject.id, kind: 'erasure' }, user: admin, overrideAccess: false })
+  const row = (await q(`SELECT id FROM message_outbox WHERE recipient_label = $1`, [`Former member #${subject.id}`])).rows[0]
+  const prefix = String(row.id).padStart(6, '0') + '-'
+  const target = join(outbox, `${prefix}erasure-confirmation.json`)
+  mkdirSync(target) // a directory where the file belongs: the write fails
+  const mirroredAt = async () => (await q(`SELECT mirrored_at FROM message_outbox WHERE id = $1`, [row.id])).rows[0].mirrored_at
+  try {
+    const failed = await sweep(payload)
+    expect(failed.mirror).toMatchObject({ written: 0 })
+    expect((failed.mirror as any).failed).toBeGreaterThanOrEqual(1)
+    expect(await mirroredAt()).toBeNull() // not marked: the next sweep tries again
+  } finally { rmSync(target, { recursive: true }) }
+  expect((await sweep(payload)).mirror.written).toBeGreaterThanOrEqual(1)
+  expect(statSync(target).isFile()).toBe(true)
+  expect(await mirroredAt()).not.toBeNull()
+  expect((await q(`SELECT dedupe_key FROM message_outbox WHERE id = $1`, [row.id])).rows[0].dedupe_key).toBeNull() // the marker no longer borrows the dedupe key
+})
+
 test('purging the stories of a hidden group blanks their report snapshots', async () => {
   const founder = await makeMember(`Group Purge Founder ${suffix}`)
   const reporter = await makeMember(`Group Purge Reporter ${suffix}`, ['current-member'])

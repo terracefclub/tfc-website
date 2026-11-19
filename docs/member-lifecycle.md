@@ -32,6 +32,29 @@ bootstrap; never print or commit them):
 | `LIFECYCLE_INVITATION_DAYS` | Invitation lifetime, default 7. **[OWNER]** placeholder. |
 | `LIFECYCLE_GRACE_DAYS` | Offboarding and moderation grace period, default 30. **[OWNER]** placeholder. |
 
+## Production configuration
+
+Everything the member lifecycle and the imported-content frontend need in production, in one place. The CMS
+refuses to start in a public deployment (`CMS_PUBLIC_DEPLOYMENT=1`) when its own rows are invalid
+(`cms/src/runtime-policy.ts`, covered by `cms/test/runtime-policy.test.ts`). The website never refuses to start
+for these; it logs one `[config]` line per missing setting at startup (names only, never values;
+`web/src/lib/server/production-config.ts`) and the affected feature fails closed, as the last column says.
+Provide them through protected service credentials or an external owner-only environment file, never in the bundle.
+
+| Variable | Component | Purpose | When unset or invalid |
+| --- | --- | --- | --- |
+| `LIFECYCLE_OUTBOX_DIR` | CMS | Absolute directory outside the code, media and `/nix/store` for the outbox file mirror (invitation links exist only there). Must be writable by the CMS user and the sweep. | Public CMS refuses to start. Elsewhere approving an application fails with 503 and rolls back. |
+| `LIFECYCLE_PUBLIC_ORIGIN` | CMS | Bare public `https` origin used in invitation links. | Public CMS refuses to start. Elsewhere approval fails with 503 (no loopback default in production). |
+| `LIFECYCLE_INTAKE_SECRET` | CMS and website (same value, 32+ characters) | Authenticates the website's calls to `/api/lifecycle/apply` and `/redeem`. | Endpoints answer 503 and `/apply/` and `/join/` show "not open"; the website logs a `[config]` line. |
+| `ADDRESS_HEADER` (with `XFF_DEPTH` for `X-Forwarded-For`) | Website | Header the proxy overwrites with the real client address, so the `/apply/` rate limit sees visitors rather than the proxy. | `/apply/` stays closed in production, and a `[config]` line is logged. |
+| `LIFECYCLE_DIRECT_CLIENTS=1` | Website | Alternative to `ADDRESS_HEADER`: states there is no proxy in front of the website. | Same as above if neither is set. |
+| `CMS_ORIGIN` | Website | Trusted server-to-server origin of the CMS (content, redirects, lifecycle calls). | The website falls back to sample content; a `[config]` line is logged. |
+| `CMS_PUBLIC_ORIGIN` | Website | Public HTTPS origin that serves `/api/media/file/...`; the only origin imported body images and the news/pages CSP may use. | Every image in imported bodies is dropped and the CSP names no media origin; a `[config]` line is logged. |
+| `LIFECYCLE_APPLICATION_DAYS`, `LIFECYCLE_INVITATION_DAYS`, `LIFECYCLE_GRACE_DAYS` | CMS | Placeholder retention periods (60, 7, 30 days). **[OWNER]** | The defaults apply. |
+
+The member sign-in, editorial sign-in, secrets and media directory settings are validated by the same CMS policy and are
+described in `cms/README.md` and `web/README.md`; `ORIGIN` for the website is in `tools/release/README.md`.
+
 ## 1. Apply
 
 A visitor opens `/apply/` and gives a name, whether they are a current member or alumnus/alumna, an
@@ -204,7 +227,7 @@ rolled-back erasure never touches them). If that file step fails, the erasure st
 `mirror: pending` and `lifecycle:sweep` completes it (it is idempotent). An administrator-initiated erasure runs
 inside the admin save, so it cannot redact mirror files or write its confirmation file itself: **run
 `lifecycle:sweep` after every administrator-initiated erasure** (the Data requests admin page says so too). The
-confirmation file is written once and marked, so a copy an operator deletes is not recreated. Staff notices
+confirmation file is written once and marked (`mirrored_at`, set only after the file is confirmed written), so a copy an operator deletes is not recreated; a write that fails leaves the row unmarked and the next sweep retries it, reporting the count as `mirror.failed`. Staff notices
 (`staff-notice`) have a mirror file only if the directory was writable at the time; otherwise they are visible
 in the admin outbox only. Erasure and offboarding also **revoke any still-pending invitation** for the person,
 so its link answers like any dead token.
@@ -227,6 +250,22 @@ moderation-hidden content only with `--purge-moderated` (in one transaction, mem
 purged group first) and blanks the snapshots of reports about what it deleted; offboarded members are never
 erased automatically. **[OWNER]** retention periods (including how long reports and their notes are kept)
 before a scheduled run is added.
+
+**Scheduling.** The sweep is manual; nothing in this repository runs it on a timer. The release bundles
+(`tools/release/`) contain only `bin/start` and, for the CMS, `bin/migrate`: they have no systemd unit, timer or
+cron definition and no packaged sweep entrypoint (the sweep is a Bun script and bundles carry no Bun). Recommended:
+once a day at a quiet hour (for example 03:30 server time), without `--purge-moderated` until the owner sets retention
+periods. Until a packaged entrypoint exists, run it from a source checkout of the deployed revision with the CMS runtime
+environment (`DATABASE_URI`, `PAYLOAD_SECRET`, `LIFECYCLE_OUTBOX_DIR` and the rest of the CMS configuration):
+
+```sh
+cd /path/to/checkout/cms && bun run lifecycle:sweep   # JSON summary on stdout; a non-zero `mirror.failed` means some files are still pending
+```
+
+The platform repository (Womb) must own the timer and its service account (the account must be able to write
+`LIFECYCLE_OUTBOX_DIR`); this repository defines no infrastructure. Run it also after every administrator-initiated
+erasure, as described under Erase. Follow-up for the release layout: package a `bin/sweep` entrypoint built like
+`bin/migrate` so the timer does not need a source checkout.
 
 **Local databases.** A development database that ran the discarded early migration `20261119_014038` (or an
 intermediate `021150`) must be reset: roll back or drop it and run `migrate` again; the migration was

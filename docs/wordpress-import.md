@@ -215,8 +215,14 @@ Titles and excerpts are rendered as text. The date is shown in `America/New_York
 the title; the description uses `seoDescription` then the excerpt; each page has a canonical URL from the request origin.
 Draft, private and missing slugs (and malformed ones) all return the identical 404 page, so a draft's existence is not
 disclosed; the API request itself also asks only for `_status=published` and the client refuses any document that is not.
-The existing editor preview toggle only switches between sample and published content, so posts and pages follow it and no
-draft preview exists for them. A CMS outage is a 503 on these routes, as for events.
+The existing editor preview toggle only switches between sample and published content, so posts and pages follow it.
+**Known gap: no draft preview exists for any collection.** Events, Newsletters, Initiatives, Posts and Pages all have
+Payload drafts (`versions: { drafts: true }`), but none configures Payload live preview or an admin preview URL, and the
+website reads only published documents with no preview route or secret. Editors therefore review an imported draft in the
+Payload admin (the fields and the rich text) and see how it looks on the site only after publishing. Building a draft preview
+(a signed preview route in the website plus a preview URL in the collections, with the same editorial access checks) is
+deliberately not done here and needs an owner decision on how editors authenticate to the website. A CMS outage is a 503
+on these routes, as for events.
 
 ### Render-time sanitization
 

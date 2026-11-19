@@ -1,5 +1,5 @@
 import { AuthenticationError, type CollectionConfig } from 'payload'
-import { adminField, adminOnly, isAdmin, isMember } from '@/access/rules'
+import { adminField, adminOnly, isAdmin, isStaff } from '@/access/rules'
 import { editorialEnabled, editorialSettings } from '@/auth/editorial-policy'
 import { editorialSession } from '@/auth/editorial-session'
 import { editorialStrategy } from '@/auth/editorial'
@@ -32,10 +32,10 @@ export const Users: CollectionConfig = {
     }],
   },
   access: {
-    admin: ({ req }) => isMember(req.user),
+    admin: ({ req }) => isStaff(req.user),
     create: sso ? () => false : adminOnly,
-    read: ({ req }) => isAdmin(req.user) || (isMember(req.user) ? { id: { equals: req.user!.id } } : false),
-    update: sso ? () => false : ({ req, id }) => isAdmin(req.user) || (isMember(req.user) && String(req.user!.id) === String(id)),
+    read: ({ req }) => isAdmin(req.user) || (isStaff(req.user) ? { id: { equals: req.user!.id } } : false),
+    update: sso ? () => false : ({ req, id }) => isAdmin(req.user) || (isStaff(req.user) && String(req.user!.id) === String(id)),
     delete: sso ? () => false : adminOnly,
   },
   fields: [
