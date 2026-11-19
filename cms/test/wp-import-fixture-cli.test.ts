@@ -3,7 +3,7 @@ import { chmodSync, copyFileSync, mkdtempSync, readFileSync, rmSync, statSync, s
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { OutputRefused } from '../../web/tools/private-output'
-import { failureLine, readPlan } from '../tools/wp-import'
+import { failureLine, isLocalDatabase, readPlan } from '../tools/wp-import'
 
 // The documented way to try the committed synthetic plan (docs/wordpress-import.md, "Trying the synthetic fixture"): copy it into a private
 // directory with mode 0600, then run the CLI from there. Git checks the fixture out as 0644, which the tool rightly refuses.
@@ -12,8 +12,10 @@ const fixture = join(import.meta.dir, 'fixtures', 'wp-import-plan.synthetic.json
 const stamp = crypto.randomUUID().slice(0, 6)
 const privateDirectory = mkdtempSync(join(tmpdir(), 'terrace-wp-fixture-'))
 const plan = join(privateDirectory, 'wp-import-plan.json')
+// CI runs against a database service that is not on the loopback; the tool's own guard asks for the explicit flag there (the local run needs none).
+const nonlocal = isLocalDatabase(process.env.DATABASE_URI) ? [] : ['--allow-nonlocal-database']
 const run = (args: string[]) => {
-  const result = Bun.spawnSync(['bun', 'tools/wp-import.ts', ...args], { cwd: cms, env: process.env as Record<string, string>, stdout: 'pipe', stderr: 'pipe' })
+  const result = Bun.spawnSync(['bun', 'tools/wp-import.ts', ...args, ...nonlocal], { cwd: cms, env: process.env as Record<string, string>, stdout: 'pipe', stderr: 'pipe' })
   return { code: result.exitCode, out: result.stdout.toString(), err: result.stderr.toString() }
 }
 const summaryOf = (out: string) => JSON.parse(out.slice(out.indexOf('\n{\n') + 1))
