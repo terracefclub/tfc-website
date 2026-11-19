@@ -242,10 +242,8 @@ test('an unconfigured or failing CMS fails closed with a generic message and no 
 
 test('the application page renders a hidden honeypot and the page is not indexable or cacheable', async () => {
   const { load } = await applyModule();
-  const headers: Record<string, string> = {};
-  const data = (load as any)({ setHeaders: (value: Record<string, string>) => Object.assign(headers, value), getClientAddress: () => 'page' });
-  expect(headers['cache-control']).toBe('private, no-store');
-  expect(headers['x-robots-tag']).toContain('noindex');
+  // Cache and robots policy is the hooks' job (asserted end to end in no-script-forms.test.ts); load must not set headers.
+  const data = (load as any)({ getClientAddress: () => 'page' });
   const component = (await vite.ssrLoadModule('/src/routes/apply/+page.svelte')).default;
   const { document } = parseHTML(render(component, { props: { data, form: null } }).body);
   expect(document.querySelector('input[name="website"]')?.getAttribute('tabindex')).toBe('-1');
@@ -261,18 +259,16 @@ const joinRequest = (values: Record<string, string>) => new Request('http://127.
 
 test('the token is redeemed once from a POST body, never from the URL, with referrer and cache protection', async () => {
   const { load, actions } = await joinModule();
-  const headers: Record<string, string> = {};
-  expect(await (load as any)({ setHeaders: (value: Record<string, string>) => Object.assign(headers, value) })).toEqual({});
-  expect(headers['referrer-policy']).toBe('no-referrer');
-  expect(headers['cache-control']).toBe('private, no-store');
+  // The no-store, noindex and no-referrer headers come from the hooks (asserted end to end in no-script-forms.test.ts).
+  expect(await (load as any)({})).toEqual({});
   expect(calls).toHaveLength(0); // loading the page, as a link scanner would, uses nothing up
   respond = () => Response.json({ valid: true, role: 'alumni', name: 'Pat' });
-  expect(await (actions as any).default({ request: joinRequest({ token }), setHeaders: () => undefined })).toEqual({ state: 'accepted' });
+  expect(await (actions as any).default({ request: joinRequest({ token }) })).toEqual({ state: 'accepted' });
   expect(calls[0].body).toEqual({ token, consume: true });
   expect(calls[0].path).toBe('/api/lifecycle/redeem');
   expect(calls[0].headers.get('x-terrace-intake')).toBe(secret);
   respond = () => Response.json({ valid: false }, { status: 404 });
-  expect(((await (actions as any).default({ request: joinRequest({ token }), setHeaders: () => undefined })) as any).status).toBe(404);
+  expect(((await (actions as any).default({ request: joinRequest({ token }) })) as any).status).toBe(404);
 });
 
 test('malformed tokens never reach the CMS; outages are not reported as invalid links', async () => {
@@ -283,7 +279,7 @@ test('malformed tokens never reach the CMS; outages are not reported as invalid 
   expect(((await (actions as any).default({ request: joinRequest({}), setHeaders: () => undefined })) as any).status).toBe(404);
   expect(calls).toHaveLength(0);
   respond = () => new Response(null, { status: 500 });
-  expect(((await (actions as any).default({ request: joinRequest({ token }), setHeaders: () => undefined })) as any).status).toBe(503);
+  expect(((await (actions as any).default({ request: joinRequest({ token }) })) as any).status).toBe(503);
 });
 
 test('the invitation page offers a paste field without script, and says what happens next', async () => {

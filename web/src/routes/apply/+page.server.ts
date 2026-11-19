@@ -3,10 +3,9 @@ import type { Actions, PageServerLoad } from './$types';
 import { applyGuard, clientAddressConfigured, intakeSecret } from '$lib/server/apply-guard';
 import { intake } from '$lib/server/lifecycle';
 
-const headers = { 'cache-control': 'private, no-store', 'x-robots-tag': 'noindex, nofollow' } as const;
-
-export const load: PageServerLoad = ({ setHeaders, getClientAddress }) => {
-  setHeaders(headers);
+// Cache, robots and referrer policy for this route is set once, in hooks.server.ts (see routePolicy). Setting a header here
+// as well would throw when SvelteKit re-runs `load` after a no-script POST.
+export const load: PageServerLoad = ({ getClientAddress }) => {
   try { intakeSecret(); if (!clientAddressConfigured()) throw new Error('proxy'); return { open: true, token: applyGuard.issue(getClientAddress()) }; }
   catch { return { open: false, token: '' }; }
 };
@@ -37,8 +36,7 @@ function text(form: FormData, name: string, max: number, required: boolean): str
 }
 
 export const actions: Actions = {
-  default: async ({ request, getClientAddress, setHeaders }) => {
-    setHeaders(headers);
+  default: async ({ request, getClientAddress }) => {
     const form = await request.formData();
     let verdict: ReturnType<typeof applyGuard.check>;
     try { if (!clientAddressConfigured()) throw new Error('proxy'); verdict = applyGuard.check({ token: form.get('t'), honeypot: form.get('website'), client: getClientAddress() }); }
