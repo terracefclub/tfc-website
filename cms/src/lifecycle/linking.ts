@@ -15,7 +15,7 @@ export type LinkResult = { invitations: number; applications: number }
  * Two applications with one address both bind to the first member who signs in with it.
  *
  * Cost and cadence: right after the member row is created it runs; afterwards (a person may sign in before accepting the link)
- * it runs only when one indexed-status query finds a redeemed, unlinked invitation for this address, so an ordinary request costs
+ * it runs only when one query (served by the partial indexes of migration `20261119_*_link_indexes`) finds a redeemed, unlinked invitation for this address, so an ordinary request costs
  * one cheap read. Races: the member row is locked first (`FOR UPDATE`) and its status re-checked, so a bind can never land after an
  * erasure took the same lock (erasure locks the member first too); candidate rows are then locked applications first, then
  * invitations, each in id order, so concurrent first sign-ins queue instead of deadlocking.

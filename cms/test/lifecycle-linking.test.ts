@@ -11,7 +11,7 @@ import { countUnlinkedRedeemed, linkMemberToApplications } from '../src/lifecycl
 import { reconcileMirror } from '../src/lifecycle/outbox'
 import { spawnSync } from 'node:child_process'
 import { invitationState } from '../src/lifecycle/outbox'
-import { sweep } from '../src/lifecycle/sweep'
+import { sweep, sweepExit } from '../src/lifecycle/sweep'
 import { pool } from '../src/lifecycle/visibility'
 
 // A real signed token verified against a local identity stub (signature, audience and introspection), so the
@@ -190,10 +190,10 @@ test('the admin forms: offboarding and erasure requests choose a member on creat
 
 async function applyApproveRedeem(name: string, email: string, role: 'alumni' | 'current-member' = 'alumni') {
   expect((await intake.apply(request(null, { name, affiliation: 'alumni', contactEmail: email, note: `Note from ${name}` }, { 'x-terrace-intake': secret }))).status).toBe(202)
-  const application = (await payload.find({ collection: 'member-applications', where: { contactEmail: { equals: email } }, overrideAccess: true })).docs[0]
+  const application = (await payload.find({ collection: 'member-applications', where: { and: [{ contactEmail: { equals: email } }, { status: { equals: 'pending' } }] }, overrideAccess: true })).docs[0]
   await payload.update({ collection: 'member-applications', id: application.id, data: { status: 'approved', grantRole: role }, user: editor, overrideAccess: false })
   const invitation = (await payload.find({ collection: 'member-invitations', where: { application: { equals: application.id } }, overrideAccess: true })).docs[0]
-  const file = mirror().find((entry) => JSON.parse(entry.text).to === email && JSON.parse(entry.text).kind === 'invitation')!
+  const file = mirror().filter((entry) => JSON.parse(entry.text).to === email && JSON.parse(entry.text).kind === 'invitation').at(-1)!
   const token = /#([A-Za-z0-9_-]{43})/.exec(JSON.parse(file.text).body)![1]
   return { application, invitation, token }
 }
@@ -398,4 +398,28 @@ test('the sweep process exits by itself with code 0 within a bound, and says whe
   const saved = process.env.LIFECYCLE_OUTBOX_DIR
   delete process.env.LIFECYCLE_OUTBOX_DIR
   try { expect(await reconcileMirror(payload)).toMatchObject({ redacted: 0, written: 0, skipped: 'outbox directory not configured' }) } finally { process.env.LIFECYCLE_OUTBOX_DIR = saved }
+})
+
+test('erasure scrubs two applications sharing one address (same lock order as the bind) and leaves them terminal', async () => {
+  const name = `Dora Twin ${suffix}`, email = `dora-twin-${suffix}@terrace.invalid`
+  const one = await applyApproveRedeem(name, email)
+  const two = await applyApproveRedeem(`${name} again`, email)
+  await redeem(one.token); await redeem(two.token)
+  const member = await signIn(`sub-dora-${suffix}`, { name, email, email_verified: true })
+  expect(await links(one.application.id, one.invitation.id)).toEqual({ application: member.id, invitation: member.id })
+  expect(await links(two.application.id, two.invitation.id)).toEqual({ application: member.id, invitation: member.id })
+  const code = (await (await own.erasure(request(member, { step: 'request' }))).json() as any).confirmationCode
+  expect((await own.erasure(request(member, { step: 'confirm', token: code }))).status).toBe(200)
+  await sweep(payload)
+  for (const id of [one.application.id, two.application.id]) expect((await q(`SELECT name, contact_email, status FROM member_applications WHERE id = $1`, [id])).rows[0]).toEqual({ name: 'Erased applicant', contact_email: 'erased@terrace.invalid', status: 'withdrawn' })
+  expect(await everyTable([`dora-twin-${suffix}`, `Dora Twin ${suffix}`])).toEqual([])
+})
+
+test('the sweep exit code names every cause, including an unreadable unlinked count', () => {
+  const ok = { mirror: { redacted: 0, written: 0 }, unlinkedRedeemedApplications: 0 }
+  expect(sweepExit(ok, {})).toEqual({ code: 0, lines: [] })
+  expect(sweepExit({ ...ok, unlinkedRedeemedApplications: -1 }, {})).toEqual({ code: 1, lines: ['lifecycle sweep: could not count unlinked redeemed applications'] })
+  expect(sweepExit({ ...ok, mirror: { redacted: 0, written: 0, skipped: 'outbox directory not configured' } }, {}).code).toBe(0)
+  expect(sweepExit({ ...ok, mirror: { redacted: 0, written: 0, skipped: 'outbox directory not configured' } }, { CMS_PUBLIC_DEPLOYMENT: '1' }).code).toBe(1)
+  expect(sweepExit({ ...ok, mirror: { redacted: 0, written: 0, failed: 2 } }, {}).lines).toEqual(['lifecycle sweep: some mirror files could not be written or redacted'])
 })

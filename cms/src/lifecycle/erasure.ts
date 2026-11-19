@@ -41,6 +41,9 @@ export async function eraseMember(payload: Payload, memberId: number, req?: Payl
   const linked = await q.query(`SELECT a.id, a.contact_email FROM member_applications a WHERE a.member_id = $1 UNION SELECT a.id, a.contact_email FROM member_invitations i JOIN member_applications a ON a.id = i.application_id WHERE i.member_id = $1`, [memberId])
   const ids = linked.rows.map((row) => Number(row.id))
   const emails = [...new Set(linked.rows.map((row) => String(row.contact_email).toLowerCase()))]
+  // Same lock order as a sign-in's bind (linking.ts): member, then applications by id, then invitations by id.
+  const candidates = (await q.query(`SELECT id FROM member_applications WHERE id = ANY($1::int[]) OR (member_id IS NULL AND lower(contact_email) = ANY($2::text[])) ORDER BY id FOR UPDATE`, [ids, emails])).rows.map((row) => Number(row.id))
+  await q.query(`SELECT id FROM member_invitations WHERE member_id = $1 OR application_id = ANY($2::int[]) ORDER BY id FOR UPDATE`, [memberId, candidates])
 
   for (const [collection, field] of [['member-stories', 'author'], ['member-profiles', 'member'], ['mentorship-offers', 'member'], ['group-memberships', 'member']] as const) {
     const result = await payload.delete({ collection, where: { [field]: { equals: memberId } }, overrideAccess: true, req })
@@ -58,7 +61,7 @@ export async function eraseMember(payload: Payload, memberId: number, req?: Payl
   await q.query(`UPDATE moderation_reports SET detail = NULL, resolution_note = NULL, snapshot_title = $2, snapshot_body = $2, reporter_id = NULL WHERE reporter_id = $1`, [memberId, REMOVED])
   await q.query(`UPDATE member_offboardings SET reason = NULL, notice_email = NULL, state = 'erased' WHERE member_id = $1`, [memberId])
   counts['applications-anonymised'] = (await q.query(
-    `UPDATE member_applications SET name = 'Erased applicant', contact_email = 'erased@terrace.invalid', note = NULL, decision_note = NULL, class_year = NULL
+    `UPDATE member_applications SET name = 'Erased applicant', contact_email = 'erased@terrace.invalid', note = NULL, decision_note = NULL, class_year = NULL, status = 'withdrawn'
      WHERE id = ANY($1::int[]) OR (member_id IS NULL AND lower(contact_email) = ANY($2::text[]))`, [ids, emails])).rowCount ?? 0
   // A still-pending invitation must not stay redeemable after its person is erased.
   counts['invitations-revoked'] = (await q.query(`UPDATE member_invitations SET status = 'revoked' WHERE status = 'pending' AND (member_id = $1 OR application_id = ANY($2::int[]))`, [memberId, ids])).rowCount ?? 0

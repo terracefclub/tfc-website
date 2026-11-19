@@ -47,6 +47,7 @@ test('production artifact derives its clients, audiences and disjoint scope role
   expect(Object.keys(artifact.components)).toEqual(['org.keycloak.userprofile.UserProfileProvider'])
   const provider = artifact.components['org.keycloak.userprofile.UserProfileProvider']
   expect(provider).toHaveLength(1)
+  expect(Object.keys(provider[0].subComponents ?? {})).toEqual([])
   const profile = JSON.parse(provider[0].config['kc.user.profile.config'][0])
   expect(profile.attributes.find((attribute: { name: string }) => attribute.name === 'email').permissions.edit).toEqual(['admin'])
   expect(profile.attributes.map((attribute: { name: string }) => attribute.name)).toEqual(['username', 'email', 'firstName', 'lastName'])

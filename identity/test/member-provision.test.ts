@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { approvedApplicationEmail, assertLoopbackOrigin, offboardRealmUser, provisionMember, type Api } from '../tools/member-provision'
+import { approvedApplicationEmail, approvedEmailQuery, connectionEnv, erasedEmail, lookupWithPsql, assertLoopbackOrigin, offboardRealmUser, provisionMember, type Api } from '../tools/member-provision'
 
 // A small in-memory Keycloak admin API: users, realm roles and role mappings.
 function fakeKeycloak() {
@@ -97,4 +97,24 @@ test('the realm user email comes from an approved application, never free typing
   await expect(approvedApplicationEmail('7', lookup, 'applicant+x@terrace.invalid')).rejects.toThrow('does not match')
   await expect(approvedApplicationEmail('8', lookup)).rejects.toThrow('No approved application')
   for (const bad of ['', '0', '7; drop table x', '-1', 'abc']) await expect(approvedApplicationEmail(bad, lookup)).rejects.toThrow('numeric id')
+})
+
+test('an erased application can never get a realm user, and the psql lookup keeps the connection string out of argv and errors', async () => {
+  await expect(approvedApplicationEmail('9', async () => erasedEmail)).rejects.toThrow('No approved application')
+  await expect(provisionMember(fakeKeycloak().api, { ...input, email: erasedEmail.toUpperCase() })).rejects.toThrow('valid email')
+  expect(approvedEmailQuery).toContain("<> 'erased@terrace.invalid'")
+  expect(approvedEmailQuery).toContain("<> 'Erased applicant'")
+  expect(approvedEmailQuery).toContain("('pending', 'redeemed')")
+  const uri = 'postgresql://cms_user:s3cret-pw@127.0.0.1:5999/terrace_cms'
+  expect(connectionEnv(uri)).toEqual({ PGHOST: '127.0.0.1', PGPORT: '5999', PGDATABASE: 'terrace_cms', PGUSER: 'cms_user', PGPASSWORD: 's3cret-pw' })
+  expect(connectionEnv('postgresql:///terrace_cms?host=/tmp/sock&port=55432')).toEqual({ PGHOST: '/tmp/sock', PGPORT: '55432', PGDATABASE: 'terrace_cms' })
+  let seen: { args: string[]; env: Record<string, string> } | undefined
+  const found = await lookupWithPsql(uri, (args, env) => { seen = { args, env }; return 'a@terrace.invalid\n' })(4)
+  expect(found).toBe('a@terrace.invalid')
+  expect(JSON.stringify(seen!.args)).not.toMatch(/s3cret|127\.0\.0\.1|postgresql/)
+  const failure = await lookupWithPsql(uri, () => { throw new Error(`Command failed: psql ${uri}`) })(4).catch((error: Error) => error)
+  expect((failure as Error).message).toBe('Could not read the application from the local database; nothing was changed.')
+  expect((failure as Error).message).not.toContain('s3cret')
+  expect(await lookupWithPsql(uri, () => '')(4)).toBeNull()
+  await expect(lookupWithPsql(undefined, () => '')(4)).rejects.toThrow('DATABASE_URI')
 })

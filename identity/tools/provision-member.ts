@@ -3,7 +3,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'n
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
-import { approvedApplicationEmail, assertLoopbackOrigin, isMemberRole, offboardRealmUser, provisionMember, type Api } from './member-provision'
+import { approvedApplicationEmail, assertLoopbackOrigin, lookupWithPsql, isMemberRole, offboardRealmUser, provisionMember, type Api } from './member-provision'
 import { keycloakOrigin } from './realm-config'
 
 // Operator tool for the LOCAL synthetic realm. See docs/member-lifecycle.md.
@@ -41,11 +41,7 @@ if (command === 'offboard') {
   console.log(result.found ? `Disabled ${args.username}; removed ${result.rolesRemoved} member role(s); sessions ended.` : `No realm user named ${args.username}; nothing to do.`)
 } else {
   if (!isMemberRole(args.role)) throw new Error('--role must be current-member or alumni.')
-  const lookup = async (id: number) => {
-    if (!process.env.DATABASE_URI) throw new Error('DATABASE_URI (the local CMS database) is required to read the application; run through cms/tools/with-local.')
-    const out = execFileSync('psql', [process.env.DATABASE_URI, '-Atq', '-v', `id=${id}`], { encoding: 'utf8', input: "select contact_email from member_applications where id = :id and status = 'approved'" }).trim()
-    return out || null
-  }
+  const lookup = lookupWithPsql(process.env.DATABASE_URI, (psqlArgs, env, input) => execFileSync('psql', psqlArgs, { encoding: 'utf8', input, env: { ...process.env, ...env }, stdio: ['pipe', 'pipe', 'ignore'] }))
   const email = await approvedApplicationEmail(args.application ?? '', lookup, args.email)
   const result = await provisionMember(api, { username: args.username ?? '', email, name: args.name ?? '', role: args.role, temporaryPassword: () => randomBytes(18).toString('base64url') })
   if (result.password) {

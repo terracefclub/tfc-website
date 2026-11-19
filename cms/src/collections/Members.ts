@@ -47,7 +47,7 @@ export const Members: CollectionConfig = {
     }],
   },
   hooks: {
-    // Payload does not access-check `sort`, so an administrator could order the list by a hidden field and learn from the order. Only these are allowed.
+    // Payload validates `sort` against the schema (and hidden fields are not queryable), but this list is sorted by two fields only: the allow-list is an explicit, reviewable bound on what an administrator can order by.
     beforeOperation: [({ args, operation }) => {
       const sort = operation === 'read' ? (args as { sort?: string | string[] }).sort : undefined
       if (sort === undefined) return args
