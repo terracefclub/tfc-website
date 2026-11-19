@@ -1,7 +1,8 @@
 import { APIError, type CollectionConfig, type Field, type Where } from 'payload'
 import { memberId } from '../access/members'
 import { adminOnly, isAdmin } from '../access/rules'
-import { joinedGroups, keepOwner, memberName, membersOnly, never, own, privateOperation, readableStories, relationId, storyAudience } from './access'
+import { joinedGroups, keepOwner, memberName, membersOnly, membersVisible, never, own, ownVisible, privateOperation, readableStories, relationId, storyAudience } from './access'
+import { hiddenFields, visible } from '../lifecycle/visibility'
 
 const text = (name: string, maxLength: number, required = false, type: 'text' | 'textarea' = 'text'): Field => {
   const options = { name, required, maxLength, validate: (value: unknown) => value == null && !required || typeof value === 'string' && value.length <= maxLength && (!required || value.trim().length > 0) || `Enter ${required ? 'some text, ' : ''}up to ${maxLength} characters.` }
@@ -16,9 +17,9 @@ export const MemberProfiles: CollectionConfig = {
     create: membersOnly,
     read: ({ req }): boolean | Where => {
       const id = memberId(req)
-      return id ? { or: [{ member: { equals: id } }, { directoryVisible: { equals: true } }] } : false
+      return id ? { and: [visible, { or: [{ member: { equals: id } }, { directoryVisible: { equals: true } }] }] } : false
     },
-    update: own('member'), delete: own('member'),
+    update: ownVisible('member'), delete: ownVisible('member'),
   },
   hooks: { beforeValidate: [keepOwner('member')] },
   fields: [
@@ -26,17 +27,19 @@ export const MemberProfiles: CollectionConfig = {
     { name: 'classYear', type: 'number', min: 1904, max: 2200, validate: (value: unknown) => value == null || typeof value === 'number' && Number.isInteger(value) && value >= 1904 && value <= 2200 || 'Enter a valid class year.' },
     text('bio', 2000, false, 'textarea'), text('interests', 300),
     { name: 'directoryVisible', type: 'checkbox', required: true, defaultValue: false },
+    ...hiddenFields,
   ],
 }
 
 export const MemberStories: CollectionConfig = {
   slug: 'member-stories', admin: hiddenAdmin,
-  access: { create: membersOnly, read: readableStories, update: own('author'), delete: own('author') },
+  access: { create: membersOnly, read: readableStories, update: ownVisible('author'), delete: ownVisible('author') },
   hooks: { beforeValidate: [keepOwner('author'), ({ data, req, operation, originalDoc }) => ({ ...data, authorName: operation === 'create' ? memberName(req) : originalDoc?.authorName })], beforeChange: [storyAudience] },
   fields: [
     member('author'), text('authorName', 100, true), text('title', 140, true), text('body', 10000, true, 'textarea'),
     { name: 'audience', type: 'select', required: true, defaultValue: 'community', options: ['community', 'group'] },
     { name: 'group', type: 'relationship', relationTo: 'member-groups' },
+    ...hiddenFields,
   ],
 }
 
@@ -78,7 +81,7 @@ const StoryReports: CollectionConfig = {
 
 export const MemberGroups: CollectionConfig = {
   slug: 'member-groups', admin: hiddenAdmin,
-  access: { create: membersOnly, read: membersOnly, update: own('owner'), delete: never },
+  access: { create: membersOnly, read: membersVisible, update: ownVisible('owner'), delete: never },
   hooks: {
     beforeValidate: [keepOwner('owner'), ({ data, req, operation, originalDoc }) => ({ ...data, ownerName: operation === 'create' ? memberName(req) : originalDoc?.ownerName })],
     afterChange: [async ({ doc, req, operation }) => {
@@ -88,7 +91,7 @@ export const MemberGroups: CollectionConfig = {
       })
     }],
   },
-  fields: [member('owner'), text('ownerName', 100, true), text('name', 100, true), text('description', 2000, true, 'textarea')],
+  fields: [member('owner'), text('ownerName', 100, true), text('name', 100, true), text('description', 2000, true, 'textarea'), ...hiddenFields],
 }
 
 export const GroupMemberships: CollectionConfig = {
@@ -100,7 +103,8 @@ export const GroupMemberships: CollectionConfig = {
       const group = relationId(data?.group)
       if (!id || !group) throw new Error('Choose a group.')
       await req.payload.findByID({ collection: 'member-groups', id: group, req, overrideAccess: false, depth: 0 })
-      if ((await joinedGroups(req)).length >= 100) throw new Error('You can join up to 100 groups.')
+      // Count every membership, including groups that are currently hidden.
+      if ((await req.payload.count({ collection: 'group-memberships', where: { member: { equals: id } }, req, overrideAccess: true })).totalDocs >= 100) throw new Error('You can join up to 100 groups.')
       return { ...data, membershipKey: `${id}:${group}` }
     }],
     beforeDelete: [async ({ id, req }) => {
@@ -121,14 +125,15 @@ export const MentorshipOffers: CollectionConfig = {
     create: membersOnly,
     read: ({ req }): boolean | Where => {
       const id = memberId(req)
-      return id ? { or: [{ member: { equals: id } }, { optIn: { equals: true } }] } : false
+      return id ? { and: [visible, { or: [{ member: { equals: id } }, { optIn: { equals: true } }] }] } : false
     },
-    update: own('member'), delete: own('member'),
+    update: ownVisible('member'), delete: ownVisible('member'),
   },
   hooks: { beforeValidate: [keepOwner('member')] },
   fields: [
     member('member', true), { name: 'optIn', type: 'checkbox', required: true, defaultValue: false },
     text('displayName', 100, true), text('topics', 300), text('about', 1500, false, 'textarea'),
+    ...hiddenFields,
   ],
 }
 
@@ -138,9 +143,9 @@ export const MentorshipRequests: CollectionConfig = {
     create: membersOnly,
     read: ({ req }): boolean | Where => {
       const id = memberId(req)
-      return id ? { or: [{ requester: { equals: id } }, { mentor: { equals: id } }] } : false
+      return id ? { and: [visible, { or: [{ requester: { equals: id } }, { mentor: { equals: id } }] }] } : false
     },
-    update: own('mentor'), delete: own('requester'),
+    update: ownVisible('mentor'), delete: ownVisible('requester'),
   },
   hooks: { beforeValidate: [keepOwner('requester'), async ({ data, req, operation, originalDoc }) => {
     if (operation === 'update') {
@@ -159,6 +164,7 @@ export const MentorshipRequests: CollectionConfig = {
     text('reply', 1500, false, 'textarea'),
     { name: 'status', type: 'select', required: true, defaultValue: 'pending', options: ['pending', 'accepted', 'declined'] },
     { name: 'requestKey', type: 'text', unique: true, required: true, admin: { hidden: true }, access: { read: () => false } },
+    ...hiddenFields,
   ],
 }
 

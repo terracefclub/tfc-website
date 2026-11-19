@@ -1,5 +1,6 @@
 import { APIError, type Access, type CollectionBeforeChangeHook, type CollectionBeforeOperationHook, type CollectionBeforeValidateHook, type PayloadRequest, type Where } from 'payload'
 import { isMember, memberId } from '../access/members'
+import { visible } from '../lifecycle/visibility'
 
 export const membersOnly: Access = ({ req }) => isMember(req)
 export const never: Access = () => false
@@ -40,6 +41,15 @@ export const own = (field: string): Access => ({ req }) => {
   return id ? { [field]: { equals: id } } : false
 }
 
+/** Like `own`, for collections whose rows can be hidden by moderation or offboarding. */
+export const ownVisible = (field: string): Access => ({ req }) => {
+  const id = memberId(req)
+  return id ? { and: [{ [field]: { equals: id } }, visible] } : false
+}
+
+/** Any approved member may read a row unless it is hidden. */
+export const membersVisible: Access = ({ req }) => isMember(req) ? visible : false
+
 export const keepOwner = (field: string): CollectionBeforeValidateHook => ({ data, req, operation, originalDoc }) => {
   const id = memberId(req)
   if (!id) throw new Error('An approved member account is required.')
@@ -54,16 +64,24 @@ export async function joinedGroups(req: PayloadRequest): Promise<number[]> {
     where: { member: { equals: id } }, limit: 101,
   })
   if (result.totalDocs > 100) throw new Error('Group membership limit exceeded.')
-  return result.docs.map((doc) => relationId(doc.group)).filter((value): value is number => value !== null)
+  const ids = result.docs.map((doc) => relationId(doc.group)).filter((value): value is number => value !== null)
+  if (!ids.length) return ids
+  // A group hidden by moderation or offboarding no longer opens its stories to members.
+  const open = await req.payload.find({ collection: 'member-groups', req, overrideAccess: true, depth: 0, pagination: false, where: { and: [{ id: { in: ids } }, visible] } })
+  return open.docs.map((doc) => Number(doc.id))
 }
 
 export const readableStories: Access = async ({ req }) => {
   const id = memberId(req)
   if (!id) return false
   const groups = await joinedGroups(req)
-  const or: Where[] = [{ audience: { equals: 'community' } }, { author: { equals: id } }]
+  // Community stories are open to all members. A group story needs its group joined and open; its
+  // author keeps it after leaving the group, unless the group itself has been hidden.
+  const hidden = (await req.payload.find({ collection: 'member-groups', req, overrideAccess: true, depth: 0, pagination: false, limit: 0, where: { or: [{ offboardHiddenAt: { exists: true } }, { moderationHiddenAt: { exists: true } }] } })).docs.map((doc) => Number(doc.id))
+  const own: Where = hidden.length ? { and: [{ author: { equals: id } }, { or: [{ group: { exists: false } }, { group: { not_in: hidden } }] }] } : { author: { equals: id } }
+  const or: Where[] = [{ audience: { equals: 'community' } }, own]
   if (groups.length) or.push({ group: { in: groups } })
-  return { or }
+  return { and: [visible, { or }] }
 }
 
 export const storyAudience: CollectionBeforeChangeHook = async ({ data, req, originalDoc }) => {

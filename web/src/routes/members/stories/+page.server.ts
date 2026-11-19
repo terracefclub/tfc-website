@@ -1,5 +1,5 @@
 import type { Actions, PageServerLoad } from './$types';
-import { change, field, formFailure, idField, list, pageNumber, type Group, type Membership, type Story } from '$lib/server/community';
+import { change, field, formFailure, idField, list, pageNumber, report, type Group, type Membership, type Story } from '$lib/server/community';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const joined = await list<Membership>(locals, 'group-memberships', { limit: '100' });
@@ -22,15 +22,7 @@ export const actions: Actions = {
     try { await change(locals, 'member-stories', 'POST', storyData(await request.formData())); return { success: 'Your story is shared.' }; }
     catch (error) { return formFailure(error); }
   },
-  report: async ({ locals, request }) => {
-    try {
-      const form = await request.formData();
-      const reason = field(form, 'reason', 20);
-      if (!['privacy', 'harassment', 'other'].includes(reason)) throw new Error('Choose a reason.');
-      await change(locals, 'story-reports', 'POST', { storyId: idField(form, 'id'), reason });
-      return { success: 'Your report was sent to the Terrace administrators.' };
-    } catch (error) { return formFailure(error); }
-  },
+  report: ({ locals, request }) => report(locals, request, 'story'),
   edit: async ({ locals, request }) => {
     try { const form = await request.formData(); await change(locals, 'member-stories', 'PATCH', storyData(form), idField(form, 'id')); return { success: 'Your story is updated.' }; }
     catch (error) { return formFailure(error); }

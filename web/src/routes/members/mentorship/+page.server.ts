@@ -1,5 +1,5 @@
 import type { Actions, PageServerLoad } from './$types';
-import { change, field, formFailure, idField, list, pageNumber, type MentorRequest, type Offer } from '$lib/server/community';
+import { change, field, formFailure, idField, list, pageNumber, report, type MentorRequest, type Offer } from '$lib/server/community';
 
 const ownOffer = (locals: App.Locals) => list<Offer>(locals, 'mentorship-offers', { 'where[member][equals]': String(locals.member!.id), limit: '1' });
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -10,6 +10,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   return { offers, mine: mine.docs[0] ?? null, requests };
 };
 export const actions: Actions = {
+  report: ({ locals, request }) => report(locals, request, 'mentorship-request'),
   offer: async ({ locals, request }) => {
     try {
       const form = await request.formData();

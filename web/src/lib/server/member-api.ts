@@ -11,9 +11,9 @@ export function memberCmsOrigin(): string {
   return url.origin;
 }
 
-export async function memberApi<T>(locals: Pick<App.Locals, 'memberAccessToken'>, path: string, init: RequestInit = {}): Promise<T> {
+export async function memberApi<T>(locals: Pick<App.Locals, 'memberAccessToken'>, path: string, init: RequestInit = {}, maxBytes = 1024 * 1024): Promise<T> {
   if (!locals.memberAccessToken) throw new MemberApiError(401);
-  const allowed = /^\/api\/(members|member-profiles|member-stories|story-reports|member-groups|group-memberships|mentorship-offers|mentorship-requests)(?:[/?]|$)/;
+  const allowed = /^\/api\/(members|member-profiles|member-stories|moderation-reports|lifecycle|member-groups|group-memberships|mentorship-offers|mentorship-requests)(?:[/?]|$)/;
   if (!allowed.test(path) || /[\\\u0000-\u001f]/.test(path)) throw new MemberApiError(400);
   const url = new URL(path, memberCmsOrigin());
   if (url.origin !== memberCmsOrigin() || !allowed.test(url.pathname)) throw new MemberApiError(400);
@@ -34,7 +34,7 @@ export async function memberApi<T>(locals: Pick<App.Locals, 'memberAccessToken'>
         const { done, value } = await reader.read();
         if (done) break;
         size += value.byteLength;
-        if (size > 1024 * 1024) throw new MemberApiError(503);
+        if (size > maxBytes) throw new MemberApiError(503);
         chunks.push(value);
       }
     } finally { await reader.cancel(); }
