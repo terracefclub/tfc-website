@@ -23,7 +23,7 @@ export function parseArgs(argv: string[]) {
     else if (valueFlags.has(flag) && rest[i + 1] && !rest[i + 1].startsWith('--') && !(flag in values)) values[flag] = rest[++i]
     else throw new Error(usage)
   }
-  if (values['--stale-after-minutes'] !== undefined && (command !== 'rollback' || !flags.has('--take-over-stale') || !(Number(values['--stale-after-minutes']) >= 0))) throw new Error(usage)
+  if (values['--stale-after-minutes'] !== undefined && (command !== 'rollback' || !flags.has('--take-over-stale') || !/^[1-9]\d{0,6}$/.test(values['--stale-after-minutes']))) throw new Error(usage)
   if (command === 'rollback' ? !values['--run'] || values['--plan'] : !values['--plan'] || values['--run']) throw new Error(usage)
   return { command, values, flags }
 }

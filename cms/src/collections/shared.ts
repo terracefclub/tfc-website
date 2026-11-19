@@ -72,7 +72,10 @@ const namedEntities: Record<string, string> = { colon: ':', tab: '\t', newline: 
 const decode = (value: string) => value.replace(/&(?:#(\d{1,7})|#[xX]([0-9a-fA-F]{1,6})|([a-zA-Z][a-zA-Z0-9]*));?/g, (whole, dec, hex, name) => {
   const code = dec ? Number(dec) : hex ? Number.parseInt(hex, 16) : undefined
   if (code !== undefined) return code > 0x10ffff || (code >= 0xd800 && code < 0xe000) ? '' : String.fromCodePoint(code)
-  return Object.hasOwn(namedEntities, name) ? namedEntities[name] : whole
+  if (Object.hasOwn(namedEntities, name)) return namedEntities[name]
+  // Entity names are case-sensitive, except that the whitespace ones people use for obfuscation are matched in any case.
+  const lower = name.toLowerCase()
+  return lower === 'tab' || lower === 'newline' ? namedEntities[lower] : whole
 })
 const tagPattern = /<\s*(\/?)\s*([a-zA-Z][^\s/>]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>?/g
 const attributePattern = /([^\s"'<>\/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g

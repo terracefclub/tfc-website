@@ -160,11 +160,11 @@ pre-image of the managed fields. Every write is tagged with the run ID in `wpImp
 - `referenced-by-other-documents`: media created by the run is referenced by a document outside the run;
 - `status-changed-since-import`: for an **updated** row, the document's publication state differs from what the run left (an editor published or unpublished it); `_status` is never restored by rollback;
 - the run is unknown, already rolled back, or still `running`. A crashed apply is marked `failed` and can be rolled back. A
-  run left `running` by a killed process needs `--take-over-stale`, and only once its `startedAt` is older than one hour
-  (`run-not-stale` otherwise; lowering the threshold needs the extra explicit `--stale-after-minutes N`).
+  run left `running` by a killed process needs `--take-over-stale`, and only once the run has been idle for more than one hour: staleness is measured from the run row's `updated_at`, which every write bumps as a heartbeat, so a long but live apply is never stale
+  (`run-not-stale` otherwise). Lowering the threshold needs the extra explicit `--stale-after-minutes N` (an integer of at least 1); the threshold exists to avoid taking over a live apply.
 
-Otherwise it processes rows newest first inside **one transaction that first locks the run row and re-checks every precondition** (any failure changes nothing, so a retry is always safe). Every apply write takes the same lock first and requires the run to still be `running`, so an in-flight apply that is taken over is refused at its next write, stops, and its final status update (conditional on `running`) cannot overwrite `rolled-back`. Journal rows written before `postStatus` existed skip that one check: deletes documents the run created and restores updated documents from
-their pre-image (published documents receive the restored content as a draft version), then marks the run `rolled-back`. Rollback is covered by tests for
+Otherwise it processes rows newest first inside **one transaction that first locks the run row and re-checks every precondition** (any failure changes nothing, so a retry is always safe). Every apply write takes the same lock first and requires the run to still be `running`, so an in-flight apply that is taken over is refused at its next write, stops, and its final status update (conditional on `running`) cannot overwrite `rolled-back`. It deletes documents the run created and restores updated documents from
+their pre-image (published documents receive the restored content as a draft version), then marks the run `rolled-back`. Journal rows written before `postStatus` existed skip the status check. Rollback is covered by tests for
 refusal and success paths.
 
 A failed document does not stop the run: it is counted as failed with a fixed reason code, the run is marked `failed`,

@@ -2,7 +2,8 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { getPayload } from 'payload'
 import config from '../src/payload.config'
-import { apply, appliedHash, dryRun, rollback } from '../tools/wp-import/apply'
+import { sql } from '@payloadcms/db-postgres'
+import { apply, appliedHash, dryRun, executor, rollback } from '../tools/wp-import/apply'
 import { isLocalDatabase, parseArgs } from '../tools/wp-import'
 import { canonicalJson, hashOf, planHash, validatePlan, type Plan } from '../../web/tools/wp-import/plan-schema'
 
@@ -405,7 +406,7 @@ describe('review fixes', () => {
       await expect(make(n, bad)).rejects.toThrow('active-html-refused')
     }
     // Entity, whitespace and quoting obfuscation, and the pages collection (same hook).
-    const tricks = ['<a href="java&#115;cript:alert(1)">x</a>', '<a href="&#x6A;avascript:alert(1)">x</a>', '<a href=javascript&colon;alert(1)>x</a>', '<a href="java\tscript:alert(1)">x</a>', '<a href="jav&#x09;ascript:alert(1)">x</a>',
+    const tricks = ['<a href="java&#115;cript:alert(1)">x</a>', '<a href="&#x6A;avascript:alert(1)">x</a>', '<a href=javascript&colon;alert(1)>x</a>', '<a href="java\tscript:alert(1)">x</a>', '<a href="java&Tab;script:alert(1)">x</a>', '<a href="java&NewLine;script:alert(1)">x</a>', '<a href="&Tab;javascript:alert(1)">x</a>', '<a href="java&TAB;script:alert(1)">x</a>', '<a href="jav&#x09;ascript:alert(1)">x</a>',
       '<a title="a>b" onclick=x>x</a>', "<a title='a>b' ONCLICK = 'x()'>x</a>", '<img src="data:text/html;base64,AAAA">', '<SCRIPT>1</SCRIPT>', '< script>1</script>']
     for (const [i, bad] of tricks.entries()) {
       await expect(make(`t${i}`, bad)).rejects.toThrow('active-html-refused')
@@ -415,26 +416,43 @@ describe('review fixes', () => {
     await payload.delete({ collection: 'pages', id: fine.id, overrideAccess: true })
   })
 
-  test('takeover needs an old enough run, and an in-flight apply is stopped: its next write is refused and it cannot overwrite the status', async () => {
+  const idle = (id: string, interval: string) => (payload.db as any).drizzle.execute(sql`UPDATE wp_import_runs SET updated_at = now() - ${interval}::interval WHERE run_id = ${id}`)
+
+  test('takeover needs a run idle past the threshold; staleness is the heartbeat, not the start time', async () => {
+    const id = runId()
+    await apply(payload, original, { runId: id, hooks: { afterDocument: index => { if (index === 3) throw new Error('crash') } } }).catch(() => undefined)
+    await payload.update({ collection: 'wp-import-runs', id: ((await payload.find({ collection: 'wp-import-runs', where: { runId: { equals: id } }, overrideAccess: true })).docs[0] as any).id, data: { status: 'running', startedAt: new Date(Date.now() - 5 * 3600_000).toISOString() }, overrideAccess: true })
+    // Started long ago but written to a moment ago (the crashed run's last write): not stale.
+    expect((await rollback(payload, id, { takeOverStale: true })).refusals.map(item => item.reason)).toEqual(['run-not-stale'])
+    await idle(id, '2 hours')
+    expect((await rollback(payload, id, { takeOverStale: true })).ok).toBe(true)
+  })
+
+  test('an in-flight apply paused INSIDE a write transaction blocks the takeover on the run lock; the takeover then includes that document and the apply stops at its next write', async () => {
     const id = runId()
     let release!: () => void, reached!: () => void
     const gate = new Promise<void>(resolve => { release = resolve }), at = new Promise<void>(resolve => { reached = resolve })
-    const inflight = apply(payload, original, { runId: id, hooks: { afterDocument: async index => { if (index === 5) { reached(); await gate } } } }).then(() => 'completed', error => (error as Error).message)
-    await at
-    const row = async () => (await payload.find({ collection: 'wp-import-runs', where: { runId: { equals: id } }, overrideAccess: true })).docs[0] as any
-    expect((await row()).status).toBe('running')
-    expect((await rollback(payload, id, { takeOverStale: true })).refusals.map(item => item.reason)).toEqual(['run-not-stale'])
-    // Age the run past the default threshold (one hour) and take it over while the apply is paused between documents.
-    await payload.update({ collection: 'wp-import-runs', id: (await row()).id, data: { startedAt: new Date(Date.now() - 2 * 3600_000).toISOString() }, overrideAccess: true })
-    const taken = await rollback(payload, id, { takeOverStale: true })
-    expect(taken).toMatchObject({ ok: true, deleted: 5 })
+    const inflight = apply(payload, original, { runId: id, hooks: { afterClaim: async index => { if (index === 5) { reached(); await gate } } } }).then(() => 'completed', error => (error as Error).message)
+    await at // the sixth document's transaction holds the run lock and has not written yet
+    let settled = false
+    const takeover = rollback(payload, id, { takeOverStale: true, staleAfterMs: 0 }).then(result => { settled = true; return result })
+    await Bun.sleep(400)
+    expect(settled).toBe(false) // blocked on the lock, not racing it
     release()
+    const taken = await takeover
+    expect(taken).toMatchObject({ ok: true, deleted: 6 }) // five earlier documents plus the one paused mid-transaction
     expect(await inflight).toBe('run-no-longer-running')
-    expect((await row()).status).toBe('rolled-back')
+    const row = (await payload.find({ collection: 'wp-import-runs', where: { runId: { equals: id } }, overrideAccess: true })).docs[0] as any
+    expect(row.status).toBe('rolled-back')
     for (const collection of ['media', 'events', 'newsletters', 'posts', 'pages', 'initiatives', 'redirects'] as const) {
       expect((await payload.count({ collection, where: { wpId: { exists: true } }, overrideAccess: true })).totalDocs).toBe(0)
     }
-    expect((await payload.count({ collection: 'wp-import-journal', where: { runId: { equals: id } }, overrideAccess: true })).totalDocs).toBe(5)
+    expect((await payload.count({ collection: 'wp-import-journal', where: { runId: { equals: id } }, overrideAccess: true })).totalDocs).toBe(6)
+  })
+
+  test('a transaction id without a session never falls back to the shared client', () => {
+    expect(() => executor(payload, { transactionID: 'no-such-session' } as any)).toThrow('transaction-session-missing')
+    expect(typeof executor(payload).execute).toBe('function')
   })
 
   test('a draft version written over a published document carries a current hash, so the next source change is not a false local edit', async () => {
@@ -490,7 +508,7 @@ describe('command line guards', () => {
     expect(() => parseArgs(['apply'])).toThrow('Usage')
     expect(parseArgs(['rollback', '--run', 'x', '--take-over-stale', '--stale-after-minutes', '5']).values['--stale-after-minutes']).toBe('5')
     expect(() => parseArgs(['rollback', '--run', 'x', '--stale-after-minutes', '5'])).toThrow('Usage')
-    expect(() => parseArgs(['rollback', '--run', 'x', '--take-over-stale', '--stale-after-minutes', '-1'])).toThrow('Usage')
+    for (const bad of ['-1', '0', ' ', '', 'Infinity', '1.5', '1e3', '0x10', '99999999']) expect(() => parseArgs(['rollback', '--run', 'x', '--take-over-stale', '--stale-after-minutes', bad])).toThrow('Usage')
     expect(() => parseArgs(['rollback', '--run', 'x', '--plan', 'y'])).toThrow('Usage')
     expect(() => parseArgs(['apply', '--plan', 'a', '--bogus'])).toThrow('Usage')
     expect(isLocalDatabase('postgresql:///terrace_cms?host=/tmp/socket&port=55432')).toBe(true)

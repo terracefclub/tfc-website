@@ -16,7 +16,7 @@ export type RunReport = {
 }
 export type RollbackResult = { ok: boolean; runId: string; refusals: { collection: string; reason: string }[]; deleted: number; restored: number; alreadyGone: number }
 /** `hooks` is a test seam for injecting failures; production callers leave it unset. */
-export type ApplyOptions = { publish?: boolean; runId?: string; overwriteEdited?: boolean; now?: () => Date; hooks?: { afterDocument?: (index: number) => void | Promise<void> } }
+export type ApplyOptions = { publish?: boolean; runId?: string; overwriteEdited?: boolean; now?: () => Date; hooks?: { afterDocument?: (index: number) => void | Promise<void>; afterClaim?: (index: number) => void | Promise<void> } }
 
 const managedKeys = (collection: PlanCollection) => [...dataFields[collection], ...refFields[collection], ...wpFields]
 const redirectKeys = ['sourcePath', 'destinationUrl', 'statusCode', 'active']
@@ -64,9 +64,10 @@ async function inTransaction<T>(payload: Payload, work: (req: PayloadRequest) =>
   }
 }
 
-type Executor = { execute: (query: any) => Promise<{ rows: any[] }> }
-const executor = (payload: Payload, req?: PayloadRequest): Executor => {
+export type Executor = { execute: (query: any) => Promise<{ rows: any[] }> }
+export const executor = (payload: Payload, req?: PayloadRequest): Executor => {
   const session = req?.transactionID ? (payload.db as any).sessions[req.transactionID as string]?.db : undefined
+  if (req?.transactionID && !session) throw new Error('transaction-session-missing') // never fall back to the shared client mid-transaction
   return (session ?? (payload.db as any).drizzle) as Executor
 }
 
@@ -128,11 +129,13 @@ async function execute(payload: Payload, plan: Plan, options: ApplyOptions, writ
     await payload.create({ collection: 'wp-import-runs', overrideAccess: true, data: { runId, status: 'running', publish, startedAt: now().toISOString(), sourceSha256: plan.sourceSha256, planSha256: plan.planSha256 } })
   }
   const count = (target: Counts, action: DocOutcome['action']) => { target[action]++ }
+  const claimHook = (at: number) => options.hooks?.afterClaim ? () => options.hooks!.afterClaim!(at) : undefined
   let completed = false
   try {
   let index = 0
   for (const doc of plan.docs) {
-    if (options.hooks?.afterDocument) await options.hooks.afterDocument(index++)
+    const at = index++
+    if (options.hooks?.afterDocument) await options.hooks.afterDocument(at)
     const key = `${doc.collection}:${doc.wpId}`
     const outcome: DocOutcome = { ordinal: doc.ordinal, collection: doc.collection, action: 'skipped', sourceHash: doc.sourceHash, targetHash: doc.targetHash }
     try {
@@ -143,13 +146,13 @@ async function execute(payload: Payload, plan: Plan, options: ApplyOptions, writ
         else if (existing.wpAppliedHash !== appliedHash(doc.collection, (await latestOf(payload, doc.collection, existing.id)) ?? existing) && !options.overwriteEdited) outcome.reason = 'locally-edited'
         else if (!write) outcome.action = 'updated'
         else {
-          const result = await updateDocument(payload, doc, existing, ids, runId!, ++sequence)
+          const result = await updateDocument(payload, doc, existing, ids, runId!, ++sequence, claimHook(index - 1))
           Object.assign(outcome, result.outcome); ids.set(key, existing.id); slugs.set(key, result.slug)
           if (result.outcome.action === 'failed') sequence--
         }
       } else if (!write) outcome.action = 'created'
       else {
-        const result = await createDocument(payload, doc, ids, publish, runId!, ++sequence)
+        const result = await createDocument(payload, doc, ids, publish, runId!, ++sequence, claimHook(index - 1))
         Object.assign(outcome, result.outcome)
         if (result.id !== undefined) { ids.set(key, result.id); slugs.set(key, result.slug!); published.set(key, result.published!) } else sequence--
       }
@@ -231,10 +234,11 @@ async function freeSlug(payload: Payload, doc: PlanDoc, req: PayloadRequest): Pr
   throw new Error('slug-conflict')
 }
 
-async function createDocument(payload: Payload, doc: PlanDoc, ids: Map<string, string | number>, publish: boolean, runId: string, sequence: number) {
+async function createDocument(payload: Payload, doc: PlanDoc, ids: Map<string, string | number>, publish: boolean, runId: string, sequence: number, afterClaim?: () => void | Promise<void>) {
   const status = doc.collection === 'media' ? undefined : publish && doc.desiredStatus === 'published' ? 'published' : 'draft'
   return inTransaction(payload, async req => {
     await claimRun(payload, req, runId)
+    if (afterClaim) await afterClaim()
     const slug = await freeSlug(payload, doc, req)
     const data: Record<string, unknown> = { ...doc.data, ...resolveRefs(doc, ids), wpContentHash: doc.targetHash, wpImportRun: runId }
     if (slug) data.slug = slug
@@ -252,12 +256,13 @@ async function createDocument(payload: Payload, doc: PlanDoc, ids: Map<string, s
   }).catch(error => ({ id: undefined, slug: undefined, published: undefined, outcome: { action: 'failed' as const, reason: reasonOf(error) } }))
 }
 
-async function updateDocument(payload: Payload, doc: PlanDoc, main: Doc, ids: Map<string, string | number>, runId: string, sequence: number) {
+async function updateDocument(payload: Payload, doc: PlanDoc, main: Doc, ids: Map<string, string | number>, runId: string, sequence: number, afterClaim?: () => void | Promise<void>) {
   const keys = managedKeys(doc.collection)
   const existing = (await latestOf(payload, doc.collection, main.id)) ?? main
   const preImage = { data: Object.fromEntries(keys.map(key => [key, existing[key] === undefined ? null : normalizeValue(existing[key]) ?? null])), status: main._status ?? null, wpContentHash: main.wpContentHash ?? null, wpAppliedHash: main.wpAppliedHash ?? null, wpImportRun: main.wpImportRun ?? null }
   return inTransaction(payload, async req => {
     await claimRun(payload, req, runId)
+    if (afterClaim) await afterClaim()
     const slug = await freeSlug(payload, doc, req)
     const next: Record<string, unknown> = { ...doc.data, ...resolveRefs(doc, ids) }
     if (slug) next.slug = slug
@@ -301,7 +306,7 @@ export type RollbackOptions = {
   discardEdits?: boolean
   /** Take over a run still marked `running`. Only allowed once it is older than `staleAfterMs`. */
   takeOverStale?: boolean
-  /** Default one hour; lowering it is an explicit operator decision (CLI `--stale-after-minutes`). */
+  /** Idle time since the run's last write (its heartbeat). Default one hour; lowering it is an explicit operator decision (CLI `--stale-after-minutes`). */
   staleAfterMs?: number
   now?: () => Date
   /** Test seam for injecting failures. */
@@ -323,12 +328,12 @@ export async function rollback(payload: Payload, runId: string, options: Rollbac
   try {
     await inTransaction(payload, async req => {
       // Lock the run row for the rest of the transaction and read it as of now.
-      const locked = await executor(payload, req).execute(sql`SELECT id, status, started_at FROM wp_import_runs WHERE run_id = ${runId} FOR UPDATE`)
+      const locked = await executor(payload, req).execute(sql`SELECT id, status, updated_at FROM wp_import_runs WHERE run_id = ${runId} FOR UPDATE`)
       const run = locked.rows[0]
       if (!run) { refuse('wp-import-runs', 'unknown-run'); throw new Refused() }
       if (run.status === 'rolled-back') { refuse('wp-import-runs', 'already-rolled-back'); throw new Refused() }
       if (run.status === 'running') {
-        const age = now().getTime() - new Date(run.started_at).getTime()
+        const age = now().getTime() - new Date(run.updated_at).getTime() // heartbeat: claimRun bumps updated_at on every write
         if (!options.takeOverStale) { refuse('wp-import-runs', 'run-still-running'); throw new Refused() }
         if (age < (options.staleAfterMs ?? defaultStaleAfterMs)) { refuse('wp-import-runs', 'run-not-stale'); throw new Refused() }
       }
