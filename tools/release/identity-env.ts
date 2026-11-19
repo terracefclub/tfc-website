@@ -20,8 +20,11 @@ export function parseIdentityEnv(text: string): Record<string, string> {
   }
   if (values.size !== known.size) throw new Error('Identity settings file is incomplete.')
   try {
-    const origin = new URL(values.get('LIFECYCLE_PUBLIC_ORIGIN')!)
+    const value = values.get('LIFECYCLE_PUBLIC_ORIGIN')!
+    const origin = new URL(value)
     if (origin.protocol !== 'http:' && origin.protocol !== 'https:') throw new Error()
+    // A bare origin, as the CMS's own validator requires: no path (not even a trailing slash), query, fragment or credentials.
+    if (origin.origin !== value) throw new Error()
     if (!isAbsolute(values.get('LIFECYCLE_OUTBOX_DIR')!)) throw new Error()
   } catch { throw new Error('Identity settings file has an invalid lifecycle value.') }
   return Object.fromEntries([...values].filter(([key]) => !lifecycle.has(key)))

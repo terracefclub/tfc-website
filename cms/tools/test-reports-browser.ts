@@ -60,6 +60,7 @@ async function editorial(page: Page, username: string, password: string, role: '
 const title = `Synthetic report ${crypto.randomUUID().slice(0, 8)}`
 let author: Awaited<ReturnType<typeof member>> | undefined
 let storyId: string | undefined, reportId: number | undefined, editorId: number | undefined
+let secondStoryId: string | undefined, secondReportId: number | undefined
 const adminContext = await browser.newContext()
 contexts.push(adminContext)
 const admin = await adminContext.newPage()
@@ -166,6 +167,46 @@ try {
   await admin.screenshot({ path: '.state/report-reviewer.png', fullPage: true })
   assert(await admin.locator('#field-snapshotBody').inputValue() === 'Original synthetic story <script>literal text</script>.', 'Reviewer snapshot changed')
 
+  stage = 'second report for the reviewer status transition'
+  const secondTitle = `${title} second`
+  const secondShare = author.locator('form[action="?/share"]')
+  await secondShare.locator('[name=title]').fill(secondTitle)
+  await secondShare.locator('[name=body]').fill('Second synthetic story.')
+  await secondShare.getByRole('button', { name: 'Share the story', exact: true }).click()
+  await author.getByRole('heading', { name: secondTitle, exact: true }).waitFor()
+  secondStoryId = await author.locator('article').filter({ has: author.getByRole('heading', { name: secondTitle, exact: true }) }).locator('form[action="?/edit"] input[name=id]').getAttribute('value') || undefined
+  assert(secondStoryId, 'Second story ID missing')
+  await reader.goto(`${web}/members/stories/`)
+  const secondCard = reader.locator('article').filter({ has: reader.getByRole('heading', { name: secondTitle, exact: true }) })
+  await secondCard.getByText('Report this story', { exact: true }).click()
+  const secondForm = secondCard.locator('form[action="?/report"]')
+  await secondForm.locator('[name=reason]').selectOption('other')
+  await secondForm.getByRole('button', { name: 'Send report', exact: true }).click()
+  await reader.getByRole('status').filter({ hasText: 'Your report was sent to the Terrace moderators.' }).waitFor()
+  const secondQueued = await admin.request.get(`${cms}/api/moderation-reports?where[targetType][equals]=story&where[targetId][equals]=${secondStoryId}`, { headers: { origin: cms } })
+  const secondSnapshot = secondQueued.ok() ? (await secondQueued.json()).docs[0] : undefined
+  secondReportId = secondSnapshot?.id
+  assert(secondSnapshot?.status === 'open' && !secondSnapshot.resolver && !secondSnapshot.resolvedAt, 'Second report did not start open and unresolved')
+
+  stage = 'reviewer interface status transition'
+  // The status is chosen in the reviewer interface (the select opens a menu of the allowed values) and saved; the server, not the page, records who resolved it and when.
+  await admin.goto(`${cms}/admin/collections/moderation-reports`)
+  await admin.getByRole('link', { name: secondTitle, exact: true }).click()
+  assert((await admin.locator('#field-status').textContent())?.includes('open'), 'Reviewer interface did not show the open status')
+  await admin.locator('#field-status').click()
+  await admin.locator('.rs__option').filter({ hasText: /^resolved$/ }).click()
+  assert((await admin.locator('#field-status').textContent())?.includes('resolved'), 'Reviewer interface did not accept the chosen status')
+  const before = Date.now() - 60_000
+  await admin.getByRole('button', { name: /^save$/i }).click()
+  await admin.waitForFunction(async ({ cms, id }) => {
+    const response = await fetch(`${cms}/api/moderation-reports/${id}`)
+    return response.ok && (await response.json()).status === 'resolved'
+  }, { cms, id: secondReportId }, { timeout: 20_000 })
+  const transitioned = await admin.request.get(`${cms}/api/moderation-reports/${secondReportId}?depth=0`, { headers: { origin: cms } })
+  const transition = transitioned.ok() ? await transitioned.json() : {}
+  assert(transition.status === 'resolved' && transition.resolver != null, 'The status transition did not record a resolver')
+  assert(typeof transition.resolvedAt === 'string' && Date.parse(transition.resolvedAt) >= before && Date.parse(transition.resolvedAt) <= Date.now() + 60_000, 'The status transition did not record a current resolution time')
+
   stage = 'snapshot survives story edits'
   const edit = author.locator('article').filter({ has: author.getByRole('heading', { name: title, exact: true }) }).locator('form[action="?/edit"]')
   await edit.locator('..').getByText('Edit your story', { exact: true }).click()
@@ -187,6 +228,8 @@ try {
   process.exitCode = 1
 } finally {
   if (storyId && author) await cleanup('story', () => author!.request.post(`${web}/members/stories/?/remove`, { headers: { origin: web }, form: { id: storyId! } }))
+  if (secondReportId) await cleanup('second report', () => admin.request.delete(`${cms}/api/moderation-reports/${secondReportId}`, { headers: { origin: cms } }))
+  if (secondStoryId && author) await cleanup('second story', () => author!.request.post(`${web}/members/stories/?/remove`, { headers: { origin: web }, form: { id: secondStoryId! } }))
   if (reportId) await cleanup('report', () => admin.request.delete(`${cms}/api/moderation-reports/${reportId}`, { headers: { origin: cms } }))
   if (editorId) await cleanup('trial editor', () => admin.request.delete(`${cms}/api/users/${editorId}`, { headers: { origin: cms } }))
   for (const context of contexts) await context.close()

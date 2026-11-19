@@ -6,7 +6,7 @@
 // PLAN comes from `bun web/tools/wp-import/import.ts plan`. Reports are exclusive 0600 files outside Git.
 import { closeSync, constants, fstatSync, openSync, readSync } from 'node:fs'
 import { getPayload } from 'payload'
-import { writePrivateJson } from '../../web/tools/private-output'
+import { OutputRefused, writePrivateJson } from '../../web/tools/private-output'
 import { apply, dryRun, publishExisting, rollback } from './wp-import/apply'
 
 const usage = 'Usage: wp-import.ts dry-run|apply --plan PLAN [--report OUT] [--publish] [--run-id ID] [--overwrite-edited] | publish --plan PLAN [--report OUT] [--run-id ID] [--dry-run] | rollback --run ID [--report OUT] [--discard-edits] [--take-over-stale [--stale-after-minutes N]] [--allow-nonlocal-database]'
@@ -47,11 +47,24 @@ export function isLocalDatabase(uri: string | undefined, env: Record<string, str
   } catch { return false }
 }
 
-function readPlan(path: string): unknown {
+/**
+ * The one line printed for a failure. Fixed text only: errors can carry plan content or connection strings. A refusal about who may read the plan,
+ * or about where a report may be written, says exactly what is required (without quoting any path or value); everything else stays generic.
+ */
+export function failureLine(error: unknown): string {
+  if (error instanceof OutputRefused) return error.message // fixed text, never a path
+  const message = error instanceof Error ? error.message : ''
+  if (message === 'plan-file-permissions') return 'The plan file must be owned by you and readable only by its owner (mode 0600). Copy it into an owner-only directory outside every Git checkout, run chmod 600 on the copy, and use that path.'
+  if (message === 'plan-file-unsafe') return 'The plan file must be a regular file (not a link or directory) of reasonable size.'
+  return message.startsWith('Usage') || message.startsWith('The database') || message.startsWith('Run id') || message.startsWith('Invalid import plan') ? message : 'WordPress import failed. Nothing further was attempted; inspect the run ledger before retrying.'
+}
+
+export function readPlan(path: string): unknown {
   const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW)
   try {
     const stat = fstatSync(fd)
-    if (!stat.isFile() || stat.uid !== process.getuid?.() || (stat.mode & 0o077) !== 0 || stat.size > 128 * 1024 * 1024) throw new Error('plan-file-unsafe')
+    if (!stat.isFile() || stat.size > 128 * 1024 * 1024) throw new Error('plan-file-unsafe')
+    if (stat.uid !== process.getuid?.() || (stat.mode & 0o077) !== 0) throw new Error('plan-file-permissions')
     const buffer = Buffer.alloc(stat.size)
     let offset = 0
     while (offset < stat.size) { const n = readSync(fd, buffer, offset, stat.size - offset, offset); if (n === 0) break; offset += n }
@@ -89,7 +102,7 @@ if (import.meta.main) {
     console.log(JSON.stringify({ ...summary, reportWritten: Boolean(values['--report']) }, null, 2))
   } catch (error) {
     // Fixed text only: errors can carry plan content or connection strings.
-    console.error(error instanceof Error && (error.message.startsWith('Usage') || error.message.startsWith('The database') || error.message.startsWith('Run id') || error.message.startsWith('Invalid import plan')) ? error.message : 'WordPress import failed. Nothing further was attempted; inspect the run ledger before retrying.')
+    console.error(failureLine(error))
     exit = 1
   } finally { await payload?.db.destroy?.() }
   process.exit(exit)
