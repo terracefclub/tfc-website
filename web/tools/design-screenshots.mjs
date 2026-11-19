@@ -1,5 +1,13 @@
 // Full-page screenshots of public pages at desktop, tablet and phone widths.
-//   [SHOT_PAGES=name=/path,...] node tools/design-screenshots.mjs <base-url> <output-dir> <prefix> [browser-binary]
+//   [SHOT_PAGES=name=/path,...] [SHOT_PUBLISHED=1] node tools/design-screenshots.mjs <base-url> <output-dir> <prefix> [browser-binary]
+//
+// SHOT_PUBLISHED=1 (opt-in): the local preview shows sample content until the published-preview cookie is
+//   set. Before capturing, the tool does what the preview's own switch does: it loads the base page, then
+//   POSTs to /preview/source/published/ from that page (so the Origin header matches), and the browser keeps
+//   the cookie for the whole run. The base must still be a loopback origin; a server that is not a local
+//   preview answers 404 and the run stops with an error.
+// Pages taller than 16000 px cannot be captured whole. Instead of aborting, the tool captures the top
+//   16000 px, prints a "clipped" note, and records clipped:true with the full height in <prefix>-layout.json.
 // Uses a headless Chromium-family browser over the DevTools protocol (Node's built-in
 // WebSocket); nothing is installed. Example:
 //   direnv exec web node web/tools/design-screenshots.mjs http://127.0.0.1:4191 previews design-pass-before
@@ -21,7 +29,7 @@ let pages = { home: '/', events: '/events/', newsletter: '/newsletter/', archive
 if (process.env.SHOT_PAGES) {
   pages = Object.fromEntries(process.env.SHOT_PAGES.split(',').map(entry => {
     const [name, path, ...extra] = entry.split('=');
-    if (extra.length || !/^[a-zA-Z0-9_-]+$/.test(name ?? '') || !/^\/(?!\/)[a-zA-Z0-9/_?=&.-]*$/.test(path ?? '')) throw new Error('SHOT_PAGES needs name=/path pairs.');
+    if (extra.length || !/^[a-zA-Z0-9_-]+$/.test(name ?? '') || !/^\/(?!\/)[a-zA-Z0-9/_?=&.#-]*$/.test(path ?? '')) throw new Error('SHOT_PAGES needs name=/path pairs.');
     return [name, path];
   }));
 }
@@ -72,6 +80,16 @@ try {
   });
   const wait = ms => new Promise(r => setTimeout(r, ms));
 
+  if (process.env.SHOT_PUBLISHED === '1') {
+    await send('Page.navigate', { url: new URL('/', base).href });
+    await wait(2000);
+    const { result } = await send('Runtime.evaluate', { awaitPromise: true, returnByValue: true, expression: `fetch('/preview/source/published/',{method:'POST',redirect:'manual',credentials:'same-origin'}).then(r=>r.type==='opaqueredirect'?'redirect':'status '+r.status)` });
+    // The preview answers the switch with a 303 redirect and an HttpOnly terrace_published_preview_* cookie; a plain 200 proves nothing.
+    if (result.value !== 'redirect') throw new Error(`SHOT_PUBLISHED: the preview did not answer the switch with a redirect (${result.value}); is ${base} a local preview?`);
+    const { cookies } = await send('Network.getCookies', { urls: [base] });
+    if (!cookies.some(cookie => /^terrace_published_preview/.test(cookie.name) && cookie.httpOnly && cookie.value === '1')) throw new Error(`SHOT_PUBLISHED: the preview did not set its published-preview cookie; is ${base} a local preview?`);
+  }
+  const LIMIT = 16000;
   const report = [];
   for (const [device, width] of Object.entries(widths)) {
     for (const [name, path] of Object.entries(pages)) {
@@ -82,16 +100,19 @@ try {
       await send('Runtime.evaluate', { awaitPromise: true, expression: `(async()=>{await document.fonts.ready;const imgs=[...document.images];imgs.forEach(i=>{i.loading='eager'});await Promise.all(imgs.map(i=>i.decode().catch(()=>{})));scrollTo(0,0)})()` });
       await wait(800);
       const { result } = await send('Runtime.evaluate', { expression: 'document.documentElement.scrollHeight' });
-      if (!Number.isFinite(result.value) || result.value <= 0 || result.value > 16000) throw new Error('page exceeds screenshot size limits');
-      const height = result.value;
+      if (!Number.isFinite(result.value) || result.value <= 0) throw new Error('page has no measurable height');
+      const fullHeight = result.value;
+      const clipped = fullHeight > LIMIT;
+      const height = Math.min(fullHeight, LIMIT);
+      if (clipped) console.log(`clipped: ${name} ${device} is ${fullHeight}px tall; capturing the top ${LIMIT}px only`);
       const audit = await send('Runtime.evaluate', { returnByValue: true, expression: `({scrollWidth:document.documentElement.scrollWidth,h1Count:document.querySelectorAll('h1').length,brokenImages:[...document.images].filter(i=>!i.complete||!i.naturalWidth).length,unnamedImages:[...document.images].filter(i=>!i.hasAttribute('alt')).length})` });
-      report.push({ page: name, device, width, height, ...audit.result.value });
+      report.push({ page: name, device, width, height, ...(clipped ? { clipped: true, fullHeight } : {}), ...audit.result.value });
       await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width <= 375 });
       await wait(500);
       const { data } = await send('Page.captureScreenshot', { format: 'png' });
       const file = join(outDir, `${prefix}-${name}-${device}.png`);
       writeFileSync(file, Buffer.from(data, 'base64'));
-      console.log(file, `${width}x${height}`);
+      console.log(file, `${width}x${height}${clipped ? ` (clipped from ${fullHeight})` : ''}`);
     }
   }
   writeFileSync(join(outDir, `${prefix}-layout.json`), JSON.stringify(report, null, 2) + '\n');
