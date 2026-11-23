@@ -8,6 +8,10 @@ test('local realm requires approval and uses short, rotating sessions', () => {
   expect(realmSettings.revokeRefreshToken).toBe(true)
   expect(realmSettings.refreshTokenMaxReuse).toBe(0)
 })
+test('admin events are recorded without representations', () => {
+  expect(realmSettings.adminEventsEnabled).toBe(true)
+  expect(realmSettings.adminEventsDetailsEnabled).toBe(false)
+})
 test('an isolated stack registers only its explicitly selected exact local callbacks', () => {
   const origins = localClientOrigins('http://127.0.0.1:4252', 'http://127.0.0.1:3046')
   const clients = clientSettings({ webSecret: 'synthetic-web', introspectionSecret: 'synthetic-resource', cmsSecret: 'synthetic-cms', editorialSecret: 'synthetic-editorial' }, origins)
