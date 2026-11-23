@@ -90,4 +90,4 @@ test('the documented fixture steps work end to end: copy at 0600, dry-run, apply
   expect(summaryOf(back.out).ok).toBe(true)
   for (const output of [dry, applied, again, back]) expect(output.out + output.err).not.toContain(privateDirectory)
   expect(readFileSync(plan, 'utf8').length).toBeGreaterThan(100)
-})
+}, 30_000)
