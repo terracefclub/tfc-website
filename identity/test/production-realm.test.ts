@@ -38,7 +38,8 @@ test('production artifact derives its clients, audiences and disjoint scope role
   const artifact = productionRealm(web, cms, secrets)
   expect(artifact).toMatchObject({ realm: 'terrace', enabled: true, registrationAllowed: false, resetPasswordAllowed: false,
     sslRequired: 'all', verifyEmail: true, duplicateEmailsAllowed: false, editUsernameAllowed: false, bruteForceProtected: true,
-    accessTokenLifespan: 60, ssoSessionIdleTimeout: 1800, ssoSessionMaxLifespan: 28800, revokeRefreshToken: true, refreshTokenMaxReuse: 0 })
+    accessTokenLifespan: 60, ssoSessionIdleTimeout: 1800, ssoSessionMaxLifespan: 28800, revokeRefreshToken: true, refreshTokenMaxReuse: 0,
+    adminEventsEnabled: true, adminEventsDetailsEnabled: false })
   expect(artifact.roles.realm).toEqual(realmRoleNames.map(name => ({ name })))
   // The first-sign-in binding relies on three realm facts, all asserted here: unique addresses, verification and an administrator-only email attribute.
   expect(artifact.verifyEmail).toBe(true)

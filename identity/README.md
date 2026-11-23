@@ -44,6 +44,8 @@ The confidential `terrace-web` and `terrace-cms` clients use authorization code 
 
 Access tokens last60seconds, refresh tokens rotate with zero reuse, and the website checks the live Keycloak session on every protected request through the CMS. Removing a role takes effect at the next token refresh (at most60seconds). Disable an account or revoke its sessions for immediate removal. All new real member accounts must be approved before receiving either member role. Editorial roles require a separate explicit editorial authorization; member approval alone grants no CMS access. Do not enable public registration to simplify a preview.
 
+The realm also records Keycloak admin events (`adminEventsEnabled: true`) with `adminEventsDetailsEnabled: false`, giving an audit record of administrator changes to site accounts without storing representations (personal data or secrets) in event payloads. The setting lives in `realmSettings`, so the local bootstrap, the production artifact and drift checks all carry it. User login events are not declared here.
+
 `local-up.ts` seeds only synthetic identities; it is not a production enrollment mechanism. A reviewed production invitation workflow must record the approving operator, use per-user accounts, require verified contact ownership and deliver a one-time password/setup action privately. Do not copy local credentials or synthetic accounts into production.
 
 ## Generate a production realm artifact
@@ -75,7 +77,7 @@ The output parent must already exist, belong to the invoking user and have no gr
 )
 ```
 
-The artifact requires TLS and verified email, keeps self-registration/password reset disabled, preserves short rotating sessions, and emits only the four application clients. Browser clients retain PKCE(S256), their exact callback/logout paths, restricted role scopes and access-token audiences. Password, implicit and service-account grants and full scope are disabled. It emits no user, synthetic identity, bootstrap administrator, Keycloak administration client, provider/federation configuration or mail settings. `editorial-admin` remains the existing application editorial role, separate from Keycloak administration.
+The artifact requires TLS and verified email, keeps self-registration/password reset disabled, preserves short rotating sessions, enables admin events without details, and emits only the four application clients. Browser clients retain PKCE(S256), their exact callback/logout paths, restricted role scopes and access-token audiences. Password, implicit and service-account grants and full scope are disabled. It emits no user, synthetic identity, bootstrap administrator, Keycloak administration client, provider/federation configuration or mail settings. `editorial-admin` remains the existing application editorial role, separate from Keycloak administration.
 
 This is the producer for Womb's optional [identity-host realm input](https://gitlab.com/terrace/tech/womb/-/blob/trunk/docs/identity-host.md). Validate the synthetic artifact against that checkout's hosting guard without copying its policy here:
 
