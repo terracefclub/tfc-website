@@ -167,7 +167,7 @@ their only Bun-specific construct is `import.meta.main` (no `Bun.*` API, no `bun
 module, no Bun-only package). Alternatives considered and rejected:
 
 - **Ship Bun with the release, or install it on hosts.** A second runtime and pin on every
-  host (the Linux Bun 1.4.4 executable is BUN_SIZE_TBD uncompressed), its own updates and
+  host (the Linux Bun 1.4.4 executable is 107 MB, 52 MB gzipped; the whole CMS archive is far smaller), its own updates and
   security surface, and a change to the runtime contract above ("No Bun"), for no
   capability the tools use.
 - **`bun build --compile` executables.** Each one embeds a whole Bun runtime (about the
@@ -183,7 +183,8 @@ module, no Bun-only package). Alternatives considered and rejected:
 - **Keep a source checkout on the host.** Needs Bun, `node_modules` and a Git checkout on
   a production host, which is the gap this closes.
 
-Cost: SIZE_DELTA_TBD.
+Cost: two bundled entry files of a few hundred kilobytes and whatever packages they import
+that the other entries do not already ship; no new runtime, dependency or host package.
 
 ## Validation
 
