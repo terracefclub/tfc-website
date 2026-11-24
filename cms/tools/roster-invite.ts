@@ -4,11 +4,12 @@
 //   bun tools/roster-invite.ts apply     --file CSV --operator ID_OR_EMAIL --plan-sha256 HASH [--limit N] [--reinvite-lapsed] [--report OUT.json] [--confirm-production]
 //   bun tools/roster-invite.ts rollback  --run RUN_ID --operator ID_OR_EMAIL [--report OUT.json] [--confirm-production]
 // CSV and reports live in an owner-only directory outside every Git checkout. Terminal output is aggregate counts and hashes only.
+// The release bundle runs this same file, built for Node, as `bin/roster-invite` (tools/release/README.md, "Operator tools").
 import { getPayload } from 'payload'
 import { cmsRuntimeOrigin } from '../src/runtime-policy'
 import { applyRoster, ERASED_NOTICE, parseRoster, planRoster, resolveOperator, rollbackRoster, RosterError, ROSTER_DEFAULT_LIMIT, ROSTER_HARD_MAX, ROSTER_MAX_BYTES } from '../src/lifecycle/roster'
 import { checkPrivateOutput, OutputRefused, readPrivateInput, writePrivateJson } from '../../web/tools/private-output'
-import { isLocalDatabase } from './local-database'
+import { productionTarget } from './local-database'
 
 export const usage = 'Usage: roster-invite.ts [dry-run] --file CSV --operator ID_OR_EMAIL --report OUT.json [--limit N] [--reinvite-lapsed] | apply --file CSV --operator ID_OR_EMAIL --plan-sha256 HASH [--limit N] [--reinvite-lapsed] [--report OUT.json] [--confirm-production] | rollback --run RUN_ID --operator ID_OR_EMAIL [--report OUT.json] [--confirm-production]'
 const valueFlags = new Set(['--file', '--report', '--operator', '--plan-sha256', '--limit', '--run'])
@@ -55,9 +56,9 @@ export function parseArgs(argv: string[]): Args {
  * Apply additionally requires --plan-sha256 from a prior dry run of the identical file, in every environment.
  */
 export function productionGuard(env: Record<string, string | undefined>, confirmProduction: boolean): { production: boolean } {
-  const production = env.CMS_PUBLIC_DEPLOYMENT === '1' || !isLocalDatabase(env.DATABASE_URI, env)
+  const { production, publicDeployment } = productionTarget(env)
   if (!production) return { production }
-  if (env.CMS_PUBLIC_DEPLOYMENT !== '1') throw new RosterError('production-configuration-missing')
+  if (!publicDeployment) throw new RosterError('production-configuration-missing')
   try { cmsRuntimeOrigin(env as NodeJS.ProcessEnv) } catch { throw new RosterError('production-configuration-invalid') }
   if (!confirmProduction) throw new RosterError('confirm-production-required')
   return { production }
@@ -94,11 +95,12 @@ export function emitResult(summary: Record<string, unknown>, report: unknown, re
   }
 }
 
-if (import.meta.main) {
+/** The command line. The release bundle's `bin/roster-invite` runs this same function (`tools/release-roster-invite.ts`). */
+export async function main(argv: string[] = process.argv.slice(2)): Promise<never> {
   let exit = 0
   let payload: Awaited<ReturnType<typeof getPayload>> | undefined
   try {
-    const { command, values, confirmProduction, reinviteLapsed } = parseArgs(process.argv.slice(2))
+    const { command, values, confirmProduction, reinviteLapsed } = parseArgs(argv)
     const limit = values['--limit'] === undefined ? ROSTER_DEFAULT_LIMIT : Math.min(Number(values['--limit']), ROSTER_HARD_MAX)
     const parsed = command === 'rollback' ? undefined : parseRoster(readPrivateInput(values['--file'], '.csv', ROSTER_MAX_BYTES))
     if (command !== 'dry-run') productionGuard(process.env, confirmProduction)
@@ -132,3 +134,5 @@ if (import.meta.main) {
   } finally { await payload?.db.destroy?.() }
   process.exit(exit)
 }
+
+if (import.meta.main) await main()

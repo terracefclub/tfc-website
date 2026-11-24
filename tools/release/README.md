@@ -45,14 +45,16 @@ direnv exec cms bun tools/release/pack.ts web /absolute/private/output
 direnv exec cms bun tools/release/pack.ts cms /absolute/private/output
 ```
 
-The separately bundled CMS migrator and lifecycle sweep get their own dependency
+The separately bundled CMS migrator, lifecycle sweep and operator tools get their own dependency
 trace using the tracer bundled with pinned Next; application code/migrations stay
 bundled and only traced dependency files supplement the request-server output.
 
 CI publishes only these secret-free artifacts, with seven-day retention. It
 runs the extracted CMS migrator against a separate empty database twice, verifies
 an unchanged migration ledger, runs the extracted `bin/sweep` to write and then
-redact a synthetic outbox copy, then starts the bundle for HTTP tests. Retain selected release archives
+redact a synthetic outbox copy, then starts the bundle for HTTP tests and runs the
+extracted `bin/roster-invite` and `bin/wp-import` against real PostgreSQL
+(`cms/test/release-tools.test.ts`). Retain selected release archives
 and their checksums outside expiring CI storage before deployment.
 
 ## Runtime contract
@@ -100,15 +102,8 @@ Like `bin/migrate`, it
 needs no `PORT` and opens no listener. A public CMS (`CMS_PUBLIC_DEPLOYMENT=1`)
 refuses to run either command without valid lifecycle settings.
 
-The WordPress import applier is deliberately **not** packaged. Its guard refuses a
-non-local database (`--allow-nonlocal-database` overrides it) so that a rehearsal
-against a scratch local database cannot reach production by accident. On a
-production host the production PostgreSQL is itself local (a Unix socket), so a
-packaged `bin/import` would pass that guard against the live database and the
-guard would no longer distinguish rehearsal from production. Keep running it from
-a reviewed source checkout of the deployed revision (`docs/wordpress-import.md`),
-against a local rehearsal database first; a production apply remains a separate,
-explicit and backed-up operator decision. Start each
+CMS `bin/roster-invite` and `bin/wp-import` are the two operator tools; see
+[Operator tools](#operator-tools-binroster-invite-and-binwp-import). Start each
 component with `PORT` explicitly set (1024–65535) and execute its `bin/start`.
 Both launchers set production mode and bind to `127.0.0.1`. A deployment gateway
 must provide any external routing/TLS; the bundle opens no public listener.
@@ -123,6 +118,84 @@ compatible runtime config. Database rollback is a separate recovery operation:
 code rollback does not reverse migrations. Restore only from a verified backup
 with the matching uploads and application version, following the hosting recovery
 procedure. Never delete the previous data or upload directory during a release.
+
+## Operator tools: `bin/roster-invite` and `bin/wp-import`
+
+The CMS bundle carries the two operator command lines, so a host needs neither Bun
+nor a source checkout to run them:
+
+| Entry | Same as | Document |
+| ----- | ------- | -------- |
+| `bin/roster-invite` | `bun run roster:invite` (`cms/tools/roster-invite.ts`) | `docs/member-lifecycle.md`, "Bulk roster onboarding" |
+| `bin/wp-import` | `bun tools/wp-import.ts` (`cms/tools/wp-import.ts`, the CMS applier) | `docs/wordpress-import.md`, "Running the applier on a host" |
+
+Each is built like `bin/sweep`: `cms/tools/release-<tool>.ts` only calls the source
+command line's own `main()`, Bun bundles it for Node (`--target=node`, packages
+external) and the dependency trace adds the packages it imports. So the arguments,
+the defaults (the roster tool's dry run), the journal, the output and the refusals are
+the source tool's. Both are listed in `release.json` `entrypoints` and covered by its
+per-file hashes and by the archive hash a host pins. The WXR planner
+(`web/tools/wp-import/`) is not packaged: it runs on the operator's machine with the
+export, and only its private plan file goes to the host.
+
+Run them like `bin/sweep`: as the CMS's own operating-system account, with exactly the
+CMS runtime environment of `bin/start`. The launcher checks Node and `CMS_MEDIA_DIR`,
+sets production mode, runs from the release directory and passes the arguments
+unchanged, so every path must be absolute (both tools refuse a relative one). The
+roster file, the import plan, their directories and the reports must belong to the
+account that runs the tool (mode 0600 in an owner-only directory outside every Git
+checkout).
+
+Both tools decide "production" the same way (`cms/tools/local-database.ts`,
+`productionTarget`): a public deployment (`CMS_PUBLIC_DEPLOYMENT=1`, which the host's CMS
+environment sets) or a database that is not local. Every write to a production target
+(roster `apply` and `rollback`; importer `apply`, `publish` without `--dry-run`,
+`rollback`) needs `--confirm-production`, and in a public deployment the valid production
+configuration; dry runs need neither. This is what used to keep the importer out of the
+bundle: its local-database guard alone passes against a host's own local socket, so it now
+asks for the same confirmation the roster tool always has, in source and packaged form
+alike. One difference remains: the roster tool refuses a non-local database without the
+public profile, while the importer accepts it as an approved target named by
+`--allow-nonlocal-database`. Run by hand without the CMS environment, neither tool
+starts (the configuration needs `PAYLOAD_SECRET` and `DATABASE_URI`).
+
+A Womb host renders the CMS environment as a root-only file and does not yet provide a
+command that runs these tools with it as the CMS account. That wrapper arrives with the
+Womb change that pins a release containing them; until then there is no supported way to
+run them there.
+
+### Why this packaging
+
+The CMS bundle already requires Node 24.21.0, and the tools' code needs nothing else:
+their only Bun-specific construct is `import.meta.main` (no `Bun.*` API, no `bun:`
+module, no Bun-only package). Alternatives considered and rejected:
+
+- **Ship Bun with the release, or install it on hosts.** A second runtime and pin on every
+  host (the Linux Bun 1.4.4 executable is 107 MB, 52 MB gzipped; the whole CMS archive is far smaller), its own updates and
+  security surface, and a change to the runtime contract above ("No Bun"), for no
+  capability the tools use.
+- **`bun build --compile` executables.** Each one embeds a whole Bun runtime (about the
+  size above, twice), so it is the previous option in another form.
+- **Port the tools to plain Node source.** Not needed: Bun already emits Node ESM for
+  `bin/migrate` and `bin/sweep`, and a port would be a second copy of the code to drift.
+- **Separate release-only logic** (as `release-sweep.ts` has). The two entries call the
+  source `main()` and nothing else, so the packaged and source tools cannot diverge.
+  The entries do not rely on Bun's Node translation of `import.meta.main` in the
+  entry file: that check is true in Node only because both of its sides are `undefined`.
+- **A third archive for tools.** A host would need another pin; inside the CMS bundle the
+  existing CMS pin covers them.
+- **Keep a source checkout on the host.** Needs Bun, `node_modules` and a Git checkout on
+  a production host, which is the gap this closes.
+
+Cost, measured on the builder: the CMS archive grew from 27,862,737 to 27,943,113 bytes
+(+80,376), against a rebuild of `eab4189` (the commit hosts pinned before this change, not
+this change's base); no new runtime, dependency or host package.
+
+The archives are not byte-reproducible, and were not before this change: two clean builds
+of one commit differed only in files derived from the Next.js build ID (CMS) and in
+SvelteKit chunk names (website), while the four CMS operator entries were identical. A
+consumer therefore pins the hash of the one build it keeps, not a hash it expects a rebuild
+to reproduce.
 
 ## Validation
 
@@ -145,7 +218,29 @@ direnv exec cms bun run --cwd cms check:release
 
 These synthetic tests cover private-input exclusion, symlink/invalid-runtime
 rejection, artifact manifests, launch boundaries, bounded FIFO errors and exact
-owned-process cancellation. A relocated production/SSO and native-image smoke
+owned-process cancellation.
+
+`cms/test/release-tools.test.ts` runs the packaged `bin/roster-invite` and
+`bin/wp-import` of an extracted CMS release (named by `TERRACE_RELEASE_CMS`) against
+real PostgreSQL: a roster dry run writes nothing, an apply writes the journal and its
+rows, a re-run is idempotent, rollback works, the per-address lock wait follows
+`LIFECYCLE_LOCK_TIMEOUT_MS` (300, default and 6000 ms against a held lock), the fixture
+import runs, and unknown arguments are refused exactly as by the source tools. CI runs
+it on the archive it has just built; without the variable the tests are skipped. On the
+builder, after `./tools/release/build OUTPUT` in the same checkout:
+
+```sh
+release=$(mktemp -d)
+tar -xzf OUTPUT/terrace-cms-*-linux-x64-gnu.tar.gz -C "$release"
+cd cms
+direnv exec . tools/local-up
+direnv exec . tools/with-local bun run migrate
+direnv exec . tools/with-local bun run bootstrap:local
+TERRACE_RELEASE_CMS="$release" direnv exec . tools/with-local bun test test/release-tools.test.ts
+direnv exec . pg_ctl -D .state/postgres stop
+```
+
+A relocated production/SSO and native-image smoke
 proof remains required before an archive is accepted for hosting. A successful
 loopback proof does not establish public TLS, gateway/cache policy, backup
 recovery or live deployment readiness.

@@ -3,7 +3,10 @@ import { chmodSync, copyFileSync, mkdtempSync, readFileSync, rmSync, statSync, s
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { OutputRefused } from '../../web/tools/private-output'
-import { failureLine, isLocalDatabase, readPlan } from '../tools/wp-import'
+import { confirmProductionRefusal, failureLine, isLocalDatabase, parseArgs, productionGuard, readPlan, writes } from '../tools/wp-import'
+import { productionGuard as rosterGuard } from '../tools/roster-invite'
+import { productionTarget } from '../tools/local-database'
+import { productionRealm } from '../../identity/tools/production-realm'
 
 // The documented way to try the committed synthetic plan (docs/wordpress-import.md, "Trying the synthetic fixture"): copy it into a private
 // directory with mode 0600, then run the CLI from there. Git checks the fixture out as 0644, which the tool rightly refuses.
@@ -12,10 +15,12 @@ const fixture = join(import.meta.dir, 'fixtures', 'wp-import-plan.synthetic.json
 const stamp = crypto.randomUUID().slice(0, 6)
 const privateDirectory = mkdtempSync(join(tmpdir(), 'terrace-wp-fixture-'))
 const plan = join(privateDirectory, 'wp-import-plan.json')
-// CI runs against a database service that is not on the loopback; the tool's own guard asks for the explicit flag there (the local run needs none).
+// CI runs against a database service that is not on the loopback; the tool's own guards ask for the explicit flag there, and a write to a database
+// that is not local is a production target, so it also needs the confirmation (the local run needs neither).
 const nonlocal = isLocalDatabase(process.env.DATABASE_URI) ? [] : ['--allow-nonlocal-database']
 const run = (args: string[]) => {
-  const result = Bun.spawnSync(['bun', 'tools/wp-import.ts', ...args, ...nonlocal], { cwd: cms, env: process.env as Record<string, string>, stdout: 'pipe', stderr: 'pipe' })
+  const confirm = nonlocal.length && writes(args[0], new Set(args)) ? ['--confirm-production'] : []
+  const result = Bun.spawnSync(['bun', 'tools/wp-import.ts', ...args, ...nonlocal, ...confirm], { cwd: cms, env: process.env as Record<string, string>, stdout: 'pipe', stderr: 'pipe' })
   return { code: result.exitCode, out: result.stdout.toString(), err: result.stderr.toString() }
 }
 const summaryOf = (out: string) => JSON.parse(out.slice(out.indexOf('\n{\n') + 1))
@@ -90,4 +95,98 @@ test('the documented fixture steps work end to end: copy at 0600, dry-run, apply
   expect(summaryOf(back.out).ok).toBe(true)
   for (const output of [dry, applied, again, back]) expect(output.out + output.err).not.toContain(privateDirectory)
   expect(readFileSync(plan, 'utf8').length).toBeGreaterThan(100)
+}, 30_000)
+
+function productionEnv(): Record<string, string | undefined> {
+  const realm = productionRealm('https://www.terrace.example', 'https://editor.terrace.example', { webSecret: 'synthetic-web-'.repeat(4), introspectionSecret: 'synthetic-community-'.repeat(4), cmsSecret: 'synthetic-editor-'.repeat(4), editorialSecret: 'synthetic-editorial-'.repeat(4) })
+  const editor = realm.clients.find((client) => client.redirectUris.some((uri) => uri.endsWith('/api/editorial/callback')))!
+  const member = realm.clients.find((client) => client.redirectUris.some((uri) => uri.endsWith('/auth/callback')))!
+  const resource = (client: typeof editor) => client.protocolMappers![0].config['included.custom.audience']
+  const identity = 'https://identity.terrace.example/realms/terrace'
+  return {
+    CMS_PUBLIC_DEPLOYMENT: '1', CMS_ORIGIN: 'https://editor.terrace.example', CMS_MEDIA_DIR: '/var/lib/terrace-media', PAYLOAD_SECRET: 'synthetic-payload-'.repeat(4),
+    CMS_AUTH_ISSUER: identity, CMS_AUTH_CLIENT_ID: editor.clientId, CMS_AUTH_AUDIENCE: resource(editor), CMS_AUTH_CLIENT_SECRET: editor.secret,
+    CMS_AUTH_INTROSPECTION_CLIENT_ID: resource(editor), CMS_AUTH_INTROSPECTION_SECRET: 'synthetic-editorial-'.repeat(4),
+    MEMBER_AUTH_ISSUER: identity, MEMBER_AUTH_CLIENT_ID: member.clientId, MEMBER_AUTH_AUDIENCE: resource(member), MEMBER_AUTH_INTROSPECTION_CLIENT_ID: resource(member),
+    MEMBER_AUTH_INTROSPECTION_SECRET: 'synthetic-community-'.repeat(4), LIFECYCLE_OUTBOX_DIR: '/var/lib/terrace-outbox', LIFECYCLE_PUBLIC_ORIGIN: 'https://www.terrace.example',
+    DATABASE_URI: 'postgresql:///terrace_cms?host=/run/postgresql',
+  }
+}
+
+test('a public deployment is a production target: writes need its valid configuration and --confirm-production, reads need neither', () => {
+  const flags = (...names: string[]) => new Set(names)
+  const production = productionEnv()
+  // The local profile (no CMS_PUBLIC_DEPLOYMENT) is unchanged: the local-database guard alone applies.
+  expect(() => productionGuard({ DATABASE_URI: production.DATABASE_URI }, 'apply', flags())).not.toThrow()
+  // Read-only commands need no confirmation, even on a production host.
+  expect(() => productionGuard(production, 'dry-run', flags())).not.toThrow()
+  expect(() => productionGuard(production, 'publish', flags('--dry-run'))).not.toThrow()
+  // Every write: refused without the flag (although the database is a local socket), accepted with it.
+  for (const [command, extra] of [['apply', []], ['publish', []], ['rollback', []], ['apply', ['--publish']]] as Array<[string, string[]]>) {
+    expect(() => productionGuard(production, command, flags(...extra))).toThrow('Pass --confirm-production')
+    expect(() => productionGuard(production, command, flags(...extra, '--confirm-production'))).not.toThrow()
+  }
+  // A public deployment with an incomplete configuration is refused, flag or not, without echoing any value.
+  expect(() => productionGuard({ ...production, LIFECYCLE_PUBLIC_ORIGIN: undefined }, 'apply', flags('--confirm-production'))).toThrow('production configuration is invalid')
+  expect(() => productionGuard({ ...production, CMS_LOCAL_BOOTSTRAP: '1' }, 'apply', flags('--confirm-production'))).toThrow('production configuration is invalid')
+  expect(failureLine(new Error('The database is a production target (CMS_PUBLIC_DEPLOYMENT=1). Pass --confirm-production only for an approved, backed-up production run.'))).toContain('--confirm-production')
+  // The flag is accepted only where it means something.
+  expect(parseArgs(['apply', '--plan', '/p.json', '--confirm-production']).flags.has('--confirm-production')).toBe(true)
+  expect(parseArgs(['rollback', '--run', 'x', '--confirm-production']).flags.has('--confirm-production')).toBe(true)
+  for (const argv of [['dry-run', '--plan', '/p.json', '--confirm-production'], ['publish', '--plan', '/p.json', '--dry-run', '--confirm-production']]) expect(() => parseArgs(argv)).toThrow('Usage')
+  // A relative plan path is refused (the packaged command runs from its release directory, where it would mean something else).
+  expect(() => readPlan('wp-import-plan.json')).toThrow('plan-file-relative')
+  expect(failureLine(new Error('plan-file-relative'))).toBe('Give the plan file as an absolute path.')
+})
+
+test('the production guard refuses through the command line before any database is opened', () => {
+  copyFileSync(fixture, plan)
+  chmodSync(plan, 0o600)
+  const env = Object.fromEntries(Object.entries({ ...process.env, ...productionEnv(), CMS_LOCAL_BOOTSTRAP: undefined, CMS_BOOTSTRAP_EMAIL: undefined, CMS_BOOTSTRAP_PASSWORD: undefined, DATABASE_URI: 'postgresql://db.example.invalid/terrace_cms' }).filter(([, value]) => value !== undefined)) as Record<string, string>
+  const result = Bun.spawnSync(['bun', 'tools/wp-import.ts', 'apply', '--plan', plan, '--allow-nonlocal-database'], { cwd: cms, env, stdout: 'pipe', stderr: 'pipe' })
+  expect(result.exitCode).toBe(1)
+  expect(result.stdout.toString()).toBe('')
+  expect(result.stderr.toString().trim()).toBe(confirmProductionRefusal)
+}, 30_000)
+
+test('both tools decide "production" the same way: a database that is not local is production whatever CMS_PUBLIC_DEPLOYMENT says', () => {
+  const flags = (...names: string[]) => new Set(names)
+  const remote = 'postgresql://db.example.invalid/terrace_cms', socket = 'postgresql:///terrace_cms?host=/tmp/socket&port=55432'
+  for (const spelling of [undefined, 'true', 'yes', '0', '']) {
+    const env = { DATABASE_URI: remote, CMS_PUBLIC_DEPLOYMENT: spelling }
+    expect(productionTarget(env)).toEqual({ production: true, publicDeployment: false })
+    // The importer: a write to it needs the confirmation (the non-local flag is checked separately, before); a read does not.
+    expect(() => productionGuard(env, 'apply', flags())).toThrow(confirmProductionRefusal)
+    expect(() => productionGuard(env, 'rollback', flags())).toThrow(confirmProductionRefusal)
+    expect(() => productionGuard(env, 'publish', flags())).toThrow(confirmProductionRefusal)
+    expect(() => productionGuard(env, 'apply', flags('--confirm-production'))).not.toThrow()
+    expect(() => productionGuard(env, 'dry-run', flags())).not.toThrow()
+    expect(() => productionGuard(env, 'publish', flags('--dry-run'))).not.toThrow()
+    // The roster tool: the same decision, and it refuses this inconsistent configuration (the one documented difference).
+    expect(() => rosterGuard(env, true)).toThrow('production-configuration-missing')
+    // A local database with another spelling is not production for either tool: only exactly 1 turns on the public profile, as in the CMS runtime.
+    const local = { DATABASE_URI: socket, CMS_PUBLIC_DEPLOYMENT: spelling }
+    expect(productionTarget(local)).toEqual({ production: false, publicDeployment: false })
+    expect(() => productionGuard(local, 'apply', flags())).not.toThrow()
+    expect(rosterGuard(local, false)).toEqual({ production: false })
+  }
+  // A local libpq host fallback that is not local makes the target production too.
+  expect(productionTarget({ DATABASE_URI: socket, PGHOST: 'db.example.invalid' }).production).toBe(true)
+  // A socket host with a hostaddr beside it is not local, so it is a production target for both tools, whatever the variable says.
+  const hostaddr = { DATABASE_URI: 'postgresql:///terrace_cms?host=/tmp&hostaddr=10.0.0.5', CMS_PUBLIC_DEPLOYMENT: undefined }
+  expect(productionTarget(hostaddr)).toEqual({ production: true, publicDeployment: false })
+  expect(() => productionGuard(hostaddr, 'apply', flags())).toThrow(confirmProductionRefusal)
+  expect(() => rosterGuard(hostaddr, true)).toThrow('production-configuration-missing')
+})
+
+test('a write to a database that is not local is refused through the command line without the confirmation, before any database is opened', () => {
+  copyFileSync(fixture, plan)
+  chmodSync(plan, 0o600)
+  for (const spelling of [undefined, 'true']) {
+    const env = Object.fromEntries(Object.entries({ ...process.env, CMS_PUBLIC_DEPLOYMENT: spelling, DATABASE_URI: 'postgresql://db.example.invalid/terrace_cms' }).filter(([, value]) => value !== undefined)) as Record<string, string>
+    const result = Bun.spawnSync(['bun', 'tools/wp-import.ts', 'apply', '--plan', plan, '--allow-nonlocal-database'], { cwd: cms, env, stdout: 'pipe', stderr: 'pipe' })
+    expect(result.exitCode).toBe(1)
+    expect(result.stdout.toString()).toBe('')
+    expect(result.stderr.toString().trim()).toBe(confirmProductionRefusal)
+  }
 }, 30_000)

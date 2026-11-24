@@ -32,8 +32,8 @@ invalid (`cms/src/runtime-policy.ts`, covered by `cms/test/runtime-policy.test.t
 to start for these; at startup it logs one `[config]` line per missing setting (names only, never values;
 `web/src/lib/server/production-config.ts`) and the affected feature fails closed, as the last column says.
 
-**CMS** (`bin/start`, `bin/migrate` and the housekeeping sweep `bin/sweep` need the same CMS values; the sweep also
-needs the outbox settings):
+**CMS** (`bin/start`, `bin/migrate`, the housekeeping sweep `bin/sweep` and the operator tools `bin/roster-invite` and
+`bin/wp-import` need the same CMS values; the sweep and the roster tool also need the outbox settings):
 
 | Variable | Purpose | When unset or invalid |
 | --- | --- | --- |
@@ -331,8 +331,8 @@ The tool never sends anything. There is no mail transport; it writes the same ou
 an operator delivers each link from them.
 
 ```sh
-# Run from a source checkout (see "Known gap") with the host's real environment, as for the importer. In local development:
-#   cd cms && direnv exec . tools/with-local bun run roster:invite -- ...
+# From a source checkout (local development):  cd cms && direnv exec . tools/with-local bun run roster:invite -- ...
+# From the CMS release bundle the same tool is bin/roster-invite, with the same arguments (see "Running it on a host" below).
 # 1. A dry run reads the file and writes nothing to the database. Terminal output is counts and hashes only.
 bun run roster:invite -- dry-run --file ~/.terrace-private/roster.csv --operator admin@example.invalid --report ~/.terrace-private/roster-dry-run.json [--limit 50] [--reinvite-lapsed]
 # 2. Review the report (row numbers and reasons), then apply with the planSha256 it printed and the SAME file, operator, limit and flags.
@@ -341,13 +341,19 @@ bun run roster:invite -- apply --file ~/.terrace-private/roster.csv --operator a
 bun run roster:invite -- rollback --run <runId> --operator admin@example.invalid [--report OUT.json] [--confirm-production]
 ```
 
-A production invocation uses the host's own environment (the CMS service's environment file, exactly what `bin/start` runs with), never `tools/with-local`:
+**Running it on a host.** The CMS release bundle ships the tool as `bin/roster-invite`: the same command line built for Node, like `bin/sweep`
+(`tools/release/README.md`, "Operator tools"), so a host needs no Bun and no source checkout. Run it exactly like `bin/sweep`: as the CMS's own
+operating-system account, with exactly the CMS runtime environment of `bin/start` (which sets `CMS_PUBLIC_DEPLOYMENT=1`), never `tools/with-local`.
+The roster file, its directory and the reports must belong to that account (the private-file rules above), and every path must be absolute:
 
 ```sh
-set -a; . /etc/terrace/cms.env; set +a      # the CMS runtime environment, with CMS_PUBLIC_DEPLOYMENT=1
-cd /path/to/source-checkout/cms && bun run roster:invite -- apply --file ~/.terrace-private/roster.csv --operator admin@example.invalid \
-  --plan-sha256 <planSha256> --confirm-production
+/path/to/release/cms/bin/roster-invite dry-run --file /private/dir/roster.csv --operator admin@example.invalid --report /private/dir/roster-dry-run.json
+/path/to/release/cms/bin/roster-invite apply --file /private/dir/roster.csv --operator admin@example.invalid --plan-sha256 <planSha256> --confirm-production
 ```
+
+How that environment reaches the tool is the host's job. On a Womb host the CMS environment is a root-only file rendered by the secret manager, and the
+platform does not yet provide a command that runs `bin/roster-invite` with it as the CMS account; that wrapper arrives with the Womb change that pins a
+release containing this tool. Until then there is no supported way to run it on a Womb host: do not copy or `source` the rendered file by hand.
 
 **CSV format.** UTF-8, comma separated (RFC 4180 quoting), a header row required, at most 1 MiB and 2000 rows. Columns:
 `name`, `affiliation` (`current-member` or `alumni`), `class_year` (optional, a four-digit year) and `contact_email`. Cells are trimmed;
@@ -415,7 +421,8 @@ repeating a rollback repeats only that redaction. The outbox database rows are n
 user with `provision-member.ts provision --application ID` (section 4); first sign-in then binds the person to their application by verified email. (3) Watch the
 sweep's `unlinkedRedeemedApplications` and `undeliverable` counts. **[OWNER]** who is on the roster, who may run it, how links are delivered at this volume, the per-run limit, and the suppression list above.
 
-**Known gap.** The tool is not in the release bundle: running it on a host needs a source checkout (Bun and `cms/node_modules`), as the importer does. Packaging it is a follow-up.
+**Known gap.** The packaged `bin/roster-invite` is tested against real PostgreSQL from an extracted release (`cms/test/release-tools.test.ts`), but no host runs it
+yet: the Womb wrapper that supplies the CMS environment and account is still to come (see "Running it on a host").
 
 ## Permissions summary
 

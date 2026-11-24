@@ -3,7 +3,7 @@ import { constants, closeSync, copyFileSync, existsSync, linkSync, lstatSync, mk
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
-import { openChecksumIndex, ReleaseRejected, stageRelease, validateRuntime, type Component, type Runtime } from './package'
+import { cmsOperatorEntries, openChecksumIndex, ReleaseRejected, stageRelease, validateRuntime, type Component, type Runtime } from './package'
 import pins from './runtime.json'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
@@ -47,12 +47,13 @@ try {
       stageRelease({ component, input: join(root, 'web/build'), dependencies: join(dependencies, 'node_modules'),
         destination, revision, epoch, runtime, forbiddenValues })
     } else {
-      phase = 'CMS migration and sweep entrypoints'
-      for (const entry of ['migrate', 'sweep']) {
+      phase = 'CMS operator entrypoints'
+      // The roster tool's and the importer's entries only call the source command lines' own main(), so the bundle runs the same code.
+      for (const entry of cmsOperatorEntries) {
         command('bun', ['build', `tools/release-${entry}.ts`, '--target=node', '--packages=external', '--format=esm', `--outfile=.next/release-${entry}.mjs`], join(root, 'cms'))
       }
       command('node', ['tools/trace-release-migrate.mjs'], join(root, 'cms'))
-      for (const entry of ['migrate', 'sweep']) copyFileSync(join(root, `cms/.next/release-${entry}.mjs`), join(root, `cms/.next/standalone/${entry}.mjs`))
+      for (const entry of cmsOperatorEntries) copyFileSync(join(root, `cms/.next/release-${entry}.mjs`), join(root, `cms/.next/standalone/${entry}.mjs`))
       phase = 'CMS staging'
       stageRelease({ component: component as Component, input: join(root, 'cms/.next/standalone'),
         staticAssets: join(root, 'cms/.next/static'), publicAssets: join(root, 'cms/public'),

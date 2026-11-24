@@ -523,6 +523,29 @@ describe('command line guards', () => {
     expect(isLocalDatabase('postgresql://postgres@/terrace_cms', {})).toBe(false)
     expect(isLocalDatabase('postgresql:///terrace_cms?host=/tmp/socket', {})).toBe(true)
     expect(isLocalDatabase('postgresql:///terrace_cms?host=/tmp/socket', { PGHOST: 'db.example.invalid' })).toBe(false)
+    // Fail closed on spellings another driver or libpq could read as a remote target (the pinned pg ignores hostaddr and treats a comma as
+    // part of one host string, see tools/local-database.ts; the classifier does not rely on that).
+    expect(isLocalDatabase('postgresql:///terrace_cms?host=/tmp&hostaddr=10.0.0.5', {})).toBe(false)
+    expect(isLocalDatabase('postgresql://127.0.0.1/terrace_cms?hostaddr=10.0.0.5', {})).toBe(false)
+    expect(isLocalDatabase('postgresql:///terrace_cms?host=/tmp,db.example.invalid', {})).toBe(false)
+    expect(isLocalDatabase('postgresql:///terrace_cms?host=localhost,db.example.invalid', {})).toBe(false)
+    expect(isLocalDatabase('postgresql://localhost,db.example.invalid/terrace_cms', {})).toBe(false)
+    expect(isLocalDatabase('postgresql:///terrace_cms?host=/tmp/socket', { PGHOST: '/tmp,db.example.invalid' })).toBe(false)
+    // Unknown parameters (a service name, for example) and other schemes are not local; an unparseable string is not local.
+    expect(isLocalDatabase('postgresql:///terrace_cms?host=/tmp/socket&service=remote', {})).toBe(false)
+    expect(isLocalDatabase('postgresql:///terrace_cms?host=/tmp/socket&surprise=1', {})).toBe(false)
+    expect(isLocalDatabase('socket:/tmp/socket?db=terrace_cms', {})).toBe(false)
+    expect(isLocalDatabase('/tmp/socket terrace_cms', {})).toBe(false)
+    expect(isLocalDatabase('not a url', {})).toBe(false)
+    // The local rehearsal spellings stay local: tools/with-local and the documented socket and loopback forms, an encoded socket path included.
+    for (const uri of ['postgresql:///terrace_cms?host=/home/someone/checkout/cms/.state/postgres-socket&port=55432',
+      'postgresql:///terrace_cms?host=%2Fhome%2Fsomeone%2F.state%2Fsocket&port=55432',
+      'postgres://postgres@localhost:5432/terrace_cms?sslmode=disable&application_name=x']) expect([uri, isLocalDatabase(uri, {})]).toEqual([uri, true])
+    // Unchanged and deliberately not loosened: a user with an empty host (the form the Womb host module and the release build use) is not a
+    // valid URL, so it has always been "not local"; on such a host the applier needs --allow-nonlocal-database, and both tools treat it as production.
+    for (const uri of ['postgresql://terrace_cms@/terrace_cms?host=/run/postgresql&port=5432', 'postgresql://builder@/terrace_release?host=%2Fruntime%2Fpostgres&port=55433']) {
+      expect([uri, isLocalDatabase(uri, {})]).toEqual([uri, false])
+    }
     expect(isLocalDatabase('postgresql://postgres@127.0.0.1/terrace_cms', { PGHOST: '/tmp/socket' })).toBe(true)
     expect(isLocalDatabase('postgresql://postgres@db.example.invalid/terrace_cms?host=localhost', {})).toBe(true)
   })
