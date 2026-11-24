@@ -159,10 +159,10 @@ public profile, while the importer accepts it as an approved target named by
 `--allow-nonlocal-database`. Run by hand without the CMS environment, neither tool
 starts (the configuration needs `PAYLOAD_SECRET` and `DATABASE_URI`).
 
-A Womb host renders the CMS environment as a root-only file and does not yet provide a
-command that runs these tools with it as the CMS account. That wrapper arrives with the
-Womb change that pins a release containing them; until then there is no supported way to
-run them there.
+A Womb host renders the CMS environment as a root-only file. The infrastructure repository's
+`terrace-cms-tool roster-invite|wp-import ARGS...` (root only) runs these tools with it as the CMS
+account; the operator procedure is in [`docs/website-host.md`](https://github.com/terracefclub/womb/blob/trunk/docs/website-host.md). It is proven in VM tests only;
+nothing has been run on a real host.
 
 ### Why this packaging
 

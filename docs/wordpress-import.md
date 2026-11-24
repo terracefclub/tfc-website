@@ -89,9 +89,9 @@ plan, its directory and the reports must belong to that account (mode 0600 in an
 A host whose `DATABASE_URI` names a user with an empty host (`postgresql://user@/db?host=/socket/dir`, the Womb form) counts as not local, so
 there every command also needs `--allow-nonlocal-database`.
 
-On a Womb host the CMS environment is a root-only file rendered by the secret manager, and the platform does not yet provide a command that runs
-`bin/wp-import` with it as the CMS account; that wrapper arrives with the Womb change that pins a release containing this tool. Until then there is no
-supported way to run it on a Womb host: do not copy or `source` the rendered file by hand.
+On a Womb host the CMS environment is a root-only file rendered by the secret manager, and the platform provides
+`terrace-cms-tool wp-import ARGS...` (root only), which runs `bin/wp-import` with it as the CMS account; the operator procedure is in
+[`docs/website-host.md`](https://github.com/terracefclub/womb/blob/trunk/docs/website-host.md) in the infrastructure repository. It is proven in VM tests only; nothing has been run on a real host. Do not copy or `source` the rendered file by hand.
 
 ### Trying the synthetic fixture
 

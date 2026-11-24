@@ -352,8 +352,8 @@ The roster file, its directory and the reports must belong to that account (the 
 ```
 
 How that environment reaches the tool is the host's job. On a Womb host the CMS environment is a root-only file rendered by the secret manager, and the
-platform does not yet provide a command that runs `bin/roster-invite` with it as the CMS account; that wrapper arrives with the Womb change that pins a
-release containing this tool. Until then there is no supported way to run it on a Womb host: do not copy or `source` the rendered file by hand.
+platform provides `terrace-cms-tool roster-invite ARGS...` (root only), which runs `bin/roster-invite` with it as the CMS account; the operator procedure is in
+[`docs/website-host.md`](https://github.com/terracefclub/womb/blob/trunk/docs/website-host.md) in the infrastructure repository. It is proven in VM tests only; nothing has been run on a real host. Do not copy or `source` the rendered file by hand.
 
 **CSV format.** UTF-8, comma separated (RFC 4180 quoting), a header row required, at most 1 MiB and 2000 rows. Columns:
 `name`, `affiliation` (`current-member` or `alumni`), `class_year` (optional, a four-digit year) and `contact_email`. Cells are trimmed;
@@ -421,8 +421,8 @@ repeating a rollback repeats only that redaction. The outbox database rows are n
 user with `provision-member.ts provision --application ID` (section 4); first sign-in then binds the person to their application by verified email. (3) Watch the
 sweep's `unlinkedRedeemedApplications` and `undeliverable` counts. **[OWNER]** who is on the roster, who may run it, how links are delivered at this volume, the per-run limit, and the suppression list above.
 
-**Known gap.** The packaged `bin/roster-invite` is tested against real PostgreSQL from an extracted release (`cms/test/release-tools.test.ts`), but no host runs it
-yet: the Womb wrapper that supplies the CMS environment and account is still to come (see "Running it on a host").
+**Known gap.** The packaged `bin/roster-invite` is tested against real PostgreSQL from an extracted release (`cms/test/release-tools.test.ts`), but no real host
+has run it yet: the Womb wrapper `terrace-cms-tool` that supplies the CMS environment and account is proven in VM tests only (see "Running it on a host").
 
 ## Permissions summary
 
