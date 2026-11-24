@@ -172,6 +172,11 @@ test('both tools decide "production" the same way: a database that is not local 
   }
   // A local libpq host fallback that is not local makes the target production too.
   expect(productionTarget({ DATABASE_URI: socket, PGHOST: 'db.example.invalid' }).production).toBe(true)
+  // A socket host with a hostaddr beside it is not local, so it is a production target for both tools, whatever the variable says.
+  const hostaddr = { DATABASE_URI: 'postgresql:///terrace_cms?host=/tmp&hostaddr=10.0.0.5', CMS_PUBLIC_DEPLOYMENT: undefined }
+  expect(productionTarget(hostaddr)).toEqual({ production: true, publicDeployment: false })
+  expect(() => productionGuard(hostaddr, 'apply', flags())).toThrow(confirmProductionRefusal)
+  expect(() => rosterGuard(hostaddr, true)).toThrow('production-configuration-missing')
 })
 
 test('a write to a database that is not local is refused through the command line without the confirmation, before any database is opened', () => {

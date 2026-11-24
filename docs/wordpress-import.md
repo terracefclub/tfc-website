@@ -61,7 +61,7 @@ direnv exec . tools/with-local bun tools/wp-import.ts rollback --run wpimport-YY
 `--run-id ID` (default generated), `--overwrite-edited`. Publish options: `--run-id ID`, `--dry-run`. Rollback option: `--discard-edits`. Every
 writing command also takes `--confirm-production`, required against a production target (see "Production target"). The CMS tool refuses a
 non-local `DATABASE_URI` (Unix socket or loopback only) unless `--allow-nonlocal-database` is passed for an approved
-target. "Local" means a Unix-socket `host=` path or loopback host; an empty host does not count (libpq would fall back to `PGHOST`), `PGHOST` must itself be unset or local, and loopback also admits an SSH tunnel to a remote database, so the flag guards intent rather than topology. Terminal output is always aggregate counts and fixed error text, never record contents, paths or URLs.
+target. "Local" means a Unix-socket `host=` path or loopback host; an empty host does not count (libpq would fall back to `PGHOST`), `PGHOST` must itself be unset or local, and loopback also admits an SSH tunnel to a remote database, so the flag guards intent rather than topology. A `hostaddr`, a comma in a host, or any query parameter other than `host`, `port`, `user`, `password`, `sslmode` and `application_name` makes the database not local, for the applier and the roster tool alike. Terminal output is always aggregate counts and fixed error text, never record contents, paths or URLs.
 The plan path must be absolute, like every report path.
 
 **Production target.** On a host the production PostgreSQL is itself a local socket, so the local-database guard alone cannot tell a rehearsal from
@@ -85,6 +85,9 @@ plan, its directory and the reports must belong to that account (mode 0600 in an
 /path/to/release/cms/bin/wp-import dry-run --plan /private/dir/wp-import-plan.json --report /private/dir/prod-dryrun.json
 /path/to/release/cms/bin/wp-import apply   --plan /private/dir/wp-import-plan.json --report /private/dir/prod-apply.json --confirm-production
 ```
+
+A host whose `DATABASE_URI` names a user with an empty host (`postgresql://user@/db?host=/socket/dir`, the Womb form) counts as not local, so
+there every command also needs `--allow-nonlocal-database`.
 
 On a Womb host the CMS environment is a root-only file rendered by the secret manager, and the platform does not yet provide a command that runs
 `bin/wp-import` with it as the CMS account; that wrapper arrives with the Womb change that pins a release containing this tool. Until then there is no
