@@ -146,13 +146,17 @@ roster file, the import plan, their directories and the reports must belong to t
 account that runs the tool (mode 0600 in an owner-only directory outside every Git
 checkout).
 
-With the host's CMS environment (`CMS_PUBLIC_DEPLOYMENT=1`) both tools treat the target
-as production: every write (roster `apply` and `rollback`; importer `apply`, `publish`
-without `--dry-run`, `rollback`) needs the valid production configuration and
-`--confirm-production`, while dry runs need neither. This is what used to keep the
-importer out of the bundle: its local-database guard alone passes against a host's own
-local socket, so it now asks for the same confirmation the roster tool always has, in
-source and packaged form alike. Run by hand without the CMS environment, neither tool
+Both tools decide "production" the same way (`cms/tools/local-database.ts`,
+`productionTarget`): a public deployment (`CMS_PUBLIC_DEPLOYMENT=1`, which the host's CMS
+environment sets) or a database that is not local. Every write to a production target
+(roster `apply` and `rollback`; importer `apply`, `publish` without `--dry-run`,
+`rollback`) needs `--confirm-production`, and in a public deployment the valid production
+configuration; dry runs need neither. This is what used to keep the importer out of the
+bundle: its local-database guard alone passes against a host's own local socket, so it now
+asks for the same confirmation the roster tool always has, in source and packaged form
+alike. One difference remains: the roster tool refuses a non-local database without the
+public profile, while the importer accepts it as an approved target named by
+`--allow-nonlocal-database`. Run by hand without the CMS environment, neither tool
 starts (the configuration needs `PAYLOAD_SECRET` and `DATABASE_URI`).
 
 A Womb host renders the CMS environment as a root-only file and does not yet provide a
@@ -183,8 +187,15 @@ module, no Bun-only package). Alternatives considered and rejected:
 - **Keep a source checkout on the host.** Needs Bun, `node_modules` and a Git checkout on
   a production host, which is the gap this closes.
 
-Cost: two bundled entry files of a few hundred kilobytes and whatever packages they import
-that the other entries do not already ship; no new runtime, dependency or host package.
+Cost, measured on the builder: the CMS archive grew from 27,862,737 to 27,943,113 bytes
+(+80,376), against a rebuild of `eab4189` (the commit hosts pinned before this change, not
+this change's base); no new runtime, dependency or host package.
+
+The archives are not byte-reproducible, and were not before this change: two clean builds
+of one commit differed only in files derived from the Next.js build ID (CMS) and in
+SvelteKit chunk names (website), while the four CMS operator entries were identical. A
+consumer therefore pins the hash of the one build it keeps, not a hash it expects a rebuild
+to reproduce.
 
 ## Validation
 
@@ -227,7 +238,9 @@ direnv exec . tools/with-local bun run migrate
 direnv exec . tools/with-local bun run bootstrap:local
 TERRACE_RELEASE_CMS="$release" direnv exec . tools/with-local bun test test/release-tools.test.ts
 direnv exec . pg_ctl -D .state/postgres stop
-``` A relocated production/SSO and native-image smoke
+```
+
+A relocated production/SSO and native-image smoke
 proof remains required before an archive is accepted for hosting. A successful
 loopback proof does not establish public TLS, gateway/cache policy, backup
 recovery or live deployment readiness.

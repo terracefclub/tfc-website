@@ -15,3 +15,13 @@ export function isLocalDatabase(uri: string | undefined, env: Record<string, str
     return url.hostname !== '' && local(url.hostname)
   } catch { return false }
 }
+
+/**
+ * Shared by the roster tool and the importer, so both decide "production" the same way: the CMS is a public deployment (exactly
+ * `CMS_PUBLIC_DEPLOYMENT=1`, as the CMS runtime reads it), or the database is not local. Another spelling of the variable never turns on
+ * the public profile, but a database that is not local is a production target whatever the variable says.
+ */
+export function productionTarget(env: Record<string, string | undefined> = process.env): { production: boolean; publicDeployment: boolean } {
+  const publicDeployment = env.CMS_PUBLIC_DEPLOYMENT === '1'
+  return { production: publicDeployment || !isLocalDatabase(env.DATABASE_URI, env), publicDeployment }
+}

@@ -9,7 +9,7 @@ import { getPayload } from 'payload'
 import { cmsRuntimeOrigin } from '../src/runtime-policy'
 import { applyRoster, ERASED_NOTICE, parseRoster, planRoster, resolveOperator, rollbackRoster, RosterError, ROSTER_DEFAULT_LIMIT, ROSTER_HARD_MAX, ROSTER_MAX_BYTES } from '../src/lifecycle/roster'
 import { checkPrivateOutput, OutputRefused, readPrivateInput, writePrivateJson } from '../../web/tools/private-output'
-import { isLocalDatabase } from './local-database'
+import { productionTarget } from './local-database'
 
 export const usage = 'Usage: roster-invite.ts [dry-run] --file CSV --operator ID_OR_EMAIL --report OUT.json [--limit N] [--reinvite-lapsed] | apply --file CSV --operator ID_OR_EMAIL --plan-sha256 HASH [--limit N] [--reinvite-lapsed] [--report OUT.json] [--confirm-production] | rollback --run RUN_ID --operator ID_OR_EMAIL [--report OUT.json] [--confirm-production]'
 const valueFlags = new Set(['--file', '--report', '--operator', '--plan-sha256', '--limit', '--run'])
@@ -56,9 +56,9 @@ export function parseArgs(argv: string[]): Args {
  * Apply additionally requires --plan-sha256 from a prior dry run of the identical file, in every environment.
  */
 export function productionGuard(env: Record<string, string | undefined>, confirmProduction: boolean): { production: boolean } {
-  const production = env.CMS_PUBLIC_DEPLOYMENT === '1' || !isLocalDatabase(env.DATABASE_URI, env)
+  const { production, publicDeployment } = productionTarget(env)
   if (!production) return { production }
-  if (env.CMS_PUBLIC_DEPLOYMENT !== '1') throw new RosterError('production-configuration-missing')
+  if (!publicDeployment) throw new RosterError('production-configuration-missing')
   try { cmsRuntimeOrigin(env as NodeJS.ProcessEnv) } catch { throw new RosterError('production-configuration-invalid') }
   if (!confirmProduction) throw new RosterError('confirm-production-required')
   return { production }

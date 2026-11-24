@@ -10,7 +10,7 @@ import { isAbsolute } from 'node:path'
 import { getPayload } from 'payload'
 import { cmsRuntimeOrigin } from '../src/runtime-policy'
 import { OutputRefused, writePrivateJson } from '../../web/tools/private-output'
-import { isLocalDatabase } from './local-database'
+import { isLocalDatabase, productionTarget } from './local-database'
 import { apply, dryRun, publishExisting, rollback } from './wp-import/apply'
 
 const usage = 'Usage: wp-import.ts dry-run|apply --plan PLAN [--report OUT] [--publish] [--run-id ID] [--overwrite-edited] | publish --plan PLAN [--report OUT] [--run-id ID] [--dry-run] | rollback --run ID [--report OUT] [--discard-edits] [--take-over-stale [--stale-after-minutes N]] [--allow-nonlocal-database] [--confirm-production]'
@@ -38,15 +38,20 @@ export function parseArgs(argv: string[]) {
   return { command, values, flags }
 }
 
+export const confirmProductionRefusal = 'The database is a production target (a public deployment, or a database that is not local). Pass --confirm-production only for an approved, backed-up production run.'
 /**
- * The local-database guard cannot tell a rehearsal from production on a host whose production PostgreSQL is itself a local socket. So a
- * public deployment (CMS_PUBLIC_DEPLOYMENT=1, which the host's CMS environment always sets) is a production target, as for the roster tool:
- * every command that writes needs the valid production configuration and the explicit --confirm-production flag. Read-only commands need neither.
+ * The local-database guard cannot tell a rehearsal from production on a host whose production PostgreSQL is itself a local socket. So the
+ * importer decides "production" exactly as the roster tool does (`productionTarget`: CMS_PUBLIC_DEPLOYMENT=1, which the host's CMS environment
+ * always sets, or a database that is not local), and every command that writes to a production target needs --confirm-production; in a public
+ * deployment it also needs the valid production configuration. Read-only commands need neither. One difference from the roster tool stays: a
+ * non-local database without the public profile is an approved target named by --allow-nonlocal-database (checked before this), not a refusal.
  */
 export function productionGuard(env: Record<string, string | undefined>, command: string, flags: Set<string>) {
-  if (env.CMS_PUBLIC_DEPLOYMENT !== '1' || !writes(command, flags)) return
-  try { cmsRuntimeOrigin(env as NodeJS.ProcessEnv) } catch { throw new Error('The database is a production target but the production configuration is invalid.') }
-  if (!flags.has('--confirm-production')) throw new Error('The database is a production target (CMS_PUBLIC_DEPLOYMENT=1). Pass --confirm-production only for an approved, backed-up production run.')
+  if (!writes(command, flags)) return
+  const { production, publicDeployment } = productionTarget(env)
+  if (!production) return
+  if (publicDeployment) try { cmsRuntimeOrigin(env as NodeJS.ProcessEnv) } catch { throw new Error('The database is a production target but the production configuration is invalid.') }
+  if (!flags.has('--confirm-production')) throw new Error(confirmProductionRefusal)
 }
 
 /**

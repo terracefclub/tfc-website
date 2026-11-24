@@ -59,15 +59,19 @@ direnv exec . tools/with-local bun tools/wp-import.ts rollback --run wpimport-YY
 
 `bun run import:wordpress -- ...` is the same entry point from `web/` and `cms/`. Apply options: `--publish`,
 `--run-id ID` (default generated), `--overwrite-edited`. Publish options: `--run-id ID`, `--dry-run`. Rollback option: `--discard-edits`. Every
-writing command also takes `--confirm-production` (see "Production target"). The CMS tool refuses a
+writing command also takes `--confirm-production`, required against a production target (see "Production target"). The CMS tool refuses a
 non-local `DATABASE_URI` (Unix socket or loopback only) unless `--allow-nonlocal-database` is passed for an approved
 target. "Local" means a Unix-socket `host=` path or loopback host; an empty host does not count (libpq would fall back to `PGHOST`), `PGHOST` must itself be unset or local, and loopback also admits an SSH tunnel to a remote database, so the flag guards intent rather than topology. Terminal output is always aggregate counts and fixed error text, never record contents, paths or URLs.
 The plan path must be absolute, like every report path.
 
 **Production target.** On a host the production PostgreSQL is itself a local socket, so the local-database guard alone cannot tell a rehearsal from
-production. A public deployment (`CMS_PUBLIC_DEPLOYMENT=1`, which the host's CMS environment always sets) is therefore a production target, as for the
-roster tool: every command that writes (`apply`, `publish` without `--dry-run`, `rollback`) also needs the valid production configuration and
-`--confirm-production`; `dry-run` and `publish --dry-run` need neither. A production apply is still a separate, explicit operator decision taken after a
+production. The applier therefore decides "production" exactly as the roster tool does: a public deployment (`CMS_PUBLIC_DEPLOYMENT=1`, which the
+host's CMS environment always sets; no other spelling counts), or a database that is not local, whatever that variable says. Every command that
+writes (`apply`, `publish` without `--dry-run`, `rollback`) to a production target needs `--confirm-production`, and in a public deployment also the
+valid production configuration; `dry-run` and `publish --dry-run` need neither, and a local rehearsal database needs neither flag. So an approved
+non-local target takes both `--allow-nonlocal-database` and, for writes, `--confirm-production`. The one difference from the roster tool: the roster
+tool refuses a non-local database without `CMS_PUBLIC_DEPLOYMENT=1` as an inconsistent configuration, while the applier accepts it as an approved
+target named by `--allow-nonlocal-database` (CI's fixture run uses that against its database service). A production apply is still a separate, explicit operator decision taken after a
 verified backup and a rehearsal of the same plan against a local copy.
 
 ### Running the applier on a host

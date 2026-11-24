@@ -12,6 +12,7 @@ import { getPayload, type Payload } from 'payload'
 import config from '../src/payload.config'
 import { productionRealm } from '../../identity/tools/production-realm'
 import { isLocalDatabase } from '../tools/local-database'
+import { confirmProductionRefusal } from '../tools/wp-import'
 
 const release = process.env.TERRACE_RELEASE_CMS
 const cms = join(import.meta.dir, '..')
@@ -209,6 +210,8 @@ describe.skipIf(!release)('packaged operator tools', () => {
       }
     } finally { await holder.query('ROLLBACK').catch(() => undefined); holder.release() }
     console.log(`packaged roster lock waits (ms): ${JSON.stringify(waits)}`)
+    // A failure of these bounds means the measured wait did not follow the setting, unless the database was so slow that sampling pg_locks every ~20 ms lagged.
+
     expect(waits['300']).toBeGreaterThanOrEqual(200)
     expect(waits['300']).toBeLessThan(1200)
     expect(waits.default).toBeGreaterThanOrEqual(2800)
@@ -227,25 +230,50 @@ describe.skipIf(!release)('packaged operator tools', () => {
     chmodSync(plan, 0o600)
     const id = `wpimport-packaged-${suffix}`
     const runs = async () => Number((await q(`SELECT count(*)::int AS n FROM wp_import_runs WHERE run_id = $1`, [id])).rows[0].n)
+    // Row counts of every table, and of the content tables alone (all but the run ledger, which an apply and a rollback both add to by design).
+    const tables = (await q(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name`)).rows.map((row) => String(row.table_name))
+    const snapshot = async (except: string[] = []) => {
+      const result: Record<string, number> = {}
+      for (const table of tables) if (!except.includes(table)) result[table] = Number((await q(`SELECT count(*)::int AS n FROM "${table}"`)).rows[0].n)
+      return result
+    }
+    const ledger = ['wp_import_runs', 'wp_import_journal', 'payload_locked_documents', 'payload_locked_documents_rels']
+    const beforeDry = await snapshot()
     const dry = await bin('wp-import', ['dry-run', '--plan', plan, '--report', report(), ...nonlocal], host())
     expect([dry.code, dry.err]).toEqual([0, ''])
     const planned = summaryOf(dry.out)
     expect(planned).toMatchObject({ mode: 'dry-run', counts: { failed: 0 } })
     expect(planned.counts.created).toBeGreaterThan(0)
+    // The dry run wrote nothing anywhere.
+    expect(await snapshot()).toEqual(beforeDry)
     // The host's production environment makes every write need the confirmation; nothing is written without it.
     const unconfirmed = await bin('wp-import', ['apply', '--plan', plan, '--run-id', id, ...nonlocal], host())
     expect(unconfirmed.code).toBe(1)
-    expect(unconfirmed.err.trim()).toBe('The database is a production target (CMS_PUBLIC_DEPLOYMENT=1). Pass --confirm-production only for an approved, backed-up production run.')
-    expect(await runs()).toBe(0)
+    expect(unconfirmed.err.trim()).toBe(confirmProductionRefusal)
+    expect(await snapshot()).toEqual(beforeDry)
+    const beforeApply = await snapshot(ledger)
     const applied = await bin('wp-import', ['apply', '--plan', plan, '--report', report(), '--run-id', id, '--confirm-production', ...nonlocal], host())
     expect([applied.code, applied.err]).toEqual([0, ''])
-    expect(summaryOf(applied.out).counts.created).toBe(planned.counts.created)
+    const appliedCounts = summaryOf(applied.out).counts
+    const created = appliedCounts.created, redirectsCreated = appliedCounts.redirects.created
+    expect(created).toBe(planned.counts.created)
+    expect(redirectsCreated).toBeGreaterThan(0)
     expect(await runs()).toBe(1)
+    const afterApply = await snapshot(ledger)
+    const grown = Object.keys(afterApply).filter((table) => afterApply[table] > beforeApply[table])
+    expect(grown.length).toBeGreaterThan(0)
+    // A second identical apply skips everything and changes no content row.
     const again = await bin('wp-import', ['apply', '--plan', plan, '--report', report(), '--confirm-production', ...nonlocal], host())
-    expect(summaryOf(again.out).counts).toMatchObject({ created: 0, updated: 0, failed: 0 })
+    expect([again.code, again.err]).toEqual([0, ''])
+    const repeated = summaryOf(again.out).counts
+    expect(repeated).toMatchObject({ created: 0, updated: 0, failed: 0 })
+    expect(repeated.skipped).toBe(created)
+    expect(await snapshot(ledger)).toEqual(afterApply)
+    // Rollback removes exactly what the apply created (its documents and its redirect rows): every content table is back to its count before the apply.
     const back = await bin('wp-import', ['rollback', '--run', id, '--report', report(), '--confirm-production', ...nonlocal], host())
     expect([back.code, back.err]).toEqual([0, ''])
-    expect(summaryOf(back.out).ok).toBe(true)
+    expect(summaryOf(back.out)).toMatchObject({ ok: true, refusals: [], deleted: created + redirectsCreated, restored: 0, alreadyGone: 0 })
+    expect(await snapshot(ledger)).toEqual(beforeApply)
     // A relative plan path is refused with fixed text: the packaged command runs from the release directory.
     const relative = await bin('wp-import', ['dry-run', '--plan', 'fixture-plan.json', ...nonlocal], host())
     expect(relative.code).toBe(1)
