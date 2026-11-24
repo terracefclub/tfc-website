@@ -71,8 +71,10 @@ export function fileManifest(root: string): Record<string, string> {
   return files
 }
 
-// Operator commands (CMS bin/migrate and bin/sweep) run once and exit: no PORT and no listener.
-type Entry = 'start' | 'migrate' | 'sweep'
+// Operator commands (CMS bin/migrate, bin/sweep and the two operator tools) run once and exit: no PORT and no listener.
+// The tools are the source CLIs `cms/tools/roster-invite.ts` and `cms/tools/wp-import.ts` built for Node, with the same arguments.
+export const cmsOperatorEntries = ['migrate', 'sweep', 'roster-invite', 'wp-import'] as const
+type Entry = 'start' | typeof cmsOperatorEntries[number]
 function launcher(component: Component, kind: Entry = 'start') {
   const operator = kind !== 'start'
   const entry = component === 'web' ? 'build/index.js' : operator ? `${kind}.mjs` : 'server.js'
@@ -88,7 +90,7 @@ ${operator ? '' : `if [[ ! "\${PORT:-}" =~ ^[0-9]{1,5}$ ]] || (( 10#$PORT < 1024
 export ${component === 'web' ? 'HOST' : 'HOSTNAME'}=127.0.0.1`}
 ${component === 'web' ? `if ! node -e 'try { const v=process.env.ORIGIN,u=new URL(v); if(u.origin!==v||u.username||u.password||(u.protocol!=="https:"&&!(u.protocol==="http:"&&u.hostname==="127.0.0.1"))||(process.env.MEMBER_AUTH_ORIGIN&&process.env.MEMBER_AUTH_ORIGIN!==v))process.exit(1); } catch { process.exit(1); }' 2>/dev/null; then echo 'Release requires exact ORIGIN matching MEMBER_AUTH_ORIGIN when configured.' >&2; exit 1; fi` : ''}
 cd -- "$release_root"
-exec node "$release_root/${entry}"${kind === 'sweep' ? ' "$@"' : ''}
+exec node "$release_root/${entry}"${operator && kind !== 'migrate' ? ' "$@"' : ''}
 `
 }
 
@@ -108,7 +110,7 @@ export function stageRelease(options: {
     copyTree(options.dependencies, join(destination, 'node_modules'), options.forbiddenValues)
     writeFileSync(join(destination, 'package.json'), '{"type":"module"}\n')
   } else {
-    if (!existsSync(join(input, 'server.js')) || !existsSync(join(input, 'migrate.mjs')) || !existsSync(join(input, 'sweep.mjs')) || !options.staticAssets) fail()
+    if (!existsSync(join(input, 'server.js')) || cmsOperatorEntries.some(kind => !existsSync(join(input, `${kind}.mjs`))) || !options.staticAssets) fail()
     copyTree(input, destination, options.forbiddenValues)
     copyTree(options.staticAssets, join(destination, '.next/static'), options.forbiddenValues)
     if (options.publicAssets && existsSync(options.publicAssets)) copyTree(options.publicAssets, join(destination, 'public'), options.forbiddenValues)
@@ -116,10 +118,10 @@ export function stageRelease(options: {
   }
   mkdirSync(join(destination, 'bin'), { recursive: true })
   writeFileSync(join(destination, 'bin/start'), launcher(component), { mode: 0o755 })
-  if (component === 'cms') for (const kind of ['migrate', 'sweep'] as const) writeFileSync(join(destination, `bin/${kind}`), launcher(component, kind), { mode: 0o755 })
+  if (component === 'cms') for (const kind of cmsOperatorEntries) writeFileSync(join(destination, `bin/${kind}`), launcher(component, kind), { mode: 0o755 })
   const manifest = {
     schemaVersion: 1, component, revision, sourceEpoch: epoch, runtime,
-    entrypoints: component === 'cms' ? { start: 'bin/start', migrate: 'bin/migrate', sweep: 'bin/sweep' } : { start: 'bin/start' },
+    entrypoints: (component === 'cms' ? { start: 'bin/start', ...Object.fromEntries(cmsOperatorEntries.map(kind => [kind, `bin/${kind}`])) } : { start: 'bin/start' }) as Record<string, string>,
     writablePaths: component === 'cms' ? { cacheMount: '.next/cache', uploadsEnvironment: 'CMS_MEDIA_DIR' } : {},
     files: fileManifest(destination),
   }

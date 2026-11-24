@@ -56,10 +56,19 @@ test('CMS release includes static assets/migrator and only an empty runtime cach
   const root = tree()
   try {
     const input = join(root, 'standalone'), assets = join(root, 'static'), publicAssets = join(root, 'public'), output = join(root, 'cms')
-    file(input, 'server.js'); file(input, 'migrate.mjs'); file(input, 'sweep.mjs'); file(input, '.next/cache/SECRET_CACHE', 'private cache data')
+    file(input, 'server.js'); file(input, '.next/cache/SECRET_CACHE', 'private cache data')
+    for (const entry of ['migrate', 'sweep', 'roster-invite', 'wp-import']) file(input, `${entry}.mjs`)
     file(assets, 'chunks/admin.js'); file(publicAssets, 'favicon.ico')
+    // Every operator entry is required: a release without the roster tool or the importer is refused.
+    for (const entry of ['roster-invite', 'wp-import']) {
+      const partial = join(root, `partial-${entry}`)
+      copyTree(input, partial)
+      rmSync(join(partial, `${entry}.mjs`))
+      expect(() => stageRelease({ component: 'cms', input: partial, staticAssets: assets, destination: join(root, `out-${entry}`), revision, epoch: 123, runtime })).toThrow('Release input rejected.')
+    }
     const manifest = stageRelease({ component: 'cms', input, staticAssets: assets, publicAssets, destination: output, revision, epoch: 123, runtime })
-    expect(manifest.entrypoints).toEqual({ start: 'bin/start', migrate: 'bin/migrate', sweep: 'bin/sweep' })
+    expect(manifest.entrypoints).toEqual({ start: 'bin/start', migrate: 'bin/migrate', sweep: 'bin/sweep', 'roster-invite': 'bin/roster-invite', 'wp-import': 'bin/wp-import' })
+    for (const name of ['bin/roster-invite', 'bin/wp-import', 'roster-invite.mjs', 'wp-import.mjs']) expect(manifest.files[name]).toMatch(/^[a-f0-9]{64}$/)
     expect(manifest.writablePaths).toEqual({ cacheMount: '.next/cache', uploadsEnvironment: 'CMS_MEDIA_DIR' })
     expect(existsSync(join(output, '.next/static/chunks/admin.js'))).toBe(true)
     expect(existsSync(join(output, 'public/favicon.ico'))).toBe(true)
@@ -71,6 +80,12 @@ test('CMS release includes static assets/migrator and only an empty runtime cach
     expect(readFileSync(join(output, 'bin/sweep'), 'utf8')).toContain('exec node "$release_root/sweep.mjs" "$@"')
     expect(readFileSync(join(output, 'bin/sweep'), 'utf8')).not.toContain('PORT from')
     expect(readFileSync(join(output, 'bin/sweep'), 'utf8')).toContain('external absolute CMS_MEDIA_DIR')
+    for (const entry of ['roster-invite', 'wp-import']) {
+      const launcher = readFileSync(join(output, `bin/${entry}`), 'utf8')
+      expect(launcher).toContain(`exec node "$release_root/${entry}.mjs" "$@"`)
+      expect(launcher).not.toContain('PORT from')
+      expect(launcher).toContain('external absolute CMS_MEDIA_DIR')
+    }
     expect(Object.keys(fileManifest(output))).not.toContain('.next/cache/SECRET_CACHE')
   } finally { rmSync(root, { recursive: true, force: true }) }
 })
@@ -139,7 +154,8 @@ test('CMS launchers enforce runtime-only uploads, production mode, explicit boun
   try {
     const input = join(root, 'standalone'), assets = join(root, 'static'), output = join(root, 'cms'), uploads = join(root, 'uploads')
     file(input, 'server.js', `console.log(JSON.stringify({mode:process.env.NODE_ENV,host:process.env.HOSTNAME,port:process.env.PORT}))`)
-    file(input, 'migrate.mjs', 'process.exit(0)'); file(input, 'sweep.mjs', 'console.log(JSON.stringify({mode:process.env.NODE_ENV,args:process.argv.slice(2)}))'); file(assets, 'admin.js')
+    file(input, 'migrate.mjs', 'process.exit(0)'); file(assets, 'admin.js')
+    for (const entry of ['sweep', 'roster-invite', 'wp-import']) file(input, `${entry}.mjs`, 'console.log(JSON.stringify({mode:process.env.NODE_ENV,args:process.argv.slice(2)}))')
     mkdirSync(uploads)
     stageRelease({ component: 'cms', input, staticAssets: assets, destination: output, revision, epoch: 123, runtime })
     const start = (extra: Record<string, string> = {}) => spawnSync('bash', [join(output, 'bin/start')], {
@@ -170,6 +186,19 @@ test('CMS launchers enforce runtime-only uploads, production mode, explicit boun
     expect(unsafe.status).toBe(1)
     expect(unsafe.stdout).toBe('')
     expect(unsafe.stderr).toContain('uploads outside')
+    // The operator tools get their arguments unchanged, in production mode, under the same uploads guard and without a PORT.
+    for (const entry of ['roster-invite', 'wp-import']) {
+      const tool = (extra: Record<string, string> = {}) => spawnSync('bash', [join(output, `bin/${entry}`), 'apply', '--plan-sha256', 'a b', '--confirm-production'], {
+        env: { PATH: process.env.PATH, CMS_MEDIA_DIR: uploads, NODE_ENV: 'development', ...extra }, encoding: 'utf8',
+      })
+      const ran = tool()
+      expect(ran.status).toBe(0)
+      expect(JSON.parse(ran.stdout)).toEqual({ mode: 'production', args: ['apply', '--plan-sha256', 'a b', '--confirm-production'] })
+      const refusedTool = tool({ CMS_MEDIA_DIR: link })
+      expect(refusedTool.status).toBe(1)
+      expect(refusedTool.stdout).toBe('')
+      expect(refusedTool.stderr).toContain('uploads outside')
+    }
   } finally { rmSync(root, { recursive: true, force: true }) }
 })
 

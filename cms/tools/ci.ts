@@ -108,7 +108,8 @@ try {
     await delay(1000)
   }
   if (!response?.ok) throw new Error('Production CMS did not become ready.')
-  await run('bun', ['test'], { CMS_HTTP_URL: 'http://127.0.0.1:3010' })
+  // TERRACE_RELEASE_CMS: test/release-tools.test.ts runs the packaged bin/roster-invite and bin/wp-import from this extracted release.
+  await run('bun', ['test'], { CMS_HTTP_URL: 'http://127.0.0.1:3010', TERRACE_RELEASE_CMS: unpacked })
 } finally {
   if (server.pid) {
     await stopOwnedGroup(server.pid)

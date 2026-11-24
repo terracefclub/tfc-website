@@ -3,7 +3,8 @@ import { chmodSync, copyFileSync, mkdtempSync, readFileSync, rmSync, statSync, s
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { OutputRefused } from '../../web/tools/private-output'
-import { failureLine, isLocalDatabase, readPlan } from '../tools/wp-import'
+import { failureLine, isLocalDatabase, parseArgs, productionGuard, readPlan } from '../tools/wp-import'
+import { productionRealm } from '../../identity/tools/production-realm'
 
 // The documented way to try the committed synthetic plan (docs/wordpress-import.md, "Trying the synthetic fixture"): copy it into a private
 // directory with mode 0600, then run the CLI from there. Git checks the fixture out as 0644, which the tool rightly refuses.
@@ -90,4 +91,56 @@ test('the documented fixture steps work end to end: copy at 0600, dry-run, apply
   expect(summaryOf(back.out).ok).toBe(true)
   for (const output of [dry, applied, again, back]) expect(output.out + output.err).not.toContain(privateDirectory)
   expect(readFileSync(plan, 'utf8').length).toBeGreaterThan(100)
+}, 30_000)
+
+function productionEnv(): Record<string, string | undefined> {
+  const realm = productionRealm('https://www.terrace.example', 'https://editor.terrace.example', { webSecret: 'synthetic-web-'.repeat(4), introspectionSecret: 'synthetic-community-'.repeat(4), cmsSecret: 'synthetic-editor-'.repeat(4), editorialSecret: 'synthetic-editorial-'.repeat(4) })
+  const editor = realm.clients.find((client) => client.redirectUris.some((uri) => uri.endsWith('/api/editorial/callback')))!
+  const member = realm.clients.find((client) => client.redirectUris.some((uri) => uri.endsWith('/auth/callback')))!
+  const resource = (client: typeof editor) => client.protocolMappers![0].config['included.custom.audience']
+  const identity = 'https://identity.terrace.example/realms/terrace'
+  return {
+    CMS_PUBLIC_DEPLOYMENT: '1', CMS_ORIGIN: 'https://editor.terrace.example', CMS_MEDIA_DIR: '/var/lib/terrace-media', PAYLOAD_SECRET: 'synthetic-payload-'.repeat(4),
+    CMS_AUTH_ISSUER: identity, CMS_AUTH_CLIENT_ID: editor.clientId, CMS_AUTH_AUDIENCE: resource(editor), CMS_AUTH_CLIENT_SECRET: editor.secret,
+    CMS_AUTH_INTROSPECTION_CLIENT_ID: resource(editor), CMS_AUTH_INTROSPECTION_SECRET: 'synthetic-editorial-'.repeat(4),
+    MEMBER_AUTH_ISSUER: identity, MEMBER_AUTH_CLIENT_ID: member.clientId, MEMBER_AUTH_AUDIENCE: resource(member), MEMBER_AUTH_INTROSPECTION_CLIENT_ID: resource(member),
+    MEMBER_AUTH_INTROSPECTION_SECRET: 'synthetic-community-'.repeat(4), LIFECYCLE_OUTBOX_DIR: '/var/lib/terrace-outbox', LIFECYCLE_PUBLIC_ORIGIN: 'https://www.terrace.example',
+    DATABASE_URI: 'postgresql:///terrace_cms?host=/run/postgresql',
+  }
+}
+
+test('a public deployment is a production target: writes need its valid configuration and --confirm-production, reads need neither', () => {
+  const flags = (...names: string[]) => new Set(names)
+  const production = productionEnv()
+  // The local profile (no CMS_PUBLIC_DEPLOYMENT) is unchanged: the local-database guard alone applies.
+  expect(() => productionGuard({ DATABASE_URI: production.DATABASE_URI }, 'apply', flags())).not.toThrow()
+  // Read-only commands need no confirmation, even on a production host.
+  expect(() => productionGuard(production, 'dry-run', flags())).not.toThrow()
+  expect(() => productionGuard(production, 'publish', flags('--dry-run'))).not.toThrow()
+  // Every write: refused without the flag (although the database is a local socket), accepted with it.
+  for (const [command, extra] of [['apply', []], ['publish', []], ['rollback', []], ['apply', ['--publish']]] as Array<[string, string[]]>) {
+    expect(() => productionGuard(production, command, flags(...extra))).toThrow('Pass --confirm-production')
+    expect(() => productionGuard(production, command, flags(...extra, '--confirm-production'))).not.toThrow()
+  }
+  // A public deployment with an incomplete configuration is refused, flag or not, without echoing any value.
+  expect(() => productionGuard({ ...production, LIFECYCLE_PUBLIC_ORIGIN: undefined }, 'apply', flags('--confirm-production'))).toThrow('production configuration is invalid')
+  expect(() => productionGuard({ ...production, CMS_LOCAL_BOOTSTRAP: '1' }, 'apply', flags('--confirm-production'))).toThrow('production configuration is invalid')
+  expect(failureLine(new Error('The database is a production target (CMS_PUBLIC_DEPLOYMENT=1). Pass --confirm-production only for an approved, backed-up production run.'))).toContain('--confirm-production')
+  // The flag is accepted only where it means something.
+  expect(parseArgs(['apply', '--plan', '/p.json', '--confirm-production']).flags.has('--confirm-production')).toBe(true)
+  expect(parseArgs(['rollback', '--run', 'x', '--confirm-production']).flags.has('--confirm-production')).toBe(true)
+  for (const argv of [['dry-run', '--plan', '/p.json', '--confirm-production'], ['publish', '--plan', '/p.json', '--dry-run', '--confirm-production']]) expect(() => parseArgs(argv)).toThrow('Usage')
+  // A relative plan path is refused (the packaged command runs from its release directory, where it would mean something else).
+  expect(() => readPlan('wp-import-plan.json')).toThrow('plan-file-relative')
+  expect(failureLine(new Error('plan-file-relative'))).toBe('Give the plan file as an absolute path.')
+})
+
+test('the production guard refuses through the command line before any database is opened', () => {
+  copyFileSync(fixture, plan)
+  chmodSync(plan, 0o600)
+  const env = Object.fromEntries(Object.entries({ ...process.env, ...productionEnv(), CMS_LOCAL_BOOTSTRAP: undefined, CMS_BOOTSTRAP_EMAIL: undefined, CMS_BOOTSTRAP_PASSWORD: undefined, DATABASE_URI: 'postgresql://db.example.invalid/terrace_cms' }).filter(([, value]) => value !== undefined)) as Record<string, string>
+  const result = Bun.spawnSync(['bun', 'tools/wp-import.ts', 'apply', '--plan', plan, '--allow-nonlocal-database'], { cwd: cms, env, stdout: 'pipe', stderr: 'pipe' })
+  expect(result.exitCode).toBe(1)
+  expect(result.stdout.toString()).toBe('')
+  expect(result.stderr.toString().trim()).toBe('The database is a production target (CMS_PUBLIC_DEPLOYMENT=1). Pass --confirm-production only for an approved, backed-up production run.')
 }, 30_000)

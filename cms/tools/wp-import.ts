@@ -1,18 +1,23 @@
 // WordPress import applier CLI. Run through the local profile so DATABASE_URI/PAYLOAD_SECRET
 // are set:  direnv exec cms tools/with-local bun tools/wp-import.ts <command> ...
 //   dry-run  --plan PLAN [--report OUT.json]                 read-only: what apply would create/update/skip
-//   apply    --plan PLAN [--report OUT.json] [--publish] [--run-id ID] [--overwrite-edited]
-//   rollback --run ID    [--report OUT.json] [--discard-edits]
+//   apply    --plan PLAN [--report OUT.json] [--publish] [--run-id ID] [--overwrite-edited] [--confirm-production]
+//   rollback --run ID    [--report OUT.json] [--discard-edits] [--confirm-production]
 // PLAN comes from `bun web/tools/wp-import/import.ts plan`. Reports are exclusive 0600 files outside Git.
+// The release bundle runs this same file, built for Node, as `bin/wp-import` (tools/release/README.md, "Operator tools").
 import { closeSync, constants, fstatSync, openSync, readSync } from 'node:fs'
+import { isAbsolute } from 'node:path'
 import { getPayload } from 'payload'
+import { cmsRuntimeOrigin } from '../src/runtime-policy'
 import { OutputRefused, writePrivateJson } from '../../web/tools/private-output'
 import { isLocalDatabase } from './local-database'
 import { apply, dryRun, publishExisting, rollback } from './wp-import/apply'
 
-const usage = 'Usage: wp-import.ts dry-run|apply --plan PLAN [--report OUT] [--publish] [--run-id ID] [--overwrite-edited] | publish --plan PLAN [--report OUT] [--run-id ID] [--dry-run] | rollback --run ID [--report OUT] [--discard-edits] [--take-over-stale [--stale-after-minutes N]] [--allow-nonlocal-database]'
+const usage = 'Usage: wp-import.ts dry-run|apply --plan PLAN [--report OUT] [--publish] [--run-id ID] [--overwrite-edited] | publish --plan PLAN [--report OUT] [--run-id ID] [--dry-run] | rollback --run ID [--report OUT] [--discard-edits] [--take-over-stale [--stale-after-minutes N]] [--allow-nonlocal-database] [--confirm-production]'
 const valueFlags = new Set(['--plan', '--report', '--run-id', '--run', '--stale-after-minutes'])
-const boolFlags = new Set(['--publish', '--overwrite-edited', '--dry-run', '--discard-edits', '--take-over-stale', '--allow-nonlocal-database'])
+const boolFlags = new Set(['--publish', '--overwrite-edited', '--dry-run', '--discard-edits', '--take-over-stale', '--allow-nonlocal-database', '--confirm-production'])
+/** apply, rollback and publish without --dry-run change the database; dry-run and publish --dry-run do not. */
+export const writes = (command: string, flags: Set<string>) => command === 'apply' || command === 'rollback' || (command === 'publish' && !flags.has('--dry-run'))
 
 export { isLocalDatabase }
 
@@ -29,7 +34,19 @@ export function parseArgs(argv: string[]) {
   if ((flags.has('--dry-run') && command !== 'publish') || (command === 'publish' && (flags.has('--publish') || flags.has('--overwrite-edited')))) throw new Error(usage)
   if (values['--stale-after-minutes'] !== undefined && (command !== 'rollback' || !flags.has('--take-over-stale') || !/^[1-9]\d{0,6}$/.test(values['--stale-after-minutes']))) throw new Error(usage)
   if (command === 'rollback' ? !values['--run'] || values['--plan'] : !values['--plan'] || values['--run']) throw new Error(usage)
+  if (flags.has('--confirm-production') && !writes(command, flags)) throw new Error(usage)
   return { command, values, flags }
+}
+
+/**
+ * The local-database guard cannot tell a rehearsal from production on a host whose production PostgreSQL is itself a local socket. So a
+ * public deployment (CMS_PUBLIC_DEPLOYMENT=1, which the host's CMS environment always sets) is a production target, as for the roster tool:
+ * every command that writes needs the valid production configuration and the explicit --confirm-production flag. Read-only commands need neither.
+ */
+export function productionGuard(env: Record<string, string | undefined>, command: string, flags: Set<string>) {
+  if (env.CMS_PUBLIC_DEPLOYMENT !== '1' || !writes(command, flags)) return
+  try { cmsRuntimeOrigin(env as NodeJS.ProcessEnv) } catch { throw new Error('The database is a production target but the production configuration is invalid.') }
+  if (!flags.has('--confirm-production')) throw new Error('The database is a production target (CMS_PUBLIC_DEPLOYMENT=1). Pass --confirm-production only for an approved, backed-up production run.')
 }
 
 /**
@@ -41,10 +58,13 @@ export function failureLine(error: unknown): string {
   const message = error instanceof Error ? error.message : ''
   if (message === 'plan-file-permissions') return 'The plan file must be owned by you and readable only by its owner (mode 0600). Copy it into an owner-only directory outside every Git checkout, run chmod 600 on the copy, and use that path.'
   if (message === 'plan-file-unsafe') return 'The plan file must be a regular file (not a link or directory) of reasonable size.'
+  if (message === 'plan-file-relative') return 'Give the plan file as an absolute path.'
   return message.startsWith('Usage') || message.startsWith('The database') || message.startsWith('Run id') || message.startsWith('Invalid import plan') ? message : 'WordPress import failed. Nothing further was attempted; inspect the run ledger before retrying.'
 }
 
 export function readPlan(path: string): unknown {
+  // Absolute only, like every report path: the packaged command runs from the release directory, so a relative path would mean something else there.
+  if (!isAbsolute(path)) throw new Error('plan-file-relative')
   const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW)
   try {
     const stat = fstatSync(fd)
@@ -57,12 +77,14 @@ export function readPlan(path: string): unknown {
   } finally { closeSync(fd) }
 }
 
-if (import.meta.main) {
+/** The command line. The release bundle's `bin/wp-import` runs this same function (`tools/release-wp-import.ts`). */
+export async function main(argv: string[] = process.argv.slice(2)): Promise<never> {
   let exit = 0
   let payload: Awaited<ReturnType<typeof getPayload>> | undefined
   try {
-    const { command, values, flags } = parseArgs(process.argv.slice(2))
+    const { command, values, flags } = parseArgs(argv)
     if (!isLocalDatabase(process.env.DATABASE_URI) && !flags.has('--allow-nonlocal-database')) throw new Error('The database is not local. Pass --allow-nonlocal-database only for an approved target.')
+    productionGuard(process.env, command, flags)
     const { default: config } = await import('../src/payload.config')
     payload = await getPayload({ config })
     let report: unknown, summary: Record<string, unknown>
@@ -92,3 +114,5 @@ if (import.meta.main) {
   } finally { await payload?.db.destroy?.() }
   process.exit(exit)
 }
+
+if (import.meta.main) await main()

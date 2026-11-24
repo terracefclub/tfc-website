@@ -58,9 +58,33 @@ direnv exec . tools/with-local bun tools/wp-import.ts rollback --run wpimport-YY
 ```
 
 `bun run import:wordpress -- ...` is the same entry point from `web/` and `cms/`. Apply options: `--publish`,
-`--run-id ID` (default generated), `--overwrite-edited`. Publish options: `--run-id ID`, `--dry-run`. Rollback option: `--discard-edits`. The CMS tool refuses a
+`--run-id ID` (default generated), `--overwrite-edited`. Publish options: `--run-id ID`, `--dry-run`. Rollback option: `--discard-edits`. Every
+writing command also takes `--confirm-production` (see "Production target"). The CMS tool refuses a
 non-local `DATABASE_URI` (Unix socket or loopback only) unless `--allow-nonlocal-database` is passed for an approved
 target. "Local" means a Unix-socket `host=` path or loopback host; an empty host does not count (libpq would fall back to `PGHOST`), `PGHOST` must itself be unset or local, and loopback also admits an SSH tunnel to a remote database, so the flag guards intent rather than topology. Terminal output is always aggregate counts and fixed error text, never record contents, paths or URLs.
+The plan path must be absolute, like every report path.
+
+**Production target.** On a host the production PostgreSQL is itself a local socket, so the local-database guard alone cannot tell a rehearsal from
+production. A public deployment (`CMS_PUBLIC_DEPLOYMENT=1`, which the host's CMS environment always sets) is therefore a production target, as for the
+roster tool: every command that writes (`apply`, `publish` without `--dry-run`, `rollback`) also needs the valid production configuration and
+`--confirm-production`; `dry-run` and `publish --dry-run` need neither. A production apply is still a separate, explicit operator decision taken after a
+verified backup and a rehearsal of the same plan against a local copy.
+
+### Running the applier on a host
+
+The CMS release bundle ships this CMS applier as `bin/wp-import`: the same command line built for Node (`tools/release/README.md`, "Operator tools"),
+so a host needs no Bun and no source checkout. Planning (steps 1 and 2) stays on the operator's machine with the export; only the private plan file
+goes to the host. Run it like `bin/sweep`: as the CMS's own operating-system account, with exactly the CMS runtime environment of `bin/start`. The
+plan, its directory and the reports must belong to that account (mode 0600 in an owner-only directory outside every Git checkout), and every path must be absolute:
+
+```sh
+/path/to/release/cms/bin/wp-import dry-run --plan /private/dir/wp-import-plan.json --report /private/dir/prod-dryrun.json
+/path/to/release/cms/bin/wp-import apply   --plan /private/dir/wp-import-plan.json --report /private/dir/prod-apply.json --confirm-production
+```
+
+On a Womb host the CMS environment is a root-only file rendered by the secret manager, and the platform does not yet provide a command that runs
+`bin/wp-import` with it as the CMS account; that wrapper arrives with the Womb change that pins a release containing this tool. Until then there is no
+supported way to run it on a Womb host: do not copy or `source` the rendered file by hand.
 
 ### Trying the synthetic fixture
 
