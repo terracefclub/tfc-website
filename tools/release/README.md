@@ -83,6 +83,19 @@ Run CMS `bin/migrate` as an explicit operator step with the target database and
 runtime configuration, after verifying a restorable backup. Run it once more to
 confirm no pending migration. Server startup never runs migrations.
 
+`bin/migrate` prints `CMS release migrations complete.` and exits 0 on success, and prints nothing else
+(Payload's own logging is silent). When a migration fails, Payload's adapter rolls that migration back and
+exits 1 by itself; `bin/migrate` writes one line to stderr first:
+`CMS release migration <name> failed (<ErrorClass> <SQLSTATE>): <reason>.` The line is redacted by
+construction (`cms/tools/release-migrate-failure.ts`): the migration name, the error class, the PostgreSQL
+code and, only for schema-level codes (class 42, and 23502, 23503, 23505, 23514), the server message, which
+names objects, not values. Any other code or no code gets `details suppressed; inspect the protected runtime
+configuration and database state` instead of the message, so row values, roles, hosts, SQL, parameters,
+stacks and connection settings never reach the journal. Earlier migrations stay applied; read the cause in
+PostgreSQL's own log, which has the full detail. A failure outside a migration (configuration, connection)
+still prints `CMS release migration failed; inspect the protected runtime configuration and database state.`
+and exits 1. Tests: `cms/test/release-migrate-failure.test.ts` (`tools/with-local bun test`).
+
 CMS `bin/sweep` is the packaged member-lifecycle housekeeping (`lifecycle:sweep`;
 see `../../docs/member-lifecycle.md`, section 9). Run it with exactly the CMS
 runtime configuration of `bin/start`, as the same operating-system account as the

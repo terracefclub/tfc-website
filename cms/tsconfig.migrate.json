@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": { "incremental": false },
-  "include": ["tools/release-migrate.ts", "tools/release-sweep.ts"],
+  "include": ["tools/release-migrate.ts", "tools/release-migrate-failure.ts", "tools/release-sweep.ts"],
   "exclude": ["node_modules"]
 }
