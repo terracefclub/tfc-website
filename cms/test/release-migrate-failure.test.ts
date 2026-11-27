@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import pg from 'pg'
 import { pino } from 'pino'
-import { failureLine, failureOf, redactError, releaseLoggerOptions } from '../tools/release-migrate-failure'
+import { failureLine, failureOf, redactError, releaseLoggerOptions, writeAllSync } from '../tools/release-migrate-failure'
 
 const cms = join(import.meta.dir, '..')
 const PASSWORD = 'PlantedPassw0rd-9f3a', ROW = 'planted.member@terrace.invalid', SQL = 'SELECT secret_column_planted'
@@ -46,6 +46,35 @@ describe('redaction', () => {
     const out = redactError(pgError('42704', 'type\n"x" at postgres://u:pw@host/db\u001b[31m does not exist', ''))
     expect(out.message).toBe('type "x" at [url] [31m does not exist')
     expect(redactError(pgError('42704', 'x'.repeat(500), '')).message).toHaveLength(200)
+  })
+  test('42601 (syntax error) gets the fixed sentence with its code; the other listed codes keep their message', () => {
+    expect(redactError(pgError('42601', `syntax error at or near "${ROW}"`, ''))).toEqual({ type: 'DatabaseError', code: '42601' })
+    for (const code of ['42P07', '42703', '23502', '23503', '23505', '23514']) expect(redactError(pgError(code, 'x', '')).message).toBe('x')
+    for (const code of ['22P02', '28P01', '08006', '22001']) expect(redactError(pgError(code, 'x', '')).message).toBeUndefined()
+  })
+  test('a hostile error cannot make the logger throw, and the line still names the migration', () => {
+    const getter = Object.defineProperty(new Error('x'), 'message', { get() { throw new Error(PASSWORD) } })
+    const proxy = new Proxy(new Error('x'), { get() { throw new Error(PASSWORD) }, getPrototypeOf() { throw new Error(PASSWORD) } })
+    const coded = Object.defineProperty(Object.assign(new Error('x'), { code: '42P07' }), 'message', { get() { throw new Error(PASSWORD) } })
+    for (const err of [getter, proxy, coded]) {
+      const out = logThrough({ err, msg: 'Error running migration harness_one whatever.' })
+      expect(failureLine(failureOf(JSON.parse(out), known)!)).toBe('CMS release migration harness_one failed (Error): details suppressed; inspect the protected runtime configuration and database state.\n')
+    }
+  })
+  // Simulated EAGAIN (a real full non-blocking pipe is not cheap to arrange portably): the write fails for ~150 ms, then succeeds.
+  test('writeAllSync retries EAGAIN until the deadline, writes everything, and gives up after the deadline', () => {
+    const chunks: string[] = [], again = Object.assign(new Error('again'), { code: 'EAGAIN' })
+    const start = Date.now()
+    writeAllSync(2, 'hello world\n', 5000, (_fd, buffer, offset) => {
+      if (Date.now() - start < 150) throw again
+      const n = Math.min(4, buffer.length - offset) // partial writes too
+      chunks.push(buffer.subarray(offset, offset + n).toString()); return n
+    })
+    expect(chunks.join('')).toBe('hello world\n')
+    expect(Date.now() - start).toBeGreaterThanOrEqual(150)
+    const before = Date.now()
+    writeAllSync(2, 'x', 100, () => { throw again })
+    expect(Date.now() - before).toBeLessThan(1000)
   })
   test('records below error level and other error records stay silent', () => {
     const [options] = releaseLoggerOptions(known), lines: string[] = []

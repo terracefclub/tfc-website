@@ -88,8 +88,9 @@ confirm no pending migration. Server startup never runs migrations.
 exits 1 by itself; `bin/migrate` writes one line to stderr first:
 `CMS release migration <name> failed (<ErrorClass> <SQLSTATE>): <reason>.` The line is redacted by
 construction (`cms/tools/release-migrate-failure.ts`): the migration name, the error class, the PostgreSQL
-code and, only for schema-level codes (class 42, and 23502, 23503, 23505, 23514), the server message, which
-names objects, not values. Any other code or no code gets `details suppressed; inspect the protected runtime
+code and, only for schema-level codes (class 42 except 42601, and 23502, 23503, 23505, 23514), the server
+message, which names objects, not values (42601 is excluded because its message echoes the SQL token at the
+error). Any other code or no code gets `details suppressed; inspect the protected runtime
 configuration and database state` instead of the message, so row values, roles, hosts, SQL, parameters,
 stacks and connection settings never reach the journal. Earlier migrations stay applied; read the cause in
 PostgreSQL's own log, which has the full detail. A failure outside a migration (configuration, connection)

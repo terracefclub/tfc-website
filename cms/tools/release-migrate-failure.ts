@@ -10,7 +10,8 @@ import { writeSync } from 'node:fs'
 // SQLSTATE codes whose server messages carry object names only (relation/column/constraint "already exists", "does not exist",
 // "violates not-null constraint"), never data. Row values live in `detail`, which is never read. Any other code (22P02 and
 // friends echo the offending value, 28P01 names the role, connection errors name hosts) gets a fixed sentence.
-const MESSAGE_CODES = /^(42[0-9A-Z]{3}|23502|23503|23505|23514)$/
+// 42601 (syntax error) is excluded: its message echoes the SQL token at the error, which a data migration could make a literal.
+const MESSAGE_CODES = /^(?!42601$)(42[0-9A-Z]{3}|23502|23503|23505|23514)$/
 const MAX_MESSAGE = 200
 
 export type MigrationFailure = { migration: string; errorClass: string; code?: string; message?: string }
@@ -28,6 +29,10 @@ const sqlState = (value: unknown) => typeof value === 'string' && /^[0-9A-Z]{5}$
  * its message. With no code anywhere only the outermost class is reported. Pure.
  */
 export function redactError(err: unknown): Redacted {
+  // Reading a hostile error (throwing getter, Proxy) must not throw inside the adapter's catch, or its process.exit(1) is skipped.
+  try { return reduceError(err) } catch { return { type: 'Error' } }
+}
+function reduceError(err: unknown): Redacted {
   let current: unknown = err
   for (let depth = 0; depth < 5 && typeof current === 'object' && current !== null; depth++) {
     const code = sqlState((current as { code?: unknown }).code)
@@ -66,13 +71,14 @@ export function failureLine({ migration, errorClass, code, message }: MigrationF
   return `CMS release migration ${migration} failed (${errorClass}${code ? ` ${code}` : ''}): ${reason}.\n`
 }
 
-/** Write all of `text` to a file descriptor before returning, retrying when a non-blocking pipe is momentarily full. */
-export function writeAllSync(fd: number, text: string): void {
-  const buffer = Buffer.from(text)
+/** Write all of `text` to a file descriptor before returning. A momentarily full non-blocking pipe (EAGAIN) is retried, sleeping 5 ms between tries, until a wall-clock deadline; it can neither hang forever nor drop the line early. */
+export function writeAllSync(fd: number, text: string, deadlineMs = 5000, write: (fd: number, buffer: Buffer, offset: number) => number = (f, b, o) => writeSync(f, b, o)): void {
+  const buffer = Buffer.from(text), until = Date.now() + deadlineMs, pause = new Int32Array(new SharedArrayBuffer(4))
   let offset = 0
-  for (let spins = 0; offset < buffer.length;) {
-    try { offset += writeSync(fd, buffer, offset) } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EAGAIN' || ++spins > 100000) return
+  while (offset < buffer.length) {
+    try { offset += write(fd, buffer, offset) } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EAGAIN' || Date.now() >= until) return
+      Atomics.wait(pause, 0, 0, 5)
     }
   }
 }
