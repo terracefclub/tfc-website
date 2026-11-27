@@ -68,21 +68,22 @@ function run(command: string[], env: Record<string, string>): Promise<Result> {
 const admin = process.env.DATABASE_URI
 describe.skipIf(!admin)('release-migrate against PostgreSQL', () => {
   const databases: string[] = []
-  /** A fresh empty database, and a URI for it that carries a planted password (local trust authentication ignores it). */
+  /** A fresh empty database, and a URI for it that carries a password: the planted one where the server ignores passwords (local trust authentication), the real one where it does not (CI). */
   async function fresh(prepare?: (pool: pg.Pool) => Promise<void>) {
     const pool = new pg.Pool({ connectionString: admin })
     const name = `terrace_migfail_${crypto.randomUUID().replaceAll('-', '').slice(0, 12)}`
     const role = (await pool.query('SELECT current_user AS name')).rows[0].name
     await pool.query(`CREATE DATABASE ${name}`); databases.push(name)
     // The socket URI has an empty host, which cannot carry credentials: name localhost and let the `host` parameter still select the socket.
-    const url = new URL(admin!.replace(/^(postgres(?:ql)?:\/\/)\//, '$1localhost/')); url.pathname = '/' + name; url.username = role; url.password = PASSWORD
+    const url = new URL(admin!.replace(/^(postgres(?:ql)?:\/\/)\//, '$1localhost/')); url.pathname = '/' + name; url.username = url.username || role; url.password = url.password || PASSWORD // a CI database already has a real password: keep it, and forbid it
     if (prepare) { const target = new pg.Pool({ connectionString: url.href }); try { await prepare(target) } finally { await target.end() } }
     await pool.end()
     return url.href
   }
   const everything = (r: Result) => r.out + r.err
   const forbid = (r: Result, uri: string) => {
-    for (const secret of [PASSWORD, ROW, SQL, uri, new URL(uri).searchParams.get('host')!, 'Failed query']) expect(everything(r)).not.toContain(secret)
+    const url = new URL(uri)
+    for (const secret of [PASSWORD, decodeURIComponent(url.password), ROW, SQL, uri, url.hostname, url.searchParams.get('host'), 'Failed query']) if (secret) expect(everything(r)).not.toContain(secret)
   }
   const { afterAll } = require('bun:test') as typeof import('bun:test')
   afterAll(async () => { const pool = new pg.Pool({ connectionString: admin }); for (const name of databases) await pool.query(`DROP DATABASE IF EXISTS ${name}`); await pool.end() })
