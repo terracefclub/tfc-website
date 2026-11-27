@@ -1,6 +1,7 @@
 // Built to a Node ESM entrypoint; never run automatically from server startup.
 import type { MigrateDownArgs, MigrateUpArgs } from '@payloadcms/db-postgres'
 import type { Config } from 'payload'
+import { releaseLoggerOptions } from './release-migrate-failure'
 process.env.PAYLOAD_MIGRATING = 'true'
 Object.assign(process.env, { NODE_ENV: 'production' })
 try {
@@ -8,7 +9,9 @@ try {
     import('payload'), import('../src/payload.config'), import('../migrations'), import('pino'),
   ])
   const runtimeConfig = await config
-  const logger: NonNullable<Config['logger']> = pino({ level: 'silent' })
+  // Quiet by design: only a failed migration is reported, as one redacted line (see release-migrate-failure.ts). Payload's adapter
+  // calls process.exit(1) right after logging that failure, so the destination writes synchronously.
+  const logger: NonNullable<Config['logger']> = pino(...releaseLoggerOptions(migrations.map(({ name }) => name)))
   // SanitizedConfig's deep-required logger type overconstrains optional Pino methods.
   Object.assign(runtimeConfig, { logger })
   await payload.init({ config: runtimeConfig, disableOnInit: true })
